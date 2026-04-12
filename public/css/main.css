@@ -1,0 +1,12 @@
+article.snippet{
+    margin-bottom: 2em;
+    border-bottom: 1px dashed grey;
+}
+
+pre{
+    background: none;
+}
+
+.title{
+    flex:1;
+}
