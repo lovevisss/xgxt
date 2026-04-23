@@ -60,6 +60,11 @@
                 </div>
             </div>
 
+            <div class="mb-5 flex flex-wrap gap-2">
+                <button id="high-risk-btn" class="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100">一键只看高风险（>=7天）</button>
+                <button id="clear-risk-btn" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400">取消高风险筛选</button>
+            </div>
+
             <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input id="search-input" type="text" placeholder="按学号 / 姓名 / 班级搜索" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring">
                 <select id="status-filter" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring">
@@ -87,7 +92,9 @@
                                 <th class="px-4 py-3 text-left font-semibold">联系电话</th>
                                 <th class="px-4 py-3 text-left font-semibold">最近刷码</th>
                                 <th class="px-4 py-3 text-left font-semibold">距上次刷码</th>
+                                <th class="px-4 py-3 text-left font-semibold">平均出入间隔(基准)</th>
                                 <th class="px-4 py-3 text-left font-semibold">状态</th>
+                                <th class="px-4 py-3 text-left font-semibold">统计豁免</th>
                                 <th class="px-4 py-3 text-left font-semibold">操作</th>
                             </tr>
                         </thead>
@@ -136,6 +143,15 @@
                     <span class="mb-1 block text-slate-600">电话</span>
                     <input id="edit-yddh" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-sea/20 focus:ring">
                 </label>
+                <label class="text-sm sm:col-span-2">
+                    <span class="mb-1 block text-slate-600">暂不计入统计原因</span>
+                    <input id="edit-exclude-reason" type="text" placeholder="例如：离校实习、请假、交换学习" class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-sea/20 focus:ring">
+                </label>
+                <label class="text-sm sm:col-span-2">
+                    <span class="mb-1 block text-slate-600">暂不计入统计截止时间</span>
+                    <input id="edit-exclude-until" type="date" class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-sea/20 focus:ring">
+                    <p class="mt-1 text-xs text-slate-500">建议默认设为半年后；留空表示恢复计入统计</p>
+                </label>
             </div>
 
             <div class="mt-5 flex justify-end gap-2">
@@ -151,6 +167,7 @@
         let currentPage = 1;
         let currentKeyword = '';
         let currentStatus = '';
+        let currentRisk = '';
 
         const statusEl = document.getElementById('status');
         const tableEl = document.getElementById('students-table');
@@ -181,7 +198,8 @@
                 showStatus('正在加载数据...');
                 const query = encodeURIComponent(currentKeyword);
                 const status = encodeURIComponent(currentStatus);
-                const res = await fetch(`/students/data?page=${page}&q=${query}&status=${status}`);
+                const risk = encodeURIComponent(currentRisk);
+                const res = await fetch(`/students/data?page=${page}&q=${query}&status=${status}&risk=${risk}`);
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
 
@@ -216,7 +234,7 @@
             tableEl.innerHTML = '';
 
             if (!studentsData.length) {
-                tableEl.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-slate-500">暂无符合条件的数据</td></tr>';
+                tableEl.innerHTML = '<tr><td colspan="11" class="px-4 py-8 text-center text-slate-500">暂无符合条件的数据</td></tr>';
                 return;
             }
 
@@ -238,6 +256,27 @@
                             ? 'bg-amber-100 text-amber-700 border-amber-200'
                             : 'bg-emerald-100 text-emerald-700 border-emerald-200';
 
+                const exclusionText = stu.is_excluded
+                    ? `豁免至 ${stu.exclude_until || '-'}${stu.exclude_reason ? `（${stu.exclude_reason}）` : ''}`
+                    : '未豁免';
+                const exclusionClass = stu.is_excluded
+                    ? 'bg-sky-100 text-sky-700 border-sky-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200';
+
+                const avgInterval = typeof stu.avg_pass_interval_minutes === 'number'
+                    ? stu.avg_pass_interval_minutes
+                    : null;
+                const avgIntervalText = avgInterval === null
+                    ? '样本不足'
+                    : avgInterval >= 1440
+                        ? `${(avgInterval / 1440).toFixed(1)} 天`
+                        : avgInterval >= 60
+                            ? `${(avgInterval / 60).toFixed(1)} 小时`
+                            : `${avgInterval.toFixed(1)} 分钟`;
+                const avgIntervalClass = avgInterval === null
+                    ? 'bg-slate-100 text-slate-600 border-slate-200'
+                    : 'bg-cyan-100 text-cyan-700 border-cyan-200';
+
                 tableEl.innerHTML += `
                     <tr class="hover:bg-slate-50/80 transition">
                         <td class="px-4 py-3 font-medium">${stu.xgh || ''}</td>
@@ -247,7 +286,9 @@
                         <td class="px-4 py-3">${stu.yddh || ''}</td>
                         <td class="px-4 py-3">${stu.last_smsj || '-'}</td>
                         <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${dayClass}">${dayText}</span></td>
+                        <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${avgIntervalClass}">${avgIntervalText}</span></td>
                         <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClass}">${statusText}</span></td>
+                        <td class="px-4 py-3"><span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${exclusionClass}">${exclusionText}</span></td>
                         <td class="px-4 py-3">
                             <button onclick="openEditModal(${idx})" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400">编辑</button>
                         </td>
@@ -288,6 +329,8 @@
             document.getElementById('edit-bjmc').value = s.bjmc || '';
             document.getElementById('edit-bjbm').value = s.bjbm || '';
             document.getElementById('edit-yddh').value = s.yddh || '';
+            document.getElementById('edit-exclude-reason').value = s.exclude_reason || '';
+            document.getElementById('edit-exclude-until').value = s.exclude_until ? String(s.exclude_until).slice(0, 10) : '';
 
             modalEl.classList.remove('hidden');
             modalEl.classList.add('flex');
@@ -312,6 +355,8 @@
                 bjmc: document.getElementById('edit-bjmc').value,
                 bjbm: document.getElementById('edit-bjbm').value,
                 yddh: document.getElementById('edit-yddh').value,
+                exclude_reason: document.getElementById('edit-exclude-reason').value,
+                exclude_until: document.getElementById('edit-exclude-until').value,
             };
 
             try {
@@ -345,6 +390,17 @@
             document.getElementById('status-filter').value = '';
             currentKeyword = '';
             currentStatus = '';
+            currentRisk = '';
+            fetchStudents(1);
+        });
+
+        document.getElementById('high-risk-btn').addEventListener('click', function () {
+            currentRisk = 'high';
+            fetchStudents(1);
+        });
+
+        document.getElementById('clear-risk-btn').addEventListener('click', function () {
+            currentRisk = '';
             fetchStudents(1);
         });
 
