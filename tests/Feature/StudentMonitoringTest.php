@@ -102,3 +102,57 @@ it('shows elapsed time in reconcile command output', function () {
         ->assertExitCode(0);
 });
 
+it('supports grade and class filters ordered by lost counts', function () {
+    Carbon::setTestNow('2026-04-29 12:00:00');
+
+    Student::create([
+        'xgh' => '2001',
+        'xm' => 'Grade24 Lost A',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+        'bjbm' => '2401',
+        'bjmc' => '24级1班',
+        'last_smsj' => now()->subDays(9),
+    ]);
+
+    Student::create([
+        'xgh' => '2002',
+        'xm' => 'Grade24 Lost B',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+        'bjbm' => '2402',
+        'bjmc' => '24级2班',
+        'last_smsj' => now()->subDays(10),
+    ]);
+
+    Student::create([
+        'xgh' => '2003',
+        'xm' => 'Grade23 Normal',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+        'bjbm' => '2301',
+        'bjmc' => '23级1班',
+        'last_smsj' => now()->subDays(1),
+    ]);
+
+    $filters = $this->getJson('/students/filters?grade=24')->assertOk();
+    $grades = $filters->json('grades');
+    $classes = $filters->json('classes');
+
+    expect($grades[0]['grade_code'])->toBe('24');
+    expect($grades[0]['lost_count'])->toBe(2);
+    expect($classes[0]['class_code'])->toBe('2401');
+    expect($classes[1]['class_code'])->toBe('2402');
+
+    $filtered = $this->getJson('/students/data?grade=24&class_code=2401')->assertOk();
+    expect(collect($filtered->json('data'))->pluck('xgh')->all())->toBe(['2001']);
+
+    Carbon::setTestNow();
+});
+

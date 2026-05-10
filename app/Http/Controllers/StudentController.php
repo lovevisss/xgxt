@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pass;
 use App\Models\Student;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StudentController extends Controller
 {
@@ -16,33 +17,19 @@ class StudentController extends Controller
         $now = now();
         $lostThreshold = $now->copy()->subDays(7);
 
-        $countableScope = function ($q) use ($now) {
-            $q->where(function ($sub) use ($now) {
-                $sub->whereNull('exclude_until')
-                    ->orWhere('exclude_until', '<=', $now);
-            });
-        };
+        $countableScope = $this->countableScope($now);
+        $lostScope = $this->lostScope($now, $lostThreshold);
+        $normalScope = $this->normalScope($now, $lostThreshold);
 
-        $lostScope = function ($q) use ($countableScope, $lostThreshold) {
-            $q->where($countableScope)
-                ->where(function ($sub) use ($lostThreshold) {
-                    $sub->whereNull('last_smsj')
-                        ->orWhere('last_smsj', '<', $lostThreshold);
-                });
-        };
+        $grade = trim((string) request('grade', ''));
+        if ($grade !== '') {
+            $query->where('bjbm', 'like', "{$grade}%");
+        }
 
-        $normalScope = function ($q) use ($now, $lostThreshold) {
-            $q->where(function ($sub) use ($now, $lostThreshold) {
-                $sub->whereNotNull('exclude_until')
-                    ->where('exclude_until', '>', $now);
-            })->orWhere(function ($sub) use ($now, $lostThreshold) {
-                $sub->where(function ($countable) use ($now) {
-                    $countable->whereNull('exclude_until')
-                        ->orWhere('exclude_until', '<=', $now);
-                })->whereNotNull('last_smsj')
-                    ->where('last_smsj', '>=', $lostThreshold);
-            });
-        };
+        $classCode = trim((string) request('class_code', ''));
+        if ($classCode !== '') {
+            $query->where('bjbm', $classCode);
+        }
 
         $status = trim((string) request('status', ''));
         if ($status === 'lost') {
@@ -101,6 +88,10 @@ class StudentController extends Controller
         };
 
         return response()->json(array_merge($students->toArray(), [
+            'filters' => [
+                'grade' => $grade,
+                'class_code' => $classCode,
+            ],
             'summary' => [
                 'total' => (clone $baseQuery)->count(),
                 'excluded_total' => (clone $baseQuery)->where($activeExcluded)->count(),
@@ -113,6 +104,99 @@ class StudentController extends Controller
                     ->count(),
             ],
         ]));
+    }
+
+    // 年级/班级筛选项，按失联人数降序
+    public function filters()
+    {
+        $now = now();
+        $lostThreshold = $now->copy()->subDays(7);
+        $lostScope = $this->lostScope($now, $lostThreshold);
+        $gradeExpr = $this->gradeSqlExpression();
+        $gradeGroup = DB::raw($gradeExpr);
+        $baseQuery = Student::query()
+            ->where('rylx', '0')
+            ->whereNotNull('bjbm')
+            ->where('bjbm', '!=', '');
+
+        $gradeTotals = (clone $baseQuery)
+            ->selectRaw("{$gradeExpr} as grade_code, COUNT(*) as total_count")
+            ->groupBy($gradeGroup)
+            ->get();
+
+        $gradeLostMap = (clone $baseQuery)
+            ->selectRaw("{$gradeExpr} as grade_code, COUNT(*) as lost_count")
+            ->where($lostScope)
+            ->groupBy($gradeGroup)
+            ->pluck('lost_count', 'grade_code');
+
+        $grades = $gradeTotals
+            ->map(function ($row) use ($gradeLostMap) {
+                $code = (string) $row->grade_code;
+
+                return [
+                    'grade_code' => $code,
+                    'total_count' => (int) $row->total_count,
+                    'lost_count' => (int) ($gradeLostMap[$code] ?? 0),
+                ];
+            })
+            ->sort(function (array $a, array $b) {
+                if ($a['lost_count'] !== $b['lost_count']) {
+                    return $b['lost_count'] <=> $a['lost_count'];
+                }
+                if ($a['total_count'] !== $b['total_count']) {
+                    return $b['total_count'] <=> $a['total_count'];
+                }
+
+                return $a['grade_code'] <=> $b['grade_code'];
+            })
+            ->values();
+
+        $selectedGrade = trim((string) request('grade', ''));
+        $classes = collect();
+
+        if ($selectedGrade !== '') {
+            $classBase = (clone $baseQuery)->where('bjbm', 'like', "{$selectedGrade}%");
+
+            $classTotals = (clone $classBase)
+                ->selectRaw('bjbm as class_code, MAX(bjmc) as class_name, COUNT(*) as total_count')
+                ->groupBy('bjbm')
+                ->get();
+
+            $classLostMap = (clone $classBase)
+                ->selectRaw('bjbm as class_code, COUNT(*) as lost_count')
+                ->where($lostScope)
+                ->groupBy('bjbm')
+                ->pluck('lost_count', 'class_code');
+
+            $classes = $classTotals
+                ->map(function ($row) use ($classLostMap) {
+                    $code = (string) $row->class_code;
+
+                    return [
+                        'class_code' => $code,
+                        'class_name' => (string) ($row->class_name ?? ''),
+                        'total_count' => (int) $row->total_count,
+                        'lost_count' => (int) ($classLostMap[$code] ?? 0),
+                    ];
+                })
+                ->sort(function (array $a, array $b) {
+                    if ($a['lost_count'] !== $b['lost_count']) {
+                        return $b['lost_count'] <=> $a['lost_count'];
+                    }
+                    if ($a['total_count'] !== $b['total_count']) {
+                        return $b['total_count'] <=> $a['total_count'];
+                    }
+
+                    return $a['class_code'] <=> $b['class_code'];
+                })
+                ->values();
+        }
+
+        return response()->json([
+            'grades' => $grades,
+            'classes' => $classes,
+        ]);
     }
 
     private function buildAverageIntervals(array $studentKeys): array
@@ -149,6 +233,49 @@ class StudentController extends Controller
         }
 
         return $result;
+    }
+
+    private function countableScope($now): \Closure
+    {
+        return function ($query) use ($now) {
+            $query->where(function ($subQuery) use ($now) {
+                $subQuery->whereNull('exclude_until')
+                    ->orWhere('exclude_until', '<=', $now);
+            });
+        };
+    }
+
+    private function lostScope($now, $lostThreshold): \Closure
+    {
+        return function ($query) use ($now, $lostThreshold) {
+            $query->where($this->countableScope($now))
+                ->where(function ($subQuery) use ($lostThreshold) {
+                    $subQuery->whereNull('last_smsj')
+                        ->orWhere('last_smsj', '<', $lostThreshold);
+                });
+        };
+    }
+
+    private function normalScope($now, $lostThreshold): \Closure
+    {
+        return function ($query) use ($now, $lostThreshold) {
+            $query->where(function ($subQuery) use ($now) {
+                $subQuery->whereNotNull('exclude_until')
+                    ->where('exclude_until', '>', $now);
+            })->orWhere(function ($subQuery) use ($now, $lostThreshold) {
+                $subQuery->where($this->countableScope($now))
+                    ->whereNotNull('last_smsj')
+                    ->where('last_smsj', '>=', $lostThreshold);
+            });
+        };
+    }
+
+    private function gradeSqlExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => 'substr(bjbm, 1, 2)',
+            default => 'SUBSTRING(bjbm, 1, 2)',
+        };
     }
 
     // 显示单个学生

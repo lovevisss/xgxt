@@ -12,6 +12,7 @@ Route::view('/students', 'students')->name('students.page');
 
 // 学生管理API
 Route::get('/students/data', [StudentController::class, 'index'])->name('students.index');
+Route::get('/students/filters', [StudentController::class, 'filters'])->name('students.filters');
 Route::get('/students/data/{xgh}', [StudentController::class, 'show'])->name('students.show');
 Route::put('/students/data/{xgh}', [StudentController::class, 'update'])->name('students.update');
 

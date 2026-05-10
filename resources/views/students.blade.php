@@ -67,6 +67,12 @@
 
             <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input id="search-input" type="text" placeholder="按学号 / 姓名 / 班级搜索" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring">
+                <select id="grade-filter" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring">
+                    <option value="">全部年级</option>
+                </select>
+                <select id="class-filter" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring" disabled>
+                    <option value="">请先选择年级</option>
+                </select>
                 <select id="status-filter" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none ring-sea/20 transition focus:ring">
                     <option value="">全部状态</option>
                     <option value="normal">正常</option>
@@ -168,6 +174,8 @@
         let currentKeyword = '';
         let currentStatus = '';
         let currentRisk = '';
+        let currentGrade = '';
+        let currentClassCode = '';
 
         const statusEl = document.getElementById('status');
         const tableEl = document.getElementById('students-table');
@@ -199,7 +207,9 @@
                 const query = encodeURIComponent(currentKeyword);
                 const status = encodeURIComponent(currentStatus);
                 const risk = encodeURIComponent(currentRisk);
-                const res = await fetch(`/students/data?page=${page}&q=${query}&status=${status}&risk=${risk}`);
+                const grade = encodeURIComponent(currentGrade);
+                const classCode = encodeURIComponent(currentClassCode);
+                const res = await fetch(`/students/data?page=${page}&q=${query}&status=${status}&risk=${risk}&grade=${grade}&class_code=${classCode}`);
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
 
@@ -214,6 +224,63 @@
                 hideStatus();
             } catch (error) {
                 showStatus('数据加载失败，请稍后重试。', 'error');
+            }
+        }
+
+        async function fetchFilters(grade = '') {
+            const selectedGrade = grade || '';
+            const encodedGrade = encodeURIComponent(selectedGrade);
+            const res = await fetch(`/students/filters?grade=${encodedGrade}`);
+            if (!res.ok) throw new Error('筛选项加载失败');
+
+            return res.json();
+        }
+
+        function renderGradeOptions(grades) {
+            const gradeEl = document.getElementById('grade-filter');
+            gradeEl.innerHTML = '<option value="">全部年级</option>';
+
+            (grades || []).forEach((item) => {
+                const code = item.grade_code || '';
+                const lost = Number(item.lost_count || 0);
+                const total = Number(item.total_count || 0);
+                const text = `${code}级（失联 ${lost} / ${total}）`;
+                gradeEl.innerHTML += `<option value="${code}">${text}</option>`;
+            });
+
+            gradeEl.value = currentGrade;
+        }
+
+        function renderClassOptions(classes) {
+            const classEl = document.getElementById('class-filter');
+            const hasGrade = Boolean(currentGrade);
+            classEl.disabled = !hasGrade;
+
+            if (!hasGrade) {
+                classEl.innerHTML = '<option value="">请先选择年级</option>';
+                return;
+            }
+
+            classEl.innerHTML = '<option value="">全部班级</option>';
+            (classes || []).forEach((item) => {
+                const code = item.class_code || '';
+                const name = item.class_name || code;
+                const lost = Number(item.lost_count || 0);
+                const total = Number(item.total_count || 0);
+                const text = `${name}（失联 ${lost} / ${total}）`;
+                classEl.innerHTML += `<option value="${code}">${text}</option>`;
+            });
+
+            classEl.value = currentClassCode;
+        }
+
+        async function refreshFilters() {
+            try {
+                const data = await fetchFilters(currentGrade);
+                renderGradeOptions(data.grades || []);
+                renderClassOptions(data.classes || []);
+            } catch (error) {
+                showStatus('筛选项加载失败，请稍后重试。', 'error');
             }
         }
 
@@ -382,15 +449,33 @@
         document.getElementById('search-btn').addEventListener('click', function () {
             currentKeyword = document.getElementById('search-input').value.trim();
             currentStatus = document.getElementById('status-filter').value;
+            currentGrade = document.getElementById('grade-filter').value;
+            currentClassCode = document.getElementById('class-filter').value;
             fetchStudents(1);
         });
 
         document.getElementById('reset-btn').addEventListener('click', function () {
             document.getElementById('search-input').value = '';
             document.getElementById('status-filter').value = '';
+            document.getElementById('grade-filter').value = '';
             currentKeyword = '';
             currentStatus = '';
             currentRisk = '';
+            currentGrade = '';
+            currentClassCode = '';
+            refreshFilters();
+            fetchStudents(1);
+        });
+
+        document.getElementById('grade-filter').addEventListener('change', async function () {
+            currentGrade = this.value;
+            currentClassCode = '';
+            await refreshFilters();
+            fetchStudents(1);
+        });
+
+        document.getElementById('class-filter').addEventListener('change', function () {
+            currentClassCode = this.value;
             fetchStudents(1);
         });
 
@@ -411,7 +496,7 @@
             if (e.target === modalEl) closeEditModal();
         });
 
-        fetchStudents();
+        refreshFilters().then(() => fetchStudents());
     </script>
 </body>
 </html>
