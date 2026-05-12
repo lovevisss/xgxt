@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pass;
 use App\Models\Student;
+use App\Models\StudentFamily;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -276,6 +277,21 @@ class StudentController extends Controller
             'sqlite' => 'substr(bjbm, 1, 2)',
             default => 'SUBSTRING(bjbm, 1, 2)',
         };
+    }
+
+    public function profile($xgh)
+    {
+        $student = Student::where('xgh', $xgh)->firstOrFail();
+        $families = StudentFamily::query()
+            ->where('stu_no', $xgh)
+            ->orderByDesc('is_emergency_contact')
+            ->orderBy('id')
+            ->get();
+
+        return view('student-profile', [
+            'student' => $student,
+            'families' => $families,
+        ]);
     }
 
     // 显示单个学生

@@ -346,8 +346,8 @@
 
                 tableEl.innerHTML += `
                     <tr class="hover:bg-slate-50/80 transition">
-                        <td class="px-4 py-3 font-medium">${stu.xgh || ''}</td>
-                        <td class="px-4 py-3">${stu.xm || ''}</td>
+                        <td class="px-4 py-3 font-medium"><a class="text-sky-700 hover:underline" href="/students/profile/${encodeURIComponent(stu.xgh || '')}">${stu.xgh || ''}</a></td>
+                        <td class="px-4 py-3"><a class="text-sky-700 hover:underline" href="/students/profile/${encodeURIComponent(stu.xgh || '')}">${stu.xm || ''}</a></td>
                         <td class="px-4 py-3">${stu.xbm || ''}</td>
                         <td class="px-4 py-3">${stu.bjmc || ''}</td>
                         <td class="px-4 py-3">${stu.yddh || ''}</td>

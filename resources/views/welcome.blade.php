@@ -43,6 +43,9 @@
                 <a href="/students" class="inline-flex items-center rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800">
                     进入学生管理
                 </a>
+                <a href="/student-families" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400">
+                    学生家庭信息
+                </a>
                 <a href="/snippets" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400">
                     打开 Snippets
                 </a>
