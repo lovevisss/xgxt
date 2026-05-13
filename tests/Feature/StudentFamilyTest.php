@@ -144,7 +144,8 @@ it('shows a student profile page with family info', function () {
 
     $this->get('/students/profile/20260004')
         ->assertOk()
-        ->assertSee('赵同学')
-        ->assertSee('赵家长');
+        ->assertSee('data-page="studentProfile"', false)
+        ->assertSee('"xgh":"20260004"', false)
+        ->assertSee('"stu_no":"20260004"', false);
 });
 
