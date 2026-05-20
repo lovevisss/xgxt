@@ -3,14 +3,14 @@
 use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentPunishment;
-use App\Services\StudentAwardPunishmentWorkbook;
+use App\Services\StudentImportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
-it('downloads the award and punishment import template', function () {
-    $this->get('/student-award-punishment-import/template')
+it('downloads the award and punishment import template from unified import center', function () {
+    $this->get('/student-imports/template/award_punishment')
         ->assertOk()
         ->assertHeader('content-disposition');
 });
@@ -35,27 +35,20 @@ it('imports student awards and punishments from xlsx', function () {
     ]);
 
     $path = storage_path('app/test-award-punishment.xlsx');
-    app(StudentAwardPunishmentWorkbook::class)->createTemplate(
-        $path,
-        [
+    app(StudentImportWorkbook::class)->write($path, [
+        '奖励' => [
             ['学号', '姓名', '奖励名称', '年度', '等级'],
             ['20260011', 'Import Name', '优秀学生奖学金', '2026', '校级'],
         ],
-        [
+        '惩罚' => [
             ['学号', '姓名', '惩罚原因', '惩罚时间', '发生年度'],
             ['20260012', 'Import Name', '考试违纪', '2026-05-01', '2026'],
         ],
-    );
+    ]);
 
-    $file = new UploadedFile(
-        $path,
-        'test-award-punishment.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true
-    );
+    $file = new UploadedFile($path, 'test-award-punishment.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $this->postJson('/student-award-punishment-import', ['file' => $file])
+    $this->postJson('/student-imports/award_punishment', ['file' => $file])
         ->assertOk()
         ->assertJsonPath('reward_imported', 1)
         ->assertJsonPath('punishment_imported', 1);

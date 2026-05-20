@@ -2,14 +2,14 @@
 
 use App\Models\Student;
 use App\Models\StudentSupportRecipient;
-use App\Services\StudentSupportWorkbook;
+use App\Services\StudentImportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
-it('downloads the student support import template', function () {
-    $this->get('/student-support/import/template')
+it('downloads the student support import template from unified import center', function () {
+    $this->get('/student-imports/template/support')
         ->assertOk()
         ->assertHeader('content-disposition');
 });
@@ -25,21 +25,17 @@ it('imports student support recipients from excel', function () {
     ]);
 
     $path = storage_path('app/test-student-support.xlsx');
-    app(StudentSupportWorkbook::class)->createTemplate($path, [
-        ['2025-2026学年浙江财经大学东方学院学生资助对象名单（示例）', '', '', '', '', '', ''],
-        ['序号', '学号', '姓名', '性别', '二级学院', '专业', '资助等级'],
-        ['1', '20260021', 'Excel Name', '女', '金融与经贸学院', '经济学', '重点'],
+    app(StudentImportWorkbook::class)->write($path, [
+        '资助对象' => [
+            ['2025-2026学年浙江财经大学东方学院学生资助对象名单（示例）', '', '', '', '', '', ''],
+            ['序号', '学号', '姓名', '性别', '二级学院', '专业', '资助等级'],
+            ['1', '20260021', 'Excel Name', '女', '金融与经贸学院', '经济学', '重点'],
+        ],
     ]);
 
-    $file = new UploadedFile(
-        $path,
-        'student-support.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true
-    );
+    $file = new UploadedFile($path, 'student-support.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $this->postJson('/student-support/import', [
+    $this->postJson('/student-imports/support', [
         'file' => $file,
         'academic_year' => '2025-2026',
     ])

@@ -2,14 +2,14 @@
 
 use App\Models\Student;
 use App\Models\StudentLoan;
-use App\Services\StudentLoanWorkbook;
+use App\Services\StudentImportWorkbook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
-it('downloads the student loan import template', function () {
-    $this->get('/student-loans/import/template')
+it('downloads the student loan import template from unified import center', function () {
+    $this->get('/student-imports/template/loan')
         ->assertOk()
         ->assertHeader('content-disposition');
 });
@@ -26,21 +26,17 @@ it('imports student loans from xlsx', function () {
     ]);
 
     $path = storage_path('app/test-student-loans.xlsx');
-    app(StudentLoanWorkbook::class)->createTemplate($path, [
-        ['2025年生源地贷款到款名单汇总（截止11月28日）', '', '', '', '', '', '', ''],
-        ['序号', '身份证号码', '学号', '姓名', '二级学院', '班级', '金额', '备注'],
-        ['1', '320100200501010001', '20250001', 'Excel Name', '会计学院', '25会计1', '12000', '招商银行'],
+    app(StudentImportWorkbook::class)->write($path, [
+        '助学贷款' => [
+            ['2025年生源地贷款到款名单汇总（截止11月28日）', '', '', '', '', '', '', ''],
+            ['序号', '身份证号码', '学号', '姓名', '二级学院', '班级', '金额', '备注'],
+            ['1', '320100200501010001', '20250001', 'Excel Name', '会计学院', '25会计1', '12000', '招商银行'],
+        ],
     ]);
 
-    $file = new UploadedFile(
-        $path,
-        'student-loans.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true
-    );
+    $file = new UploadedFile($path, 'student-loans.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $this->postJson('/student-loans/import', [
+    $this->postJson('/student-imports/loan', [
         'file' => $file,
         'annual_year' => 2025,
         'source' => '国开行',

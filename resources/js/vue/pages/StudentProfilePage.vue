@@ -123,7 +123,7 @@ async function saveFamily() {
         <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
-                <a href="/student-support/import" class="text-sm text-sky-700 hover:underline">导入</a>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
             <div class="overflow-x-auto rounded-lg border border-slate-200">
                 <table class="min-w-full text-sm">
@@ -155,7 +155,7 @@ async function saveFamily() {
         <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">助学贷款记录</h2>
-                <a href="/student-loans/import" class="text-sm text-sky-700 hover:underline">导入</a>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
             <div class="overflow-x-auto rounded-lg border border-slate-200">
                 <table class="min-w-full text-sm">
@@ -190,7 +190,7 @@ async function saveFamily() {
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-3 flex items-center justify-between gap-2">
                     <h2 class="text-lg font-semibold text-slate-950">奖励记录</h2>
-                    <a href="/student-award-punishment-import" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
                 </div>
                 <div class="overflow-x-auto rounded-lg border border-slate-200">
                     <table class="min-w-full text-sm">
@@ -218,7 +218,7 @@ async function saveFamily() {
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-3 flex items-center justify-between gap-2">
                     <h2 class="text-lg font-semibold text-slate-950">惩罚记录</h2>
-                    <a href="/student-award-punishment-import" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
                 </div>
                 <div class="overflow-x-auto rounded-lg border border-slate-200">
                     <table class="min-w-full text-sm">
