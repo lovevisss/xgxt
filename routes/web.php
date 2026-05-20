@@ -6,6 +6,7 @@ use App\Http\Controllers\StudentAwardPunishmentImportController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentFamilyController;
 use App\Http\Controllers\StudentLoanImportController;
+use App\Http\Controllers\StudentSupportImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/sso/login', [CasAuthController::class, 'login'])->name('cas.login');
@@ -36,6 +37,10 @@ Route::middleware('cas.auth')->group(function (): void {
     Route::get('/student-loans/import', [StudentLoanImportController::class, 'page'])->name('student-loans.import.page');
     Route::get('/student-loans/import/template', [StudentLoanImportController::class, 'template'])->name('student-loans.import.template');
     Route::post('/student-loans/import', [StudentLoanImportController::class, 'import'])->name('student-loans.import');
+
+    Route::get('/student-support/import', [StudentSupportImportController::class, 'page'])->name('student-support.import.page');
+    Route::get('/student-support/import/template', [StudentSupportImportController::class, 'template'])->name('student-support.import.template');
+    Route::post('/student-support/import', [StudentSupportImportController::class, 'import'])->name('student-support.import');
 });
 
 Route::get('/', function () {

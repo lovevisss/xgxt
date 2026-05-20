@@ -10,6 +10,7 @@
         "awards" => $awards,
         "punishments" => $punishments,
         "loans" => $loans,
+        "supportRecipients" => $supportRecipients,
         "canUpdateFamilies" => $canUpdateFamilies,
     ];
 @endphp

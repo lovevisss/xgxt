@@ -8,6 +8,7 @@ use App\Models\StudentAward;
 use App\Models\StudentFamily;
 use App\Models\StudentLoan;
 use App\Models\StudentPunishment;
+use App\Models\StudentSupportRecipient;
 use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -307,6 +308,10 @@ class StudentController extends Controller
             ->orderByDesc('annual_year')
             ->orderBy('source')
             ->get();
+        $supportRecipients = StudentSupportRecipient::query()
+            ->where('student_xgh', $xgh)
+            ->orderByDesc('academic_year')
+            ->get();
 
         return view('student-profile', [
             'student' => $student,
@@ -314,6 +319,7 @@ class StudentController extends Controller
             'awards' => $awards,
             'punishments' => $punishments,
             'loans' => $loans,
+            'supportRecipients' => $supportRecipients,
             'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
         ]);
     }

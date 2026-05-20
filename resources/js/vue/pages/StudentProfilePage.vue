@@ -7,6 +7,7 @@ const props = defineProps({
     awards: { type: Array, default: () => [] },
     punishments: { type: Array, default: () => [] },
     loans: { type: Array, default: () => [] },
+    supportRecipients: { type: Array, default: () => [] },
     canUpdateFamilies: { type: Boolean, default: false },
 });
 
@@ -116,6 +117,38 @@ async function saveFamily() {
                 <div><span class="text-slate-500">联系电话：</span>{{ props.student.yddh || '-' }}</div>
                 <div><span class="text-slate-500">最近刷码：</span>{{ props.student.last_smsj || '-' }}</div>
                 <div><span class="text-slate-500">状态：</span>{{ props.student.status || '-' }}</div>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
+                <a href="/student-support/import" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学年</th>
+                            <th class="px-3 py-2 text-left">资助等级</th>
+                            <th class="px-3 py-2 text-left">学院</th>
+                            <th class="px-3 py-2 text-left">专业</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.supportRecipients" :key="item.id">
+                            <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{{ item.support_level || '-' }}</span>
+                            </td>
+                            <td class="px-3 py-2">{{ item.college || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.major || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.supportRecipients.length">
+                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无资助对象记录</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
