@@ -3,5 +3,14 @@
 @section('title', '学生主页')
 @section('page', 'studentProfile')
 @section('props')
-@json(["student" => $student, "families" => $families])
+@php
+    $pageProps = [
+        "student" => $student,
+        "families" => $families,
+        "awards" => $awards,
+        "punishments" => $punishments,
+        "canUpdateFamilies" => $canUpdateFamilies,
+    ];
+@endphp
+@json($pageProps)
 @endsection

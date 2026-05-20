@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import WelcomePage from './pages/WelcomePage.vue';
 import StudentsPage from './pages/StudentsPage.vue';
 import StudentFamiliesPage from './pages/StudentFamiliesPage.vue';
+import StudentAwardPunishmentImportPage from './pages/StudentAwardPunishmentImportPage.vue';
 import StudentProfilePage from './pages/StudentProfilePage.vue';
 import SnippetsIndexPage from './pages/SnippetsIndexPage.vue';
 import SnippetsCreatePage from './pages/SnippetsCreatePage.vue';
@@ -17,6 +18,7 @@ const pages = {
     welcome: WelcomePage,
     students: StudentsPage,
     studentFamilies: StudentFamiliesPage,
+    studentAwardPunishmentImport: StudentAwardPunishmentImportPage,
     studentProfile: StudentProfilePage,
     snippetsIndex: SnippetsIndexPage,
     snippetsCreate: SnippetsCreatePage,
@@ -32,4 +34,3 @@ const currentPage = computed(() => pages[props.page] || null);
         无法识别页面：{{ page }}
     </div>
 </template>
-

@@ -2,6 +2,7 @@
 
 use App\Models\Student;
 use App\Models\StudentFamily;
+use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -149,3 +150,64 @@ it('shows a student profile page with family info', function () {
         ->assertSee('"stu_no":"20260004"', false);
 });
 
+it('allows only same department counselors and super admins to update family records', function () {
+    config()->set('cas.enabled', true);
+
+    Student::query()->create([
+        'xgh' => '20260005',
+        'xm' => 'Permission Student',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Finance College',
+        'dwbm' => 'FIN',
+    ]);
+
+    $family = StudentFamily::query()->create([
+        'sync_key' => md5('20260005|Parent|Father|'),
+        'stu_no' => '20260005',
+        'name' => 'Parent',
+        'relationship' => 'Father',
+        'phone' => '13600000001',
+    ]);
+
+    User::factory()->create([
+        'cas_username' => 'counselor-other',
+        'role' => 'counselor',
+        'dwbm' => 'ART',
+    ]);
+
+    $this->withSession([
+        config('cas.session_key') => ['user' => 'counselor-other'],
+    ])->putJson("/student-families/data/{$family->id}", [
+        'phone' => '13600000002',
+    ])->assertForbidden();
+
+    User::factory()->create([
+        'cas_username' => 'counselor-fin',
+        'role' => 'counselor',
+        'dwbm' => 'FIN',
+    ]);
+
+    $this->withSession([
+        config('cas.session_key') => ['user' => 'counselor-fin'],
+    ])->putJson("/student-families/data/{$family->id}", [
+        'phone' => '13600000003',
+    ])->assertOk();
+
+    $this->assertDatabaseHas('student_families', [
+        'id' => $family->id,
+        'phone' => '13600000003',
+    ]);
+
+    User::factory()->create([
+        'cas_username' => 'root-user',
+        'role' => 'super_admin',
+        'dwbm' => null,
+    ]);
+
+    $this->withSession([
+        config('cas.session_key') => ['user' => 'root-user'],
+    ])->putJson("/student-families/data/{$family->id}", [
+        'phone' => '13600000004',
+    ])->assertOk();
+});

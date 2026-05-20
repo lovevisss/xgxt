@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Pass;
 use App\Models\Student;
+use App\Models\StudentAward;
 use App\Models\StudentFamily;
+use App\Models\StudentPunishment;
+use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -287,10 +290,24 @@ class StudentController extends Controller
             ->orderByDesc('is_emergency_contact')
             ->orderBy('id')
             ->get();
+        $awards = StudentAward::query()
+            ->where('student_xgh', $xgh)
+            ->orderByDesc('annual_year')
+            ->orderBy('level')
+            ->orderBy('award_name')
+            ->get();
+        $punishments = StudentPunishment::query()
+            ->where('student_xgh', $xgh)
+            ->orderByDesc('annual_year')
+            ->orderByDesc('punished_at')
+            ->get();
 
         return view('student-profile', [
             'student' => $student,
             'families' => $families,
+            'awards' => $awards,
+            'punishments' => $punishments,
+            'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
         ]);
     }
 

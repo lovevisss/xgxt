@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Student;
 use App\Models\StudentFamily;
+use App\Support\CurrentUser;
 
 class StudentFamilyController extends Controller
 {
@@ -48,6 +50,13 @@ class StudentFamilyController extends Controller
     public function update($id)
     {
         $record = StudentFamily::query()->findOrFail($id);
+        $student = Student::query()->where('xgh', $record->stu_no)->first();
+
+        abort_unless(
+            CurrentUser::canManageDepartment($student?->dwbm),
+            403,
+            'Only counselors in the student department or super admins can update family records.'
+        );
 
         $record->fill(request()->only([
             'name',
@@ -71,4 +80,3 @@ class StudentFamilyController extends Controller
         return response()->json($record);
     }
 }
-

@@ -18,9 +18,13 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'cas_username',
         'name',
         'email',
         'password',
+        'role',
+        'dwbm',
+        'dwmc',
     ];
 
     /**
@@ -44,5 +48,27 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
+    public function isCounselor(): bool
+    {
+        return $this->role === 'counselor';
+    }
+
+    public function canManageStudentDepartment(?string $studentDepartmentCode): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->isCounselor()
+            && filled($this->dwbm)
+            && filled($studentDepartmentCode)
+            && (string) $this->dwbm === (string) $studentDepartmentCode;
     }
 }
