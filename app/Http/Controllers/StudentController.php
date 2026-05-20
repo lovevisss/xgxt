@@ -6,6 +6,7 @@ use App\Models\Pass;
 use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentFamily;
+use App\Models\StudentLoan;
 use App\Models\StudentPunishment;
 use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
@@ -301,12 +302,18 @@ class StudentController extends Controller
             ->orderByDesc('annual_year')
             ->orderByDesc('punished_at')
             ->get();
+        $loans = StudentLoan::query()
+            ->where('student_xgh', $xgh)
+            ->orderByDesc('annual_year')
+            ->orderBy('source')
+            ->get();
 
         return view('student-profile', [
             'student' => $student,
             'families' => $families,
             'awards' => $awards,
             'punishments' => $punishments,
+            'loans' => $loans,
             'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
         ]);
     }

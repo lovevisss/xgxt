@@ -8,6 +8,7 @@
                 <a href="/students" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">进入学生管理</a>
                 <a href="/student-families" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">学生家庭信息</a>
                 <a href="/student-award-punishment-import" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">学生奖惩导入</a>
+                <a href="/student-loans/import" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">助学贷款导入</a>
                 <a href="/snippets" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">打开 Snippets</a>
             </div>
         </header>

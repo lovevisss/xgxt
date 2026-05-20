@@ -2,26 +2,12 @@
 import { ref } from 'vue';
 
 const props = defineProps({
-    student: {
-        type: Object,
-        required: true,
-    },
-    families: {
-        type: Array,
-        default: () => [],
-    },
-    awards: {
-        type: Array,
-        default: () => [],
-    },
-    punishments: {
-        type: Array,
-        default: () => [],
-    },
-    canUpdateFamilies: {
-        type: Boolean,
-        default: false,
-    },
+    student: { type: Object, required: true },
+    families: { type: Array, default: () => [] },
+    awards: { type: Array, default: () => [] },
+    punishments: { type: Array, default: () => [] },
+    loans: { type: Array, default: () => [] },
+    canUpdateFamilies: { type: Boolean, default: false },
 });
 
 const familyRows = ref([...props.families]);
@@ -67,6 +53,12 @@ function openEdit(family) {
 function closeEdit() {
     editing.value = null;
     saving.value = false;
+}
+
+function money(value) {
+    const number = Number(value || 0);
+
+    return number.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 async function saveFamily() {
@@ -124,6 +116,40 @@ async function saveFamily() {
                 <div><span class="text-slate-500">联系电话：</span>{{ props.student.yddh || '-' }}</div>
                 <div><span class="text-slate-500">最近刷码：</span>{{ props.student.last_smsj || '-' }}</div>
                 <div><span class="text-slate-500">状态：</span>{{ props.student.status || '-' }}</div>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">助学贷款记录</h2>
+                <a href="/student-loans/import" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">年度</th>
+                            <th class="px-3 py-2 text-left">来源</th>
+                            <th class="px-3 py-2 text-left">金额</th>
+                            <th class="px-3 py-2 text-left">学院</th>
+                            <th class="px-3 py-2 text-left">班级</th>
+                            <th class="px-3 py-2 text-left">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="loan in props.loans" :key="loan.id">
+                            <td class="px-3 py-2">{{ loan.annual_year || '-' }}</td>
+                            <td class="px-3 py-2">{{ loan.source || '-' }}</td>
+                            <td class="px-3 py-2">{{ money(loan.amount) }}</td>
+                            <td class="px-3 py-2">{{ loan.college || '-' }}</td>
+                            <td class="px-3 py-2">{{ loan.class_name || '-' }}</td>
+                            <td class="px-3 py-2">{{ loan.remark || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.loans.length">
+                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无助学贷款记录</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 

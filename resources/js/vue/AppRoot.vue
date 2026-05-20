@@ -4,6 +4,7 @@ import WelcomePage from './pages/WelcomePage.vue';
 import StudentsPage from './pages/StudentsPage.vue';
 import StudentFamiliesPage from './pages/StudentFamiliesPage.vue';
 import StudentAwardPunishmentImportPage from './pages/StudentAwardPunishmentImportPage.vue';
+import StudentLoanImportPage from './pages/StudentLoanImportPage.vue';
 import StudentProfilePage from './pages/StudentProfilePage.vue';
 import SnippetsIndexPage from './pages/SnippetsIndexPage.vue';
 import SnippetsCreatePage from './pages/SnippetsCreatePage.vue';
@@ -19,6 +20,7 @@ const pages = {
     students: StudentsPage,
     studentFamilies: StudentFamiliesPage,
     studentAwardPunishmentImport: StudentAwardPunishmentImportPage,
+    studentLoanImport: StudentLoanImportPage,
     studentProfile: StudentProfilePage,
     snippetsIndex: SnippetsIndexPage,
     snippetsCreate: SnippetsCreatePage,
