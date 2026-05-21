@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\CasClient;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 class CasAuthController extends Controller
 {
@@ -56,7 +56,7 @@ class CasAuthController extends Controller
 
         $returnUrl = $this->sanitizeReturnUrl((string) $request->query('returnUrl', '/'));
         $logout = (string) $request->query('logout', '');
-        session()->forget(config('cas.session_key'));
+        $this->clearLocalAuthentication($request);
 
         if ($logout !== 'logout') {
             $callback = route('cas.logout', ['returnUrl' => $returnUrl, 'logout' => 'logout'], false);
@@ -68,7 +68,7 @@ class CasAuthController extends Controller
         return redirect($returnUrl);
     }
 
-    public function userOnlineDetect(): Response
+    public function userOnlineDetect(Request $request): Response
     {
         if (! config('cas.enabled')) {
             return response(['isAlive' => true], 200);
@@ -86,7 +86,7 @@ class CasAuthController extends Controller
         );
 
         if (! $isAlive) {
-            session()->forget(config('cas.session_key'));
+            $this->clearLocalAuthentication($request);
         }
 
         return response(['isAlive' => $isAlive], 200);
@@ -94,11 +94,17 @@ class CasAuthController extends Controller
 
     public function slo(Request $request): Response
     {
-        session()->forget(config('cas.session_key'));
+        $this->clearLocalAuthentication($request);
+
+        $callback = (string) $request->query('callback', '');
+        if ($callback !== '' && preg_match('/^[A-Za-z_$][A-Za-z0-9_.$]*$/', $callback) === 1) {
+            return response($callback.'('.json_encode(['success' => true]).');', 200)
+                ->header('Content-Type', 'application/javascript');
+        }
 
         return response()->json([
             'success' => true,
-            'callback' => $request->query('callback'),
+            'callback' => $callback ?: null,
         ]);
     }
 
@@ -147,5 +153,13 @@ class CasAuthController extends Controller
         }
 
         return null;
+    }
+
+    private function clearLocalAuthentication(Request $request): void
+    {
+        Auth::logout();
+        $request->session()->forget(config('cas.session_key'));
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 }
