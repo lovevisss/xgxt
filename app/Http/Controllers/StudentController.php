@@ -7,11 +7,15 @@ use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentFamily;
 use App\Models\StudentLoan;
+use App\Models\StudentMedicalInsurance;
 use App\Models\StudentPunishment;
+use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
 use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StudentController extends Controller
 {
@@ -312,6 +316,25 @@ class StudentController extends Controller
             ->where('student_xgh', $xgh)
             ->orderByDesc('academic_year')
             ->get();
+        $currentYear = (int) now()->year;
+        $medicalInsurances = Schema::hasTable('student_medical_insurances')
+            ? StudentMedicalInsurance::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('annual_year')
+                ->get()
+            : collect();
+        $safetyInsurances = Schema::hasTable('student_safety_insurances')
+            ? StudentSafetyInsurance::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('annual_year')
+                ->get()
+            : collect();
+        $recentPasses = Pass::query()
+            ->where('gh', $xgh)
+            ->orderByDesc('smsj')
+            ->limit(5)
+            ->get(['gh', 'xm', 'smsj', 'smdd', 'crlx', 'device', 'sblx']);
+        $companionInsights = $this->buildCompanionInsights($xgh);
 
         return view('student-profile', [
             'student' => $student,
@@ -320,8 +343,93 @@ class StudentController extends Controller
             'punishments' => $punishments,
             'loans' => $loans,
             'supportRecipients' => $supportRecipients,
+            'medicalInsurances' => $medicalInsurances,
+            'currentMedicalInsurance' => $medicalInsurances->firstWhere('annual_year', $currentYear),
+            'safetyInsurances' => $safetyInsurances,
+            'currentSafetyInsurance' => $safetyInsurances->firstWhere('annual_year', $currentYear),
+            'currentYear' => $currentYear,
+            'recentPasses' => $recentPasses,
+            'companionInsights' => $companionInsights,
             'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
         ]);
+    }
+
+    private function buildCompanionInsights(string $studentXgh): Collection
+    {
+        $referencePasses = Pass::query()
+            ->where('gh', $studentXgh)
+            ->orderByDesc('smsj')
+            ->limit(120)
+            ->get(['smsj', 'smdd', 'crlx']);
+
+        if ($referencePasses->isEmpty()) {
+            return collect();
+        }
+
+        $stats = [];
+
+        foreach ($referencePasses as $pass) {
+            if (! $pass->smsj) {
+                continue;
+            }
+
+            $start = $pass->smsj->copy()->subSeconds(10);
+            $end = $pass->smsj->copy()->addSeconds(10);
+
+            $candidates = Pass::query()
+                ->where('gh', '!=', $studentXgh)
+                ->where('crlx', $pass->crlx)
+                ->whereBetween('smsj', [$start, $end])
+                ->when(
+                    filled($pass->smdd),
+                    fn ($query) => $query->where('smdd', $pass->smdd),
+                    fn ($query) => $query->whereNull('smdd')
+                )
+                ->orderBy('smsj')
+                ->get(['gh', 'xm', 'smsj']);
+
+            // Count each companion only once for the same reference pass.
+            foreach ($candidates->unique('gh') as $candidate) {
+                $candidateXgh = (string) $candidate->gh;
+                if ($candidateXgh === '') {
+                    continue;
+                }
+
+                if (! isset($stats[$candidateXgh])) {
+                    $stats[$candidateXgh] = [
+                        'xgh' => $candidateXgh,
+                        'xm' => $candidate->xm,
+                        'companion_count' => 0,
+                        'last_met_at' => null,
+                        'last_smdd' => $pass->smdd,
+                        'last_crlx' => $pass->crlx,
+                    ];
+                }
+
+                $stats[$candidateXgh]['companion_count']++;
+                $stats[$candidateXgh]['last_met_at'] = $candidate->smsj;
+                $stats[$candidateXgh]['last_smdd'] = $pass->smdd;
+                $stats[$candidateXgh]['last_crlx'] = $pass->crlx;
+            }
+        }
+
+        if ($stats === []) {
+            return collect();
+        }
+
+        $students = Student::query()
+            ->whereIn('xgh', array_keys($stats))
+            ->pluck('xm', 'xgh');
+
+        return collect($stats)
+            ->map(function (array $item) use ($students) {
+                $item['xm'] = (string) ($students[$item['xgh']] ?? $item['xm'] ?? '');
+                $item['is_possible_friend'] = $item['companion_count'] > 2;
+
+                return $item;
+            })
+            ->sortByDesc('companion_count')
+            ->values();
     }
 
     // 显示单个学生

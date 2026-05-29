@@ -5,18 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentLoan;
+use App\Models\StudentMedicalInsurance;
 use App\Models\StudentPunishment;
+use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
 use App\Services\StudentImportWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'medical_insurance', 'safety_insurance'];
 
     public function page()
     {
@@ -50,6 +54,8 @@ class StudentDataImportController extends Controller
             'award_punishment' => response()->json($this->importAwardsAndPunishments($sheets)),
             'loan' => response()->json($this->importLoans($sheets, $request)),
             'support' => response()->json($this->importSupportRecipients($sheets, $request)),
+            'medical_insurance' => response()->json($this->importMedicalInsurances($sheets, $request)),
+            'safety_insurance' => response()->json($this->importSafetyInsurances($sheets, $request)),
         };
     }
 
@@ -200,6 +206,215 @@ class StudentDataImportController extends Controller
         return $result;
     }
 
+    private function importMedicalInsurances(array $sheets, Request $request): array
+    {
+        @set_time_limit(120);
+        $this->ensureMedicalInsurancesTable();
+
+        $rows = $this->rowsWithHeader($sheets, ['学号', '年度']);
+        $annualYear = $request->integer('annual_year') ?: $this->inferYear($rows);
+        $result = ['imported' => 0, 'errors' => []];
+        $records = $this->medicalInsuranceRecords($rows, $annualYear);
+        $validRecords = [];
+
+        foreach ($records as $index => $record) {
+            $validator = Validator::make($record, [
+                'student_xgh' => ['required', 'string'],
+                'annual_year' => ['required', 'integer', 'between:1900,2100'],
+            ]);
+
+            if ($validator->fails()) {
+                $result['errors'][] = '第'.($index + 1).' 条：'.$validator->errors()->first();
+                continue;
+            }
+
+            $validRecords[] = $record;
+        }
+
+        if ($validRecords === []) {
+            return $result;
+        }
+
+        $studentNames = Student::query()
+            ->whereIn('xgh', collect($validRecords)->pluck('student_xgh')->unique()->values())
+            ->pluck('xm', 'xgh');
+        $now = now();
+
+        DB::transaction(function () use ($validRecords, $studentNames, $now, &$result): void {
+            foreach (array_chunk($validRecords, 1000) as $chunk) {
+                $payload = array_map(function (array $record) use ($studentNames, $now): array {
+                    return [
+                        'student_xgh' => $record['student_xgh'],
+                        'student_name' => $studentNames[$record['student_xgh']] ?? $record['student_name'],
+                        'insured_area' => $record['insured_area'],
+                        'enrolled_on' => $record['enrolled_on'],
+                        'insurance_type' => $record['insurance_type'],
+                        'insurance_status' => $record['insurance_status'],
+                        'identity_type' => $record['identity_type'],
+                        'annual_year' => $record['annual_year'],
+                        'has_paid' => $record['has_paid'],
+                        'payment_start_month' => $record['payment_start_month'],
+                        'payment_end_month' => $record['payment_end_month'],
+                        'payment_type' => $record['payment_type'],
+                        'imported_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }, $chunk);
+
+                StudentMedicalInsurance::query()->upsert(
+                    $payload,
+                    ['student_xgh', 'annual_year'],
+                    [
+                        'student_name',
+                        'insured_area',
+                        'enrolled_on',
+                        'insurance_type',
+                        'insurance_status',
+                        'identity_type',
+                        'has_paid',
+                        'payment_start_month',
+                        'payment_end_month',
+                        'payment_type',
+                        'imported_at',
+                        'updated_at',
+                    ]
+                );
+
+                $result['imported'] += count($payload);
+            }
+        });
+
+        return $result;
+    }
+
+    private function importSafetyInsurances(array $sheets, Request $request): array
+    {
+        @set_time_limit(120);
+        $this->ensureSafetyInsurancesTable();
+
+        $rows = $this->rowsWithHeader($sheets, ['学号', '是否参保']);
+        $annualYear = $request->integer('annual_year') ?: $this->inferYear($rows);
+        $result = ['imported' => 0, 'errors' => []];
+        $records = $this->safetyInsuranceRecords($rows, $annualYear);
+        $validRecords = [];
+
+        foreach ($records as $index => $record) {
+            $validator = Validator::make($record, [
+                'student_xgh' => ['required', 'string'],
+                'annual_year' => ['required', 'integer', 'between:1900,2100'],
+            ]);
+
+            if ($validator->fails()) {
+                $result['errors'][] = '第'.($index + 1).' 条：'.$validator->errors()->first();
+                continue;
+            }
+
+            $validRecords[] = $record;
+        }
+
+        if ($validRecords === []) {
+            return $result;
+        }
+
+        $studentNames = Student::query()
+            ->whereIn('xgh', collect($validRecords)->pluck('student_xgh')->unique()->values())
+            ->pluck('xm', 'xgh');
+        $now = now();
+
+        DB::transaction(function () use ($validRecords, $studentNames, $now, &$result): void {
+            foreach (array_chunk($validRecords, 1000) as $chunk) {
+                $payload = array_map(function (array $record) use ($studentNames, $now): array {
+                    return [
+                        'student_xgh' => $record['student_xgh'],
+                        'student_name' => $studentNames[$record['student_xgh']] ?? $record['student_name'],
+                        'grade' => $record['grade'],
+                        'education_length' => $record['education_length'],
+                        'college' => $record['college'],
+                        'major' => $record['major'],
+                        'class_name' => $record['class_name'],
+                        'annual_year' => $record['annual_year'],
+                        'is_insured' => $record['is_insured'],
+                        'imported_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }, $chunk);
+
+                StudentSafetyInsurance::query()->upsert(
+                    $payload,
+                    ['student_xgh', 'annual_year'],
+                    [
+                        'student_name',
+                        'grade',
+                        'education_length',
+                        'college',
+                        'major',
+                        'class_name',
+                        'is_insured',
+                        'imported_at',
+                        'updated_at',
+                    ]
+                );
+
+                $result['imported'] += count($payload);
+            }
+        });
+
+        return $result;
+    }
+
+    private function ensureMedicalInsurancesTable(): void
+    {
+        if (Schema::hasTable('student_medical_insurances')) {
+            return;
+        }
+
+        Schema::create('student_medical_insurances', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_xgh')->index();
+            $table->string('student_name')->nullable();
+            $table->string('insured_area')->nullable()->index();
+            $table->date('enrolled_on')->nullable();
+            $table->string('insurance_type')->nullable();
+            $table->string('insurance_status')->nullable()->index();
+            $table->string('identity_type')->nullable();
+            $table->unsignedSmallInteger('annual_year')->index();
+            $table->boolean('has_paid')->default(false)->index();
+            $table->string('payment_start_month', 6)->nullable();
+            $table->string('payment_end_month', 6)->nullable();
+            $table->string('payment_type')->nullable();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['student_xgh', 'annual_year'], 'uniq_student_medical_student_year');
+        });
+    }
+
+    private function ensureSafetyInsurancesTable(): void
+    {
+        if (Schema::hasTable('student_safety_insurances')) {
+            return;
+        }
+
+        Schema::create('student_safety_insurances', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_xgh')->index();
+            $table->string('student_name')->nullable();
+            $table->string('grade')->nullable()->index();
+            $table->string('education_length')->nullable();
+            $table->string('college')->nullable()->index();
+            $table->string('major')->nullable();
+            $table->string('class_name')->nullable()->index();
+            $table->unsignedSmallInteger('annual_year')->index();
+            $table->boolean('is_insured')->default(false)->index();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['student_xgh', 'annual_year'], 'uniq_student_safety_student_year');
+        });
+    }
+
     private function rewardRecords(array $rows): array
     {
         $records = [];
@@ -292,6 +507,70 @@ class StudentDataImportController extends Controller
         return $records;
     }
 
+    private function medicalInsuranceRecords(array $rows, ?int $annualYear): array
+    {
+        $header = $this->headerIndex($rows, ['学号', '年度']);
+        if ($header === null) {
+            return [['student_xgh' => '', 'annual_year' => $annualYear]];
+        }
+
+        $headers = $rows[$header] ?? [];
+        $records = [];
+        foreach (array_slice($rows, $header + 1) as $row) {
+            if ($this->isBlankRow($row)) {
+                continue;
+            }
+
+            $year = $this->year($this->cellByHeader($row, $headers, ['年度'])) ?: $annualYear;
+            $records[] = [
+                'student_xgh' => $this->cellByHeader($row, $headers, ['学号']),
+                'student_name' => $this->cellByHeader($row, $headers, ['姓名']),
+                'insured_area' => $this->cellByHeader($row, $headers, ['参保地']),
+                'enrolled_on' => $this->date($this->cellByHeader($row, $headers, ['参保日期'])),
+                'insurance_type' => $this->cellByHeader($row, $headers, ['险种']),
+                'insurance_status' => $this->cellByHeader($row, $headers, ['参保状态']),
+                'identity_type' => $this->cellByHeader($row, $headers, ['城居参保身份', '参保身份']),
+                'annual_year' => $year,
+                'has_paid' => $this->truthy($this->cellByHeader($row, $headers, ['年度是否缴费', '是否缴费'])),
+                'payment_start_month' => $this->month($this->cellByHeader($row, $headers, ['缴费开始年月'])),
+                'payment_end_month' => $this->month($this->cellByHeader($row, $headers, ['缴费结束年月'])),
+                'payment_type' => $this->cellByHeader($row, $headers, ['缴费类型']),
+            ];
+        }
+
+        return $records;
+    }
+
+    private function safetyInsuranceRecords(array $rows, ?int $annualYear): array
+    {
+        $header = $this->headerIndex($rows, ['学号', '是否参保']);
+        if ($header === null) {
+            return [['student_xgh' => '', 'annual_year' => $annualYear]];
+        }
+
+        $headers = $rows[$header] ?? [];
+        $records = [];
+        foreach (array_slice($rows, $header + 1) as $row) {
+            if ($this->isBlankRow($row)) {
+                continue;
+            }
+
+            $records[] = [
+                'student_xgh' => $this->cellByHeader($row, $headers, ['学号']),
+                'student_name' => $this->cellByHeader($row, $headers, ['姓名']),
+                'grade' => $this->cellByHeader($row, $headers, ['年级']),
+                'education_length' => $this->cellByHeader($row, $headers, ['学制']),
+                'college' => $this->cellByHeader($row, $headers, ['学院']),
+                'major' => $this->cellByHeader($row, $headers, ['专业']),
+                'class_name' => $this->cellByHeader($row, $headers, ['班级']),
+                'annual_year' => $annualYear,
+                'is_insured' => $this->truthy($this->cellByHeader($row, $headers, ['是否参保'])),
+            ];
+        }
+
+        return $records;
+    }
+
     private function templateSheets(string $type): array
     {
         return match ($type) {
@@ -323,6 +602,20 @@ class StudentDataImportController extends Controller
                     ['2', '20250002', '李四', '男', '信息与人工智能学院', '计算机科学与技术', '一般'],
                 ],
             ],
+            'medical_insurance' => [
+                '参保缴费名单' => [
+                    ['姓名', '学号', '参保地', '参保日期', '险种', '参保状态', '城居参保身份', '年度', '年度是否缴费', '缴费开始年月', '缴费结束年月', '缴费类型'],
+                    ['张三', '20260001', '西湖区', '2026-01-01', '城乡居民基本医疗保险', '正常参保', '大学生', '2026年度', '是', '202601', '202612', '足额缴纳'],
+                    ['李四', '20260002', '西湖区', '2026-01-01', '城乡居民基本医疗保险', '正常参保', '大学生', '2026年度', '是', '202601', '202612', '足额缴纳'],
+                ],
+            ],
+            'safety_insurance' => [
+                '学平险参保名单' => [
+                    ['年级', '学制', '学院', '专业', '班级', '学号', '姓名', '是否参保'],
+                    ['2025级', '四年', '会计学院', '会计学', '25会计1', '20260001', '张三', '是'],
+                    ['2025级', '四年', '金融与经贸学院', '经济学', '25经济1', '20260002', '李四', '否'],
+                ],
+            ],
         };
     }
 
@@ -332,6 +625,8 @@ class StudentDataImportController extends Controller
             'award_punishment' => '学生奖惩导入示例.xlsx',
             'loan' => '学生助学贷款导入示例.xlsx',
             'support' => '学生资助对象导入示例.xlsx',
+            'medical_insurance' => '大学生医保参保缴费导入示例.xlsx',
+            'safety_insurance' => '大学生学平险参保导入示例.xlsx',
         };
     }
 
@@ -408,6 +703,20 @@ class StudentDataImportController extends Controller
         return trim((string) ($row[$index] ?? ''));
     }
 
+    private function cellByHeader(array $row, array $headers, array $candidates): string
+    {
+        foreach ($headers as $index => $header) {
+            $normalized = trim((string) $header);
+            foreach ($candidates as $candidate) {
+                if ($normalized === $candidate || str_contains($normalized, $candidate)) {
+                    return $this->cell($row, $index);
+                }
+            }
+        }
+
+        return '';
+    }
+
     private function isBlankRow(array $row): bool
     {
         return collect($row)->every(fn ($value) => trim((string) $value) === '');
@@ -448,6 +757,20 @@ class StudentDataImportController extends Controller
         $normalized = str_replace([',', '，', '￥', '元', ' '], '', $value);
 
         return is_numeric($normalized) ? (float) $normalized : null;
+    }
+
+    private function truthy(string $value): bool
+    {
+        $normalized = mb_strtolower(trim($value));
+
+        return in_array($normalized, ['1', 'true', 'yes', 'y', '是', '已缴费', '已参保', '正常参保'], true);
+    }
+
+    private function month(string $value): ?string
+    {
+        $normalized = preg_replace('/\D/', '', $value);
+
+        return strlen((string) $normalized) >= 6 ? substr((string) $normalized, 0, 6) : null;
     }
 
     private function studentName(string $studentNumber, ?string $fallback): ?string

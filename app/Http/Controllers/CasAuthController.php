@@ -123,10 +123,14 @@ class CasAuthController extends Controller
         $departmentCode = $this->firstAttribute($attributes, ['dwbm', 'department_code', 'deptCode', 'orgCode']);
         $departmentName = $this->firstAttribute($attributes, ['dwmc', 'department_name', 'deptName', 'orgName']);
 
+        $existingUser = User::query()->where('cas_username', $username)->first();
+        $defaultRole = User::query()->count() === 0 ? User::ROLE_SUPER_ADMIN : User::ROLE_STAFF;
+
         $values = [
             'name' => $name,
-            'email' => "{$username}@cas.local",
+            'email' => "{$username}@zufedfc.edu.cn",
             'password' => Hash::make(Str::random(40)),
+            'role' => $existingUser?->role ?: $defaultRole,
         ];
 
         if ($departmentCode !== null) {

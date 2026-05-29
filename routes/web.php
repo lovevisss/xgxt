@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CasAuthController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\SnippetController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDataImportController;
@@ -12,7 +13,7 @@ Route::get('/sso/logout', [CasAuthController::class, 'logout'])->name('cas.logou
 Route::post('/sso/userOnlineDetect', [CasAuthController::class, 'userOnlineDetect'])->name('cas.userOnlineDetect');
 Route::match(['GET', 'POST'], '/sso/slo', [CasAuthController::class, 'slo'])->name('cas.slo');
 
-Route::middleware('cas.auth')->group(function (): void {
+Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::resource('snippets', SnippetController::class);
     Route::get('/snippets/{snippet}/fork', [SnippetController::class, 'create'])->name('snippets.fork');
 
@@ -41,6 +42,12 @@ Route::middleware('cas.auth')->group(function (): void {
     Route::get('/student-support/import', [StudentDataImportController::class, 'redirectPage'])->name('student-support.import.page');
     Route::get('/student-support/import/template', [StudentDataImportController::class, 'template'])->defaults('type', 'support')->name('student-support.import.template');
     Route::post('/student-support/import', [StudentDataImportController::class, 'import'])->defaults('type', 'support')->name('student-support.import');
+
+    Route::middleware('super-admin.auth')->group(function (): void {
+        Route::get('/admin/users', [AdminUserController::class, 'page'])->name('admin.users.page');
+        Route::get('/admin/users/data', [AdminUserController::class, 'index'])->name('admin.users.index');
+        Route::put('/admin/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('admin.users.update-role');
+    });
 });
 
 Route::get('/', function () {

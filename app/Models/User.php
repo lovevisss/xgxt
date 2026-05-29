@@ -9,6 +9,14 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+            public const ROLE_SUPER_ADMIN = 'super_admin';
+
+            public const ROLE_ADMIN = 'admin';
+
+            public const ROLE_COUNSELOR = 'counselor';
+
+            public const ROLE_STAFF = 'staff';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -52,17 +60,22 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'super_admin';
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
     }
 
     public function isCounselor(): bool
     {
-        return $this->role === 'counselor';
+        return $this->role === self::ROLE_COUNSELOR;
     }
 
     public function canManageStudentDepartment(?string $studentDepartmentCode): bool
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->isAdmin()) {
             return true;
         }
 

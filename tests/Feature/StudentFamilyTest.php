@@ -150,7 +150,7 @@ it('shows a student profile page with family info', function () {
         ->assertSee('"stu_no":"20260004"', false);
 });
 
-it('allows only same department counselors and super admins to update family records', function () {
+it('allows only admins to update family records when CAS is enabled', function () {
     config()->set('cas.enabled', true);
 
     Student::query()->create([
@@ -192,12 +192,7 @@ it('allows only same department counselors and super admins to update family rec
         config('cas.session_key') => ['user' => 'counselor-fin'],
     ])->putJson("/student-families/data/{$family->id}", [
         'phone' => '13600000003',
-    ])->assertOk();
-
-    $this->assertDatabaseHas('student_families', [
-        'id' => $family->id,
-        'phone' => '13600000003',
-    ]);
+    ])->assertForbidden();
 
     User::factory()->create([
         'cas_username' => 'root-user',
@@ -210,4 +205,9 @@ it('allows only same department counselors and super admins to update family rec
     ])->putJson("/student-families/data/{$family->id}", [
         'phone' => '13600000004',
     ])->assertOk();
+
+    $this->assertDatabaseHas('student_families', [
+        'id' => $family->id,
+        'phone' => '13600000004',
+    ]);
 });

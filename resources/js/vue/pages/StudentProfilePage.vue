@@ -8,6 +8,13 @@ const props = defineProps({
     punishments: { type: Array, default: () => [] },
     loans: { type: Array, default: () => [] },
     supportRecipients: { type: Array, default: () => [] },
+    medicalInsurances: { type: Array, default: () => [] },
+    currentMedicalInsurance: { type: Object, default: null },
+    safetyInsurances: { type: Array, default: () => [] },
+    currentSafetyInsurance: { type: Object, default: null },
+    currentYear: { type: Number, default: () => new Date().getFullYear() },
+    recentPasses: { type: Array, default: () => [] },
+    companionInsights: { type: Array, default: () => [] },
     canUpdateFamilies: { type: Boolean, default: false },
 });
 
@@ -15,6 +22,7 @@ const familyRows = ref([...props.families]);
 const editing = ref(null);
 const saving = ref(false);
 const notice = ref({ text: '', type: 'info' });
+const activeInsuranceTab = ref('medical');
 const form = ref({
     id: '',
     name: '',
@@ -60,6 +68,45 @@ function money(value) {
     const number = Number(value || 0);
 
     return number.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function medicalCovered(record) {
+    if (!record) {
+        return false;
+    }
+
+    return Boolean(record.has_paid) && String(record.insurance_status || '').includes('参保');
+}
+
+function medicalStatusText(record) {
+    if (!record) {
+        return '未导入';
+    }
+
+    return medicalCovered(record) ? '已参保' : '未参保';
+}
+
+function safetyCovered(record) {
+    return Boolean(record?.is_insured);
+}
+
+function safetyStatusText(record) {
+    if (!record) {
+        return '未导入';
+    }
+
+    return safetyCovered(record) ? '已参保' : '未参保';
+}
+
+function directionText(direction) {
+    if (direction === 'in') {
+        return '进校';
+    }
+    if (direction === 'out') {
+        return '出校';
+    }
+
+    return direction || '-';
 }
 
 async function saveFamily() {
@@ -117,6 +164,197 @@ async function saveFamily() {
                 <div><span class="text-slate-500">联系电话：</span>{{ props.student.yddh || '-' }}</div>
                 <div><span class="text-slate-500">最近刷码：</span>{{ props.student.last_smsj || '-' }}</div>
                 <div><span class="text-slate-500">状态：</span>{{ props.student.status || '-' }}</div>
+                <div>
+                    <span class="text-slate-500">{{ props.currentYear }}年度医保：</span>
+                    <span
+                        class="rounded px-2 py-1 text-xs font-semibold"
+                        :class="medicalCovered(props.currentMedicalInsurance) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'"
+                    >
+                        {{ medicalStatusText(props.currentMedicalInsurance) }}
+                    </span>
+                </div>
+                <div>
+                    <span class="text-slate-500">{{ props.currentYear }}年度学平险：</span>
+                    <span
+                        class="rounded px-2 py-1 text-xs font-semibold"
+                        :class="safetyCovered(props.currentSafetyInsurance) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'"
+                    >
+                        {{ safetyStatusText(props.currentSafetyInsurance) }}
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="text-lg font-semibold text-slate-950">保险参保记录</h2>
+                    <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                        <button
+                            type="button"
+                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition"
+                            :class="activeInsuranceTab === 'medical' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                            @click="activeInsuranceTab = 'medical'"
+                        >
+                            医保
+                        </button>
+                        <button
+                            type="button"
+                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition"
+                            :class="activeInsuranceTab === 'safety' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                            @click="activeInsuranceTab = 'safety'"
+                        >
+                            学平险
+                        </button>
+                    </div>
+                </div>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+
+            <div v-if="activeInsuranceTab === 'medical'" class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="medicalCovered(props.currentMedicalInsurance) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-600'">
+                {{ props.currentYear }}年度：{{ medicalStatusText(props.currentMedicalInsurance) }}
+                <span v-if="props.currentMedicalInsurance">
+                    ，参保状态：{{ props.currentMedicalInsurance.insurance_status || '-' }}，年度是否缴费：{{ props.currentMedicalInsurance.has_paid ? '是' : '否' }}
+                </span>
+            </div>
+            <div v-else class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="safetyCovered(props.currentSafetyInsurance) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-600'">
+                {{ props.currentYear }}年度：{{ safetyStatusText(props.currentSafetyInsurance) }}
+            </div>
+
+            <div v-if="activeInsuranceTab === 'medical'" class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">年度</th>
+                            <th class="px-3 py-2 text-left">是否参保</th>
+                            <th class="px-3 py-2 text-left">参保状态</th>
+                            <th class="px-3 py-2 text-left">参保地</th>
+                            <th class="px-3 py-2 text-left">参保日期</th>
+                            <th class="px-3 py-2 text-left">缴费期间</th>
+                            <th class="px-3 py-2 text-left">缴费类型</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.medicalInsurances" :key="item.id">
+                            <td class="px-3 py-2">{{ item.annual_year || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="medicalCovered(item) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                                    {{ medicalStatusText(item) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2">{{ item.insurance_status || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.insured_area || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.enrolled_on || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.payment_start_month || '-' }} - {{ item.payment_end_month || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.payment_type || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.medicalInsurances.length">
+                            <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无医保参保记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">年度</th>
+                            <th class="px-3 py-2 text-left">是否参保</th>
+                            <th class="px-3 py-2 text-left">年级</th>
+                            <th class="px-3 py-2 text-left">学院</th>
+                            <th class="px-3 py-2 text-left">专业</th>
+                            <th class="px-3 py-2 text-left">班级</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.safetyInsurances" :key="item.id">
+                            <td class="px-3 py-2">{{ item.annual_year || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="safetyCovered(item) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                                    {{ safetyStatusText(item) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2">{{ item.grade || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.college || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.major || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.class_name || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.safetyInsurances.length">
+                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无学平险参保记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-3 text-lg font-semibold text-slate-950">最近5次刷码记录</h2>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">时间</th>
+                            <th class="px-3 py-2 text-left">地点</th>
+                            <th class="px-3 py-2 text-left">出入类型</th>
+                            <th class="px-3 py-2 text-left">设备</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.recentPasses" :key="`${item.gh}-${item.smsj}-${item.device || 'none'}`">
+                            <td class="px-3 py-2">{{ item.smsj || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.smdd || '-' }}</td>
+                            <td class="px-3 py-2">{{ directionText(item.crlx) }}</td>
+                            <td class="px-3 py-2">{{ item.device || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.recentPasses.length">
+                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无刷码记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">10秒内同向随行人员</h2>
+                <p class="text-xs text-slate-500">同地点、同进出方向，累计超过2次标记为可能为朋友</p>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学号</th>
+                            <th class="px-3 py-2 text-left">姓名</th>
+                            <th class="px-3 py-2 text-left">同向随行次数</th>
+                            <th class="px-3 py-2 text-left">最近出现时间</th>
+                            <th class="px-3 py-2 text-left">最近地点</th>
+                            <th class="px-3 py-2 text-left">标记</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.companionInsights" :key="item.xgh">
+                            <td class="px-3 py-2">
+                                <a v-if="item.xgh" class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xgh }}</a>
+                                <span v-else>-</span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <a v-if="item.xgh" class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
+                                <span v-else>{{ item.xm || '-' }}</span>
+                            </td>
+                            <td class="px-3 py-2">{{ item.companion_count }}</td>
+                            <td class="px-3 py-2">{{ item.last_met_at || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.last_smdd || '-' }} / {{ directionText(item.last_crlx) }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="item.is_possible_friend ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'">
+                                    {{ item.is_possible_friend ? '可能为朋友' : '观察中' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr v-if="!props.companionInsights.length">
+                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无随行人员记录</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 

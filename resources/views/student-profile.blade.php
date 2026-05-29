@@ -11,6 +11,13 @@
         "punishments" => $punishments,
         "loans" => $loans,
         "supportRecipients" => $supportRecipients,
+        "medicalInsurances" => $medicalInsurances,
+        "currentMedicalInsurance" => $currentMedicalInsurance,
+        "safetyInsurances" => $safetyInsurances,
+        "currentSafetyInsurance" => $currentSafetyInsurance,
+        "currentYear" => $currentYear,
+        "recentPasses" => $recentPasses,
+        "companionInsights" => $companionInsights,
         "canUpdateFamilies" => $canUpdateFamilies,
     ];
 @endphp

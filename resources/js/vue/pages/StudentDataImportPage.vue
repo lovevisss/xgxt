@@ -35,12 +35,34 @@ const importTypes = [
         note: '按“学号 + 学年”更新，资助等级会显示在学生主页。',
         resultLabels: { imported: '资助对象' },
     },
+    {
+        key: 'medical_insurance',
+        title: '大学生医保',
+        eyebrow: '年度参保缴费',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/medical_insurance',
+        template: '/student-imports/template/medical_insurance',
+        fields: '姓名、学号、参保地、参保日期、险种、参保状态、年度、年度是否缴费、缴费起止年月、缴费类型',
+        note: '按“学号 + 年度”更新，导入后学生主页会显示当年是否参保。',
+        resultLabels: { imported: '医保记录' },
+    },
+    {
+        key: 'safety_insurance',
+        title: '大学生学平险',
+        eyebrow: '年度参保',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/safety_insurance',
+        template: '/student-imports/template/safety_insurance',
+        fields: '年级、学制、学院、专业、班级、学号、姓名、是否参保',
+        note: '按“学号 + 年度”更新，导入后学生主页会显示当年学平险是否参保。',
+        resultLabels: { imported: '学平险记录' },
+    },
 ];
 
 const selectedKey = ref('support');
 const file = ref(null);
 const uploading = ref(false);
-const annualYear = ref('2025');
+const annualYear = ref(String(new Date().getFullYear()));
 const academicYear = ref('2025-2026');
 const source = ref('国开行');
 const notice = ref({ text: '', type: 'info' });
@@ -49,6 +71,7 @@ const result = ref(null);
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
 const showSupportOptions = computed(() => selectedKey.value === 'support');
+const showAnnualYearOptions = computed(() => ['loan', 'medical_insurance', 'safety_insurance'].includes(selectedKey.value));
 
 function getCSRF() {
     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -82,8 +105,10 @@ async function upload() {
 
     const formData = new FormData();
     formData.append('file', file.value);
-    if (showLoanOptions.value) {
+    if (showAnnualYearOptions.value) {
         formData.append('annual_year', annualYear.value);
+    }
+    if (showLoanOptions.value) {
         formData.append('source', source.value);
     }
     if (showSupportOptions.value) {
@@ -102,7 +127,16 @@ async function upload() {
     uploading.value = false;
 
     if (!response.ok) {
-        notice.value = { text: '导入失败，请确认文件格式和表头后重试。', type: 'error' };
+        let message = '导入失败，请确认文件格式和表头后重试。';
+        try {
+            const error = await response.json();
+            message = error.message || error.error || message;
+        } catch (e) {
+            if (response.status >= 500) {
+                message = '导入失败，服务器处理时出错，请查看日志或稍后重试。';
+            }
+        }
+        notice.value = { text: message, type: 'error' };
         return;
     }
 
@@ -121,7 +155,7 @@ async function upload() {
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
-                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款和资助对象数据，导入后统一展示在学生主页。</p>
+                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、医保和学平险参保数据，导入后统一展示在学生主页。</p>
                 </div>
                 <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
             </div>
@@ -153,12 +187,12 @@ async function upload() {
                     <a :href="selectedType.template" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">下载示例模板</a>
                 </div>
 
-                <div v-if="showLoanOptions" class="mt-5 grid gap-3 sm:grid-cols-2">
+                <div v-if="showAnnualYearOptions" class="mt-5 grid gap-3 sm:grid-cols-2">
                     <label class="text-sm text-slate-600">
-                        发生年度
+                        {{ ['medical_insurance', 'safety_insurance'].includes(selectedKey) ? '参保年度' : '发生年度' }}
                         <input v-model="annualYear" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="number" min="1900" max="2100">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label v-if="showLoanOptions" class="text-sm text-slate-600">
                         贷款来源
                         <input v-model="source" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
                     </label>

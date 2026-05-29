@@ -156,3 +156,65 @@ it('supports grade and class filters ordered by lost counts', function () {
     Carbon::setTestNow();
 });
 
+it('shows recent passes and companion insights on student profile', function () {
+    Student::create([
+        'xgh' => '3001',
+        'xm' => 'Profile Student',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+        'bjbm' => '2401',
+        'bjmc' => '24级1班',
+    ]);
+
+    Student::create([
+        'xgh' => '3002',
+        'xm' => 'Friend Candidate',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+    ]);
+
+    Student::create([
+        'xgh' => '3003',
+        'xm' => 'Observer Candidate',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Test',
+        'dwbm' => 'T',
+    ]);
+
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'old-device', 'smdd' => 'Old Gate', 'smsj' => '2026-05-01 07:00:00', 'crlx' => 'in']);
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'dev-a1', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 08:00:00', 'crlx' => 'in']);
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'dev-b1', 'smdd' => 'Gate B', 'smsj' => '2026-05-01 09:00:00', 'crlx' => 'out']);
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'dev-a2', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 10:00:00', 'crlx' => 'in']);
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'dev-c1', 'smdd' => 'Gate C', 'smsj' => '2026-05-01 11:00:00', 'crlx' => 'out']);
+    Pass::create(['gh' => '3001', 'xm' => 'Profile Student', 'device' => 'dev-a3', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 12:00:00', 'crlx' => 'in']);
+
+    // 3002 appears together 3 times within 10 seconds, same place and direction.
+    Pass::create(['gh' => '3002', 'xm' => 'Friend Candidate', 'device' => 'friend-1', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 08:00:05', 'crlx' => 'in']);
+    Pass::create(['gh' => '3002', 'xm' => 'Friend Candidate', 'device' => 'friend-2', 'smdd' => 'Gate B', 'smsj' => '2026-05-01 09:00:08', 'crlx' => 'out']);
+    Pass::create(['gh' => '3002', 'xm' => 'Friend Candidate', 'device' => 'friend-3', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 10:00:06', 'crlx' => 'in']);
+
+    // 3003 appears together only twice.
+    Pass::create(['gh' => '3003', 'xm' => 'Observer Candidate', 'device' => 'obs-1', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 08:00:04', 'crlx' => 'in']);
+    Pass::create(['gh' => '3003', 'xm' => 'Observer Candidate', 'device' => 'obs-2', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 10:00:04', 'crlx' => 'in']);
+
+    // This one should be ignored due to different direction.
+    Pass::create(['gh' => '3002', 'xm' => 'Friend Candidate', 'device' => 'friend-ignore', 'smdd' => 'Gate A', 'smsj' => '2026-05-01 12:00:06', 'crlx' => 'out']);
+
+    $response = $this->get('/students/profile/3001')->assertOk();
+
+    $response->assertSee('"recentPasses"', false);
+    $response->assertSee('"dev-a3"', false);
+    $response->assertDontSee('"old-device"', false);
+    $response->assertSee('"companionInsights"', false);
+    $response->assertSee('"xgh":"3002"', false);
+    $response->assertSee('"companion_count":3', false);
+    $response->assertSee('"is_possible_friend":true', false);
+    $response->assertSee('"xgh":"3003"', false);
+    $response->assertSee('"companion_count":2', false);
+});
+
