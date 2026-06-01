@@ -20,6 +20,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::view('/students', 'students')->name('students.page');
     Route::get('/students/data', [StudentController::class, 'index'])->name('students.index');
     Route::get('/students/filters', [StudentController::class, 'filters'])->name('students.filters');
+    Route::get('/students/dormitories/{ssh}', [StudentController::class, 'dormitory'])->name('students.dormitory');
     Route::get('/students/profile/{xgh}', [StudentController::class, 'profile'])->name('students.profile');
     Route::get('/students/data/{xgh}', [StudentController::class, 'show'])->name('students.show');
     Route::put('/students/data/{xgh}', [StudentController::class, 'update'])->name('students.update');

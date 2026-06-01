@@ -57,6 +57,17 @@ const importTypes = [
         note: '按“学号 + 年度”更新，导入后学生主页会显示当年学平险是否参保。',
         resultLabels: { imported: '学平险记录' },
     },
+    {
+        key: 'physical_test',
+        title: '体测成绩',
+        eyebrow: '学年总分',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/physical_test',
+        template: '/student-imports/template/physical_test',
+        fields: '学年、姓名、学号、性别、院系、班级、总分、备注',
+        note: '按“学号 + 学年”更新，导入后按学年显示在学生主页。',
+        resultLabels: { imported: '体测成绩' },
+    },
 ];
 
 const selectedKey = ref('support');

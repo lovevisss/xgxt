@@ -6,6 +6,7 @@ use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
+use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support', 'medical_insurance', 'safety_insurance'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'medical_insurance', 'safety_insurance', 'physical_test'];
 
     public function page()
     {
@@ -56,6 +57,7 @@ class StudentDataImportController extends Controller
             'support' => response()->json($this->importSupportRecipients($sheets, $request)),
             'medical_insurance' => response()->json($this->importMedicalInsurances($sheets, $request)),
             'safety_insurance' => response()->json($this->importSafetyInsurances($sheets, $request)),
+            'physical_test' => response()->json($this->importPhysicalTests($sheets, $request)),
         };
     }
 
@@ -364,6 +366,81 @@ class StudentDataImportController extends Controller
         return $result;
     }
 
+    private function importPhysicalTests(array $sheets, Request $request): array
+    {
+        @set_time_limit(120);
+        $this->ensurePhysicalTestsTable();
+
+        $rows = $this->rowsWithHeader($sheets, ['学号', '总分']);
+        $fallbackAcademicYear = trim((string) $request->input('academic_year', '')) ?: $this->inferAcademicYear($rows);
+        $result = ['imported' => 0, 'errors' => []];
+        $records = $this->physicalTestRecords($rows, $fallbackAcademicYear);
+        $validRecords = [];
+
+        foreach ($records as $index => $record) {
+            $validator = Validator::make($record, [
+                'student_xgh' => ['required', 'string'],
+                'academic_year' => ['required', 'string', 'max:16'],
+                'score' => ['nullable', 'numeric', 'between:0,100'],
+            ]);
+
+            if ($validator->fails()) {
+                $result['errors'][] = '第'.($index + 1).' 条：'.$validator->errors()->first();
+                continue;
+            }
+
+            $validRecords[] = $record;
+        }
+
+        if ($validRecords === []) {
+            return $result;
+        }
+
+        $studentNames = Student::query()
+            ->whereIn('xgh', collect($validRecords)->pluck('student_xgh')->unique()->values())
+            ->pluck('xm', 'xgh');
+        $now = now();
+
+        DB::transaction(function () use ($validRecords, $studentNames, $now, &$result): void {
+            foreach (array_chunk($validRecords, 1000) as $chunk) {
+                $payload = array_map(function (array $record) use ($studentNames, $now): array {
+                    return [
+                        'student_xgh' => $record['student_xgh'],
+                        'student_name' => $studentNames[$record['student_xgh']] ?? $record['student_name'],
+                        'gender' => $record['gender'],
+                        'college' => $record['college'],
+                        'class_name' => $record['class_name'],
+                        'academic_year' => $record['academic_year'],
+                        'score' => $record['score'],
+                        'remark' => $record['remark'],
+                        'imported_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }, $chunk);
+
+                StudentPhysicalTest::query()->upsert(
+                    $payload,
+                    ['student_xgh', 'academic_year'],
+                    [
+                        'student_name',
+                        'gender',
+                        'college',
+                        'class_name',
+                        'score',
+                        'remark',
+                        'imported_at',
+                        'updated_at',
+                    ]
+                );
+
+                $result['imported'] += count($payload);
+            }
+        });
+
+        return $result;
+    }
+
     private function ensureMedicalInsurancesTable(): void
     {
         if (Schema::hasTable('student_medical_insurances')) {
@@ -412,6 +489,29 @@ class StudentDataImportController extends Controller
             $table->timestamps();
 
             $table->unique(['student_xgh', 'annual_year'], 'uniq_student_safety_student_year');
+        });
+    }
+
+    private function ensurePhysicalTestsTable(): void
+    {
+        if (Schema::hasTable('student_physical_tests')) {
+            return;
+        }
+
+        Schema::create('student_physical_tests', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_xgh')->index();
+            $table->string('student_name')->nullable();
+            $table->string('gender')->nullable();
+            $table->string('college')->nullable()->index();
+            $table->string('class_name')->nullable()->index();
+            $table->string('academic_year', 16)->index();
+            $table->decimal('score', 5, 1)->nullable();
+            $table->string('remark')->nullable();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['student_xgh', 'academic_year'], 'uniq_student_physical_student_year');
         });
     }
 
@@ -571,6 +671,36 @@ class StudentDataImportController extends Controller
         return $records;
     }
 
+    private function physicalTestRecords(array $rows, string $fallbackAcademicYear): array
+    {
+        $header = $this->headerIndex($rows, ['学号', '总分']);
+        if ($header === null) {
+            return [['student_xgh' => '', 'academic_year' => $fallbackAcademicYear]];
+        }
+
+        $headers = $rows[$header] ?? [];
+        $records = [];
+        foreach (array_slice($rows, $header + 1) as $row) {
+            if ($this->isBlankRow($row)) {
+                continue;
+            }
+
+            $academicYear = $this->academicYear($this->cellByHeader($row, $headers, ['学年'])) ?: $fallbackAcademicYear;
+            $records[] = [
+                'student_xgh' => $this->cellByHeader($row, $headers, ['学号']),
+                'student_name' => $this->cellByHeader($row, $headers, ['姓名']),
+                'gender' => $this->cellByHeader($row, $headers, ['性别']),
+                'college' => $this->cellByHeader($row, $headers, ['院系', '学院']),
+                'class_name' => $this->cellByHeader($row, $headers, ['班级']),
+                'academic_year' => $academicYear,
+                'score' => $this->score($this->cellByHeader($row, $headers, ['总分'])),
+                'remark' => $this->cellByHeader($row, $headers, ['备注']),
+            ];
+        }
+
+        return $records;
+    }
+
     private function templateSheets(string $type): array
     {
         return match ($type) {
@@ -616,6 +746,13 @@ class StudentDataImportController extends Controller
                     ['2025级', '四年', '金融与经贸学院', '经济学', '25经济1', '20260002', '李四', '否'],
                 ],
             ],
+            'physical_test' => [
+                '体测成绩' => [
+                    ['学年', '姓名', '学号', '性别', '院系', '班级', '总分', '备注'],
+                    ['2023-2024学年', '张三', '20260001', '男', '会计学院', '25会计1', '82.5', ''],
+                    ['2023-2024学年', '李四', '20260002', '女', '金融与经贸学院', '25经济1', '76.4', ''],
+                ],
+            ],
         };
     }
 
@@ -627,6 +764,7 @@ class StudentDataImportController extends Controller
             'support' => '学生资助对象导入示例.xlsx',
             'medical_insurance' => '大学生医保参保缴费导入示例.xlsx',
             'safety_insurance' => '大学生学平险参保导入示例.xlsx',
+            'physical_test' => '学生体测成绩导入示例.xlsx',
         };
     }
 
@@ -771,6 +909,22 @@ class StudentDataImportController extends Controller
         $normalized = preg_replace('/\D/', '', $value);
 
         return strlen((string) $normalized) >= 6 ? substr((string) $normalized, 0, 6) : null;
+    }
+
+    private function academicYear(string $value): string
+    {
+        if (preg_match('/(20\d{2})\s*[-—~至]\s*(20\d{2})/', $value, $matches)) {
+            return $matches[1].'-'.$matches[2];
+        }
+
+        return trim(str_replace('学年', '', $value));
+    }
+
+    private function score(string $value): ?float
+    {
+        $normalized = str_replace([',', '分', ' '], '', $value);
+
+        return is_numeric($normalized) ? round((float) $normalized, 1) : null;
     }
 
     private function studentName(string $studentNumber, ?string $fallback): ?string

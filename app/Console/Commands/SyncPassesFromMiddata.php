@@ -16,6 +16,8 @@ class SyncPassesFromMiddata extends Command
         $startTime = now()->subDays($days)->startOfDay();
         $chunkSize = 2000;
         $total = 0;
+        $progressStep = 20000;
+        $lastLogged = 0;
 
         // 🔥 游标分页起点（无ID表最优方案：基于 smsj 游标）
         $lastSmsj = $startTime;
@@ -84,8 +86,9 @@ class SyncPassesFromMiddata extends Command
             $lastGh = $lastRow->gh;
 
             // 减少日志打印（避免IO卡顿）
-            if ($total % 20000 === 0) {
-                $this->info("已同步: $total 条...");
+            if ($total - $lastLogged >= $progressStep) {
+                $lastLogged = $total;
+                $this->info("已同步: {$total} 条...");
             }
         }
 

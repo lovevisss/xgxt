@@ -16,6 +16,8 @@ class SyncStudentsFromMiddata extends Command
         $startedAt = microtime(true);
         $total = 0;
         $chunkSize = 2000;
+        $progressStep = 20000;
+        $lastLogged = 0;
 
         DB::connection('middata')
             ->table('t_cx_zzqxryxx')
@@ -25,7 +27,7 @@ class SyncStudentsFromMiddata extends Command
             ])
             ->where('rylx', '0')
             ->orderBy('xgh')
-            ->chunk($chunkSize, function ($students) use (&$total) {
+            ->chunk($chunkSize, function ($students) use (&$total, &$lastLogged, $progressStep) {
                 $now = now();
                 $rows = [];
 
@@ -70,7 +72,10 @@ class SyncStudentsFromMiddata extends Command
                     $total += count($rows);
                 }
 
-                $this->info("已同步: $total 条...");
+                if ($total - $lastLogged >= $progressStep) {
+                    $lastLogged = $total;
+                    $this->info("已同步: {$total} 条...");
+                }
             });
 
         $elapsed = round(microtime(true) - $startedAt, 2);

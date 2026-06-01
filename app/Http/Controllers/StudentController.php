@@ -3,11 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pass;
+use App\Models\CourseSection;
 use App\Models\Student;
 use App\Models\StudentAward;
+use App\Models\StudentCourseSchedule;
+use App\Models\StudentCourseGrade;
 use App\Models\StudentFamily;
 use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
+use App\Models\StudentDormitory;
+use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
@@ -329,12 +334,71 @@ class StudentController extends Controller
                 ->orderByDesc('annual_year')
                 ->get()
             : collect();
+        $physicalTests = Schema::hasTable('student_physical_tests')
+            ? StudentPhysicalTest::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('academic_year')
+                ->get()
+            : collect();
+        $dormitory = StudentDormitory::query()->where('xh', $xgh)->first();
+        $dormitoryResidents = filled($dormitory?->ssh)
+            ? $this->buildDormitoryResidents($dormitory->ssh, $xgh)
+            : collect();
+        $roommates = $dormitoryResidents
+            ->reject(fn (array $resident) => $resident['is_current_student'])
+            ->values();
+        $dormitorySummary = $this->buildDormitorySummary($dormitoryResidents, $xgh);
         $recentPasses = Pass::query()
             ->where('gh', $xgh)
             ->orderByDesc('smsj')
             ->limit(5)
             ->get(['gh', 'xm', 'smsj', 'smdd', 'crlx', 'device', 'sblx']);
         $companionInsights = $this->buildCompanionInsights($xgh);
+        $selectedSemester = trim((string) request('xnxq', ''));
+        $semesterOptions = StudentCourseSchedule::query()
+            ->where('xh', $xgh)
+            ->select('xnxq')
+            ->distinct()
+            ->orderByDesc('xnxq')
+            ->pluck('xnxq');
+
+        if ($selectedSemester === '') {
+            $selectedSemester = $this->resolveDefaultSemester($semesterOptions);
+        }
+
+        $semesterSchedulesQuery = StudentCourseSchedule::query()->where('xh', $xgh);
+        if ($selectedSemester !== '') {
+            $semesterSchedulesQuery->where('xnxq', $selectedSemester);
+        }
+
+        $semesterSchedules = $semesterSchedulesQuery
+            ->orderBy('week_start')
+            ->orderBy('weekday')
+            ->orderBy('period_start')
+            ->orderBy('pkbh')
+            ->get();
+
+        [$minWeek, $maxWeek] = $this->scheduleWeekBounds($semesterSchedules);
+        $requestedWeek = request()->has('week') ? (int) request('week') : null;
+        $defaultWeek = $this->defaultWeekForSemester($selectedSemester, $minWeek, $maxWeek);
+        $selectedWeek = $requestedWeek ?? $defaultWeek;
+        $selectedWeek = max($minWeek, min($maxWeek, $selectedWeek));
+
+        $courseSections = CourseSection::query()
+            ->whereIn('jxb_id', $semesterSchedules->pluck('pkbh')->filter()->unique()->values())
+            ->get()
+            ->keyBy('jxb_id');
+
+        $weeklySchedule = $this->buildWeeklySchedule($semesterSchedules, $courseSections, $selectedWeek);
+        $semesterLabel = $selectedSemester !== '' ? $this->formatSemesterLabel($selectedSemester) : '暂无学期';
+        $gradeRows = StudentCourseGrade::query()
+            ->where('xh', $xgh)
+            ->orderByDesc('xnxq')
+            ->orderBy('kcbm')
+            ->get();
+        $gradesBySemester = $this->buildGradesBySemester($gradeRows);
+        $earnedCreditsTotal = $this->earnedCreditsTotal($gradeRows);
+        $averageGpa = $this->averageGpa($gradeRows);
 
         return view('student-profile', [
             'student' => $student,
@@ -347,11 +411,490 @@ class StudentController extends Controller
             'currentMedicalInsurance' => $medicalInsurances->firstWhere('annual_year', $currentYear),
             'safetyInsurances' => $safetyInsurances,
             'currentSafetyInsurance' => $safetyInsurances->firstWhere('annual_year', $currentYear),
+            'physicalTests' => $physicalTests,
             'currentYear' => $currentYear,
+            'dormitory' => $dormitory,
+            'dormitorySummary' => $dormitorySummary,
+            'roommates' => $roommates,
+            'selectedSemester' => $selectedSemester,
+            'semesterLabel' => $semesterLabel,
+            'selectedWeek' => $selectedWeek,
+            'weekLabel' => '第'.$selectedWeek.'周',
+            'prevWeekUrl' => $selectedWeek > $minWeek && $selectedSemester !== ''
+                ? route('students.profile', ['xgh' => $xgh, 'xnxq' => $selectedSemester, 'week' => $selectedWeek - 1])
+                : null,
+            'nextWeekUrl' => $selectedWeek < $maxWeek && $selectedSemester !== ''
+                ? route('students.profile', ['xgh' => $xgh, 'xnxq' => $selectedSemester, 'week' => $selectedWeek + 1])
+                : null,
+            'weeklySchedule' => $weeklySchedule,
+            'gradesBySemester' => $gradesBySemester,
+            'earnedCreditsTotal' => $earnedCreditsTotal,
+            'averageGpa' => $averageGpa,
             'recentPasses' => $recentPasses,
             'companionInsights' => $companionInsights,
             'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
         ]);
+    }
+
+    public function dormitory(string $ssh)
+    {
+        $ssh = trim($ssh);
+        abort_if($ssh === '', 404);
+
+        $residents = $this->buildDormitoryResidents($ssh);
+        abort_if($residents->isEmpty(), 404);
+
+        return view('student-dormitory', [
+            'ssh' => $ssh,
+            'residents' => $residents,
+            'dormitorySummary' => $this->buildDormitorySummary($residents),
+        ]);
+    }
+
+    private function buildDormitoryResidents(string $ssh, ?string $currentXgh = null): Collection
+    {
+        $residents = StudentDormitory::query()
+            ->where('ssh', $ssh)
+            ->orderBy('ch')
+            ->orderBy('xh')
+            ->get(['xh', 'xm', 'xy', 'zy', 'bj', 'nj', 'ssh', 'ch', 'xz', 'qslx', 'xb']);
+
+        if ($residents->isEmpty()) {
+            return collect();
+        }
+
+        $students = Student::query()
+            ->whereIn('xgh', $residents->pluck('xh')->filter()->values())
+            ->get(['xgh', 'xm', 'dwmc', 'dwbm', 'bjmc', 'last_smsj', 'exclude_until'])
+            ->keyBy('xgh');
+
+        $now = now();
+        $lostThreshold = $now->copy()->subDays(7);
+
+        return $residents->map(function (StudentDormitory $resident) use ($students, $currentXgh, $now, $lostThreshold) {
+            $student = $students->get($resident->xh);
+            $lastSmsj = $student?->last_smsj;
+            $isExcluded = (bool) ($student?->exclude_until && $student->exclude_until->isFuture());
+            $isLost = ! $isExcluded && (! $lastSmsj || $lastSmsj->lt($lostThreshold));
+            $isHighRisk = ! $isExcluded && (! $lastSmsj || $lastSmsj->lt($now->copy()->subDays(7)));
+
+            return [
+                'xh' => $resident->xh,
+                'xm' => $student?->xm ?: $resident->xm,
+                'xy' => $resident->xy ?: $student?->dwmc,
+                'zy' => $resident->zy,
+                'bj' => $resident->bj ?: $student?->bjmc,
+                'nj' => $resident->nj,
+                'ssh' => $resident->ssh,
+                'ch' => $resident->ch,
+                'xz' => $resident->xz,
+                'qslx' => $resident->qslx,
+                'xb' => $resident->xb,
+                'last_smsj' => $lastSmsj,
+                'status' => $isLost ? 'lost' : 'normal',
+                'is_high_risk' => $isHighRisk,
+                'is_current_student' => $currentXgh !== null && (string) $resident->xh === (string) $currentXgh,
+            ];
+        })->values();
+    }
+
+    private function buildDormitorySummary(Collection $residents, ?string $currentXgh = null): array
+    {
+        $roommates = $currentXgh === null
+            ? $residents
+            : $residents->reject(fn (array $resident) => (string) $resident['xh'] === (string) $currentXgh)->values();
+
+        return [
+            'resident_total' => $residents->count(),
+            'roommate_total' => $roommates->count(),
+            'lost_roommate_count' => $roommates->where('status', 'lost')->count(),
+            'high_risk_roommate_count' => $roommates->where('is_high_risk', true)->count(),
+        ];
+    }
+
+    private function buildWeeklySchedule(Collection $schedules, Collection $courseSections, int $selectedWeek): Collection
+    {
+        return $schedules
+            ->filter(fn (StudentCourseSchedule $schedule) => $this->scheduleAppliesToWeek($schedule, $selectedWeek))
+            ->map(function (StudentCourseSchedule $schedule) use ($courseSections) {
+                $section = $courseSections->get($schedule->pkbh);
+
+                return [
+                    'xnxq' => $schedule->xnxq,
+                    'xh' => $schedule->xh,
+                    'pkbh' => $schedule->pkbh,
+                    'weekday' => $this->scheduleWeekday($schedule),
+                    'weekday_label' => match ($this->scheduleWeekday($schedule)) {
+                        1 => '周一',
+                        2 => '周二',
+                        3 => '周三',
+                        4 => '周四',
+                        5 => '周五',
+                        6 => '周六',
+                        7 => '周日',
+                        default => '未知',
+                    },
+                    'period_start' => $this->schedulePeriodStart($schedule),
+                    'period_end' => $this->schedulePeriodEnd($schedule),
+                    'period_label' => $this->periodLabel($schedule),
+                    'week_start' => $this->scheduleWeekStart($schedule),
+                    'week_end' => $this->scheduleWeekEnd($schedule),
+                    'course_code' => data_get($section, 'kch') ?: $schedule->kcbm,
+                    'course_name' => data_get($section, 'kcmc') ?: ($schedule->kcsxm ?: $schedule->kcbm),
+                    'teacher_name' => data_get($section, 'rkjs') ?: $schedule->skjsxm,
+                    'location' => data_get($section, 'jxdd') ?: $schedule->jxdd,
+                    'college' => data_get($section, 'kkxy') ?: $schedule->kkyxbm,
+                    'class_name' => $schedule->kkbjbm,
+                    'credit' => data_get($section, 'xf') ?: $schedule->xf,
+                    'raw_schedule' => $schedule->sksj ?: data_get($section, 'sksj'),
+                ];
+            })
+            ->sortBy(fn (array $item) => sprintf('%02d-%02d-%s', (int) ($item['weekday'] ?? 0), (int) ($item['period_start'] ?? 0), (string) ($item['course_name'] ?? '')))
+            ->values();
+    }
+
+    private function scheduleAppliesToWeek(StudentCourseSchedule $schedule, int $selectedWeek): bool
+    {
+        $weekStart = $this->scheduleWeekStart($schedule);
+        $weekEnd = $this->scheduleWeekEnd($schedule);
+
+        if ($weekStart !== null && $selectedWeek < $weekStart) {
+            return false;
+        }
+
+        if ($weekEnd !== null && $selectedWeek > $weekEnd) {
+            return false;
+        }
+
+        $pattern = trim((string) ($schedule->week_pattern ?? ''));
+        if ($pattern === 'odd' && $selectedWeek % 2 === 0) {
+            return false;
+        }
+
+        if ($pattern === 'even' && $selectedWeek % 2 === 1) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function scheduleWeekday(StudentCourseSchedule $schedule): ?int
+    {
+        $weekday = $schedule->weekday ?? $schedule->xqj;
+
+        return $weekday ?: $this->weekdayFromScheduleText($schedule->sksj);
+    }
+
+    private function schedulePeriodStart(StudentCourseSchedule $schedule): ?int
+    {
+        if ($schedule->period_start !== null) {
+            return $schedule->period_start;
+        }
+
+        if ($schedule->jc !== null && preg_match('/^(\d+)/', (string) $schedule->jc, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return $this->periodRangeFromScheduleText($schedule->sksj)[0];
+    }
+
+    private function schedulePeriodEnd(StudentCourseSchedule $schedule): ?int
+    {
+        if ($schedule->period_end !== null) {
+            return $schedule->period_end;
+        }
+
+        if ($schedule->jc !== null && preg_match('/(\d+)$/', (string) $schedule->jc, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return $this->periodRangeFromScheduleText($schedule->sksj)[1];
+    }
+
+    private function scheduleWeekStart(StudentCourseSchedule $schedule): ?int
+    {
+        return $schedule->week_start ?: $this->weekRangeFromScheduleText($schedule->sksj)[0];
+    }
+
+    private function scheduleWeekEnd(StudentCourseSchedule $schedule): ?int
+    {
+        return $schedule->week_end ?: $this->weekRangeFromScheduleText($schedule->sksj)[1];
+    }
+
+    private function periodLabel(StudentCourseSchedule $schedule): string
+    {
+        $start = $this->schedulePeriodStart($schedule);
+        $end = $this->schedulePeriodEnd($schedule);
+
+        if ($start === null) {
+            return $schedule->jc ?: '-';
+        }
+
+        return $start === $end ? "第{$start}节" : "第{$start}-{$end}节";
+    }
+
+    private function weekdayFromScheduleText(?string $scheduleText): ?int
+    {
+        $scheduleText = (string) $scheduleText;
+        if (preg_match('/星期([一二三四五六日天])/u', $scheduleText, $matches) !== 1) {
+            return null;
+        }
+
+        return match ($matches[1]) {
+            '一' => 1,
+            '二' => 2,
+            '三' => 3,
+            '四' => 4,
+            '五' => 5,
+            '六' => 6,
+            '日', '天' => 7,
+            default => null,
+        };
+    }
+
+    /**
+     * @return array{0:?int, 1:?int}
+     */
+    private function periodRangeFromScheduleText(?string $scheduleText): array
+    {
+        $scheduleText = (string) $scheduleText;
+
+        if (preg_match('/第(\d+)(?:-(\d+))?节/u', $scheduleText, $matches) !== 1) {
+            return [null, null];
+        }
+
+        $start = (int) $matches[1];
+        $end = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : $start;
+
+        return [$start, $end];
+    }
+
+    /**
+     * @return array{0:?int, 1:?int}
+     */
+    private function weekRangeFromScheduleText(?string $scheduleText): array
+    {
+        $scheduleText = (string) $scheduleText;
+
+        if (preg_match('/(\d+)-(\d+)周(?:\(([单双])\))?/u', $scheduleText, $matches) === 1) {
+            return [(int) $matches[1], (int) $matches[2]];
+        }
+
+        if (preg_match('/(\d+)周(?:\(([单双])\))?/u', $scheduleText, $matches) === 1) {
+            return [(int) $matches[1], (int) $matches[1]];
+        }
+
+        return [null, null];
+    }
+
+    private function formatSemesterLabel(string $semester): string
+    {
+        if (preg_match('/^(\d{4}-\d{4})-(\d)$/', $semester, $matches) === 1) {
+            return $matches[1].' 学年第'.$matches[2].'学期';
+        }
+
+        return $semester;
+    }
+
+    private function resolveDefaultSemester(Collection $semesterOptions): string
+    {
+        $normalized = $semesterOptions
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn (string $value) => $value !== '')
+            ->unique()
+            ->values();
+
+        if ($normalized->isEmpty()) {
+            return '';
+        }
+
+        $today = now();
+        $currentSemester = $this->currentSemesterByDate($today);
+        if ($currentSemester !== '' && $normalized->contains($currentSemester)) {
+            return $currentSemester;
+        }
+
+        $candidates = $normalized
+            ->map(function (string $semester) use ($today) {
+                $startDate = $this->semesterStartDate($semester);
+                if (! $startDate) {
+                    return null;
+                }
+
+                return [
+                    'semester' => $semester,
+                    'distance' => abs($startDate->startOfDay()->diffInDays($today->startOfDay(), false)),
+                ];
+            })
+            ->filter()
+            ->sortBy('distance')
+            ->values();
+
+        if ($candidates->isNotEmpty()) {
+            return (string) $candidates->first()['semester'];
+        }
+
+        return (string) ($normalized->first() ?? '');
+    }
+
+    private function currentSemesterByDate(Carbon $date): string
+    {
+        $year = (int) $date->year;
+        $month = (int) $date->month;
+
+        if ($month >= 3 && $month <= 8) {
+            return ($year - 1).'-'.$year.'-1';
+        }
+
+        if ($month >= 9) {
+            return $year.'-'.($year + 1).'-2';
+        }
+
+        return ($year - 1).'-'.$year.'-2';
+    }
+
+    /**
+     * @return array{0:int, 1:int}
+     */
+    private function scheduleWeekBounds(Collection $semesterSchedules): array
+    {
+        $starts = $semesterSchedules
+            ->map(fn (StudentCourseSchedule $schedule) => $this->scheduleWeekStart($schedule))
+            ->filter(fn (?int $week) => $week !== null)
+            ->values();
+
+        $ends = $semesterSchedules
+            ->map(fn (StudentCourseSchedule $schedule) => $this->scheduleWeekEnd($schedule))
+            ->filter(fn (?int $week) => $week !== null)
+            ->values();
+
+        $minWeek = (int) ($starts->min() ?? 1);
+        $maxWeek = (int) ($ends->max() ?? $minWeek);
+
+        if ($maxWeek < $minWeek) {
+            $maxWeek = $minWeek;
+        }
+
+        return [max(1, $minWeek), max(1, $maxWeek)];
+    }
+
+    private function defaultWeekForSemester(string $semester, int $minWeek, int $maxWeek): int
+    {
+        $startDate = $this->semesterStartDate($semester);
+        if (! $startDate) {
+            return $minWeek;
+        }
+
+        $days = $startDate->startOfDay()->diffInDays(now()->startOfDay(), false);
+        $week = $days < 0 ? 1 : intdiv($days, 7) + 1;
+
+        return max($minWeek, min($maxWeek, $week));
+    }
+
+    private function semesterStartDate(string $semester): ?Carbon
+    {
+        $configured = config('semester.start_dates', []);
+        if (isset($configured[$semester]) && is_string($configured[$semester])) {
+            try {
+                return Carbon::parse($configured[$semester]);
+            } catch (\Throwable) {
+                // Ignore invalid config and fall back to rule-based date.
+            }
+        }
+
+        if (preg_match('/^(\d{4})-(\d{4})-(\d)$/', $semester, $matches) !== 1) {
+            return null;
+        }
+
+        $firstYear = (int) $matches[1];
+        $secondYear = (int) $matches[2];
+        $term = (int) $matches[3];
+
+        return match ($term) {
+            1 => Carbon::create($secondYear, 3, 1),
+            2 => Carbon::create($firstYear, 9, 1),
+            default => null,
+        };
+    }
+
+    private function buildGradesBySemester(Collection $grades): Collection
+    {
+        return $grades
+            ->groupBy('xnxq')
+            ->map(function (Collection $rows, string $semester) {
+                $items = $rows->map(function (StudentCourseGrade $grade) {
+                    return [
+                        'id' => $grade->id,
+                        'kcbm' => $grade->kcbm,
+                        'kcmc' => $grade->kcmc ?: $grade->kcbm,
+                        'cj' => $grade->cj,
+                        'jd' => $grade->jd,
+                        'xf' => $grade->xf,
+                        'ksxz' => $grade->ksxz,
+                        'is_passed' => $this->isPassedGrade($grade),
+                    ];
+                })->values();
+
+                return [
+                    'semester' => $semester,
+                    'semester_label' => $this->formatSemesterLabel($semester),
+                    'total_credits' => round((float) $rows->sum('xf'), 2),
+                    'total_grade_points' => round((float) $rows->reduce(function (float $carry, StudentCourseGrade $grade) {
+                        return $carry + ((float) ($grade->jd ?? 0)) * ((float) ($grade->xf ?? 0));
+                    }, 0.0), 2),
+                    'earned_credits' => round((float) $rows->filter(fn (StudentCourseGrade $grade) => $this->isPassedGrade($grade))->sum('xf'), 2),
+                    'items' => $items,
+                ];
+            })
+            ->sortByDesc('semester')
+            ->values();
+    }
+
+    private function earnedCreditsTotal(Collection $grades): float
+    {
+        $passedByCourse = $grades
+            ->filter(fn (StudentCourseGrade $grade) => $this->isPassedGrade($grade))
+            ->groupBy('kcbm')
+            ->map(fn (Collection $rows) => (float) $rows->max('xf'));
+
+        return round((float) $passedByCourse->sum(), 2);
+    }
+
+    private function averageGpa(Collection $grades): ?float
+    {
+        $valid = $grades->filter(function (StudentCourseGrade $grade) {
+            return $grade->jd !== null && $grade->xf !== null && (float) $grade->xf > 0;
+        });
+
+        $totalCredits = (float) $valid->sum('xf');
+        if ($totalCredits <= 0) {
+            return null;
+        }
+
+        $totalGradePoints = (float) $valid->reduce(function (float $carry, StudentCourseGrade $grade) {
+            return $carry + ((float) $grade->jd) * ((float) $grade->xf);
+        }, 0.0);
+
+        return round($totalGradePoints / $totalCredits, 2);
+    }
+
+    private function isPassedGrade(StudentCourseGrade $grade): bool
+    {
+        $score = trim((string) ($grade->cj ?? ''));
+
+        if ($score !== '' && is_numeric($score)) {
+            return (float) $score >= 60;
+        }
+
+        $passKeywords = ['合格', '通过', '及格', 'pass', 'p'];
+        $normalized = mb_strtolower($score);
+        foreach ($passKeywords as $keyword) {
+            if ($normalized === mb_strtolower($keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function buildCompanionInsights(string $studentXgh): Collection

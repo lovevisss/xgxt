@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 
 const props = defineProps({
     student: { type: Object, required: true },
@@ -12,7 +12,21 @@ const props = defineProps({
     currentMedicalInsurance: { type: Object, default: null },
     safetyInsurances: { type: Array, default: () => [] },
     currentSafetyInsurance: { type: Object, default: null },
+    physicalTests: { type: Array, default: () => [] },
     currentYear: { type: Number, default: () => new Date().getFullYear() },
+    dormitory: { type: Object, default: null },
+    dormitorySummary: { type: Object, default: () => ({}) },
+    roommates: { type: Array, default: () => [] },
+    selectedSemester: { type: String, default: '' },
+    semesterLabel: { type: String, default: '' },
+    selectedWeek: { type: Number, default: 1 },
+    weekLabel: { type: String, default: '' },
+    prevWeekUrl: { type: String, default: null },
+    nextWeekUrl: { type: String, default: null },
+    weeklySchedule: { type: Array, default: () => [] },
+    gradesBySemester: { type: Array, default: () => [] },
+    earnedCreditsTotal: { type: Number, default: 0 },
+    averageGpa: { type: Number, default: null },
     recentPasses: { type: Array, default: () => [] },
     companionInsights: { type: Array, default: () => [] },
     canUpdateFamilies: { type: Boolean, default: false },
@@ -23,6 +37,8 @@ const editing = ref(null);
 const saving = ref(false);
 const notice = ref({ text: '', type: 'info' });
 const activeInsuranceTab = ref('medical');
+const scheduleVisible = ref(true);
+const gradeVisible = ref(true);
 const form = ref({
     id: '',
     name: '',
@@ -70,6 +86,14 @@ function money(value) {
     return number.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function scoreText(value) {
+    if (value === null || value === undefined || value === '') {
+        return '-';
+    }
+
+    return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
 function medicalCovered(record) {
     if (!record) {
         return false;
@@ -109,6 +133,145 @@ function directionText(direction) {
     return direction || '-';
 }
 
+function studentStatusText(status) {
+    return status === 'lost' ? '失联' : '正常';
+}
+
+function toFixedText(value) {
+    const num = Number(value);
+
+    return Number.isFinite(num) ? num.toFixed(2) : '-';
+}
+
+function gpaText(value) {
+    const num = Number(value);
+
+    return Number.isFinite(num) ? num.toFixed(2) : '-';
+}
+
+const weekDays = [
+    { value: 1, label: '周一' },
+    { value: 2, label: '周二' },
+    { value: 3, label: '周三' },
+    { value: 4, label: '周四' },
+    { value: 5, label: '周五' },
+    { value: 6, label: '周六' },
+    { value: 7, label: '周日' },
+];
+
+const periodTimeMap = {
+    1: '08:30-09:15',
+    2: '09:15-10:00',
+    3: '--:--:--',
+    4: '--:--:--',
+    5: '11:45-12:30',
+    6: '--:--:--',
+    7: '--:--:--',
+    8: '--:--:--',
+    9: '--:--:--',
+    10: '--:--:--',
+    11: '--:--:--',
+    12: '--:--:--',
+};
+
+function weekItems(dayValue) {
+    return props.weeklySchedule.filter((item) => Number(item.weekday) === Number(dayValue));
+}
+
+function weekRangeText(item) {
+    const start = Number(item.week_start || 0);
+    const end = Number(item.week_end || 0);
+
+    if (!start) {
+        return '不限周次';
+    }
+
+    if (start === end) {
+        return `${start}周`;
+    }
+
+    return `${start}-${end}周`;
+}
+
+function normalizePeriod(value) {
+    const period = Number(value || 0);
+
+    return Number.isFinite(period) ? period : 0;
+}
+
+function periodTimeText(period) {
+    return periodTimeMap[period] || '--:--:--';
+}
+
+const weeklyCalendar = computed(() => weekDays.map((day) => {
+    const items = weekItems(day.value)
+        .map((item) => {
+            const start = Math.max(1, Math.min(12, normalizePeriod(item.period_start)));
+            const endRaw = normalizePeriod(item.period_end) || start;
+            const end = Math.max(start, Math.min(12, endRaw));
+
+            return {
+                ...item,
+                _start: start,
+                _end: end,
+                _span: end - start + 1,
+            };
+        })
+        .sort((a, b) => a._start - b._start || a._end - b._end);
+
+    const periodCourses = new Map();
+    items.forEach((item) => {
+        for (let period = item._start; period <= item._end; period += 1) {
+            if (!periodCourses.has(period)) {
+                periodCourses.set(period, []);
+            }
+            periodCourses.get(period).push(item);
+        }
+    });
+
+    const slots = [];
+    for (let period = 1; period <= 12; period += 1) {
+        const courses = (periodCourses.get(period) || []).sort((a, b) => a._start - b._start || b._span - a._span);
+        if (courses.length > 0) {
+            slots.push({
+                period,
+                type: 'course',
+                primary: courses[0],
+                isStart: courses[0]._start === period,
+                extras: Math.max(0, courses.length - 1),
+            });
+            continue;
+        }
+
+        slots.push({ period, type: 'empty' });
+    }
+
+    return {
+        ...day,
+        slots,
+    };
+}));
+
+const scheduleScrollKey = 'students.profile.schedule.scrollY';
+
+function rememberScrollPosition() {
+    sessionStorage.setItem(scheduleScrollKey, String(window.scrollY || 0));
+}
+
+onMounted(() => {
+    const raw = sessionStorage.getItem(scheduleScrollKey);
+    if (!raw) {
+        return;
+    }
+
+    const y = Number(raw);
+    sessionStorage.removeItem(scheduleScrollKey);
+
+    if (Number.isFinite(y) && y > 0) {
+        nextTick(() => window.scrollTo(0, y));
+    }
+});
+
 async function saveFamily() {
     if (!editing.value || saving.value) {
         return;
@@ -140,7 +303,7 @@ async function saveFamily() {
 </script>
 
 <template>
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main class="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -153,6 +316,127 @@ async function saveFamily() {
                 <a href="/students" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回学生管理</a>
             </div>
         </header>
+
+        <section id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-950">课表信息</h2>
+                        <p class="mt-1 text-sm text-slate-500">{{ props.semesterLabel || '暂无学期' }} / {{ props.weekLabel || `第${props.selectedWeek || 1}周` }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="scheduleVisible = !scheduleVisible">
+                            {{ scheduleVisible ? '收起课表' : '展开课表' }}
+                        </button>
+                        <template v-if="scheduleVisible">
+                            <a v-if="props.prevWeekUrl" :href="props.prevWeekUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="rememberScrollPosition">上周</a>
+                            <button v-else type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-400" disabled>上周</button>
+                            <a v-if="props.nextWeekUrl" :href="props.nextWeekUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="rememberScrollPosition">下周</a>
+                            <button v-else type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-400" disabled>下周</button>
+                        </template>
+                    </div>
+                </div>
+
+                <div v-if="scheduleVisible" class="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div class="mb-2 grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
+                        <div class="text-xs font-semibold text-slate-500">节次 / 时间</div>
+                        <div v-for="day in weeklyCalendar" :key="`header-${day.value}`" class="text-sm font-semibold text-slate-900 text-center">{{ day.label }}</div>
+                    </div>
+
+                    <div class="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
+                        <div class="grid gap-1" style="grid-template-rows: repeat(12, 88px);">
+                            <div v-for="period in 12" :key="`time-${period}`" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600">
+                                <p>第{{ period }}节</p>
+                                <p>{{ periodTimeText(period) }}</p>
+                            </div>
+                        </div>
+
+                        <div v-for="day in weeklyCalendar" :key="`day-${day.value}`" class="grid gap-1" style="grid-template-rows: repeat(12, 88px);">
+                            <template v-for="slot in day.slots" :key="`${day.value}-${slot.period}`">
+                                <article
+                                    v-if="slot.type === 'course' && slot.isStart"
+                                    class="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 shadow-sm"
+                                    :style="{ gridRow: `${slot.period} / span ${slot.primary._span}` }"
+                                >
+                                    <h4 class="text-xs font-semibold text-slate-900">{{ slot.primary.course_name || '-' }}</h4>
+                                    <p class="mt-0.5 text-[11px] text-slate-600">{{ slot.primary.period_label || '-' }} / {{ weekRangeText(slot.primary) }}</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-600">教师：{{ slot.primary.teacher_name || '-' }}</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-600">地点：{{ slot.primary.location || '-' }}</p>
+                                    <p v-if="slot.extras > 0" class="mt-0.5 text-[11px] text-amber-700">同节次另有 {{ slot.extras }} 门课</p>
+                                </article>
+                                <div
+                                    v-else-if="slot.type === 'empty'"
+                                    class="rounded-md border border-dashed border-slate-300 bg-white"
+                                    :style="{ gridRow: `${slot.period} / span 1` }"
+                                />
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-950">成绩信息</h2>
+                        <p class="mt-1 text-sm text-slate-500">学业统计</p>
+                    </div>
+                    <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="gradeVisible = !gradeVisible">
+                        {{ gradeVisible ? '收起成绩' : '展开成绩' }}
+                    </button>
+                </div>
+
+                <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p class="text-xs text-slate-500">已获得学分</p>
+                        <p class="text-xl font-bold text-slate-950">{{ toFixedText(props.earnedCreditsTotal) }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p class="text-xs text-slate-500">平均绩点（GPA）</p>
+                        <p class="text-xl font-bold text-slate-950">{{ gpaText(props.averageGpa) }}</p>
+                    </div>
+                </div>
+
+                <div v-if="gradeVisible" class="space-y-3">
+                    <details v-for="semester in props.gradesBySemester" :key="semester.semester" class="rounded-lg border border-slate-200 bg-slate-50" open>
+                        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+                            {{ semester.semester_label }}（总绩点：{{ toFixedText(semester.total_grade_points) }} / 总学分：{{ toFixedText(semester.total_credits) }} / 已获学分：{{ toFixedText(semester.earned_credits) }}）
+                        </summary>
+                        <div class="overflow-x-auto border-t border-slate-200 bg-white">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-slate-50 text-slate-600">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">课程代码</th>
+                                        <th class="px-3 py-2 text-left">课程名称</th>
+                                        <th class="px-3 py-2 text-left">成绩</th>
+                                        <th class="px-3 py-2 text-left">绩点</th>
+                                        <th class="px-3 py-2 text-left">学分</th>
+                                        <th class="px-3 py-2 text-left">考试性质</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr v-for="grade in semester.items" :key="grade.id">
+                                        <td class="px-3 py-2">{{ grade.kcbm || '-' }}</td>
+                                        <td class="px-3 py-2">{{ grade.kcmc || '-' }}</td>
+                                        <td class="px-3 py-2">{{ grade.cj || '-' }}</td>
+                                        <td class="px-3 py-2">{{ toFixedText(grade.jd) }}</td>
+                                        <td class="px-3 py-2">{{ toFixedText(grade.xf) }}</td>
+                                        <td class="px-3 py-2">{{ grade.ksxz || '-' }}</td>
+                                    </tr>
+                                    <tr v-if="!semester.items.length">
+                                        <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无成绩记录</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+
+                    <div v-if="!props.gradesBySemester.length" class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+                        暂无成绩数据
+                    </div>
+                </div>
+            </section>
+
+            <div class="space-y-6">
 
         <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">基础信息</h2>
@@ -182,6 +466,78 @@ async function saveFamily() {
                         {{ safetyStatusText(props.currentSafetyInsurance) }}
                     </span>
                 </div>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-3 text-lg font-semibold text-slate-950">住宿信息</h2>
+            <div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                    <span class="text-slate-500">宿舍号：</span>
+                    <a v-if="props.dormitory?.ssh" class="text-sky-700 hover:underline" :href="`/students/dormitories/${encodeURIComponent(props.dormitory.ssh)}`">{{ props.dormitory.ssh }}</a>
+                    <span v-else>-</span>
+                </div>
+                <div><span class="text-slate-500">床位号：</span>{{ props.dormitory?.ch || '-' }}</div>
+                <div><span class="text-slate-500">寝室类型：</span>{{ props.dormitory?.qslx || '-' }}</div>
+            </div>
+
+            <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">同宿舍人数</p>
+                    <p class="text-xl font-bold text-slate-950">{{ props.dormitorySummary.roommate_total || 0 }}</p>
+                </div>
+                <div class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                    <p class="text-xs text-rose-600">同宿舍失联人数</p>
+                    <p class="text-xl font-bold text-rose-700">{{ props.dormitorySummary.lost_roommate_count || 0 }}</p>
+                </div>
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p class="text-xs text-amber-700">同宿舍高风险人数</p>
+                    <p class="text-xl font-bold text-amber-700">{{ props.dormitorySummary.high_risk_roommate_count || 0 }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-3">
+                    <p class="text-xs text-slate-500">宿舍总人数</p>
+                    <p class="text-xl font-bold text-slate-950">{{ props.dormitorySummary.resident_total || 0 }}</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学号</th>
+                            <th class="px-3 py-2 text-left">姓名</th>
+                            <th class="px-3 py-2 text-left">学院</th>
+                            <th class="px-3 py-2 text-left">专业</th>
+                            <th class="px-3 py-2 text-left">班级</th>
+                            <th class="px-3 py-2 text-left">床位</th>
+                            <th class="px-3 py-2 text-left">最近刷码</th>
+                            <th class="px-3 py-2 text-left">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="mate in props.roommates" :key="mate.xh">
+                            <td class="px-3 py-2">
+                                <a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xh }}</a>
+                            </td>
+                            <td class="px-3 py-2">
+                                <a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xm || '-' }}</a>
+                            </td>
+                            <td class="px-3 py-2">{{ mate.xy || '-' }}</td>
+                            <td class="px-3 py-2">{{ mate.zy || '-' }}</td>
+                            <td class="px-3 py-2">{{ mate.bj || '-' }}</td>
+                            <td class="px-3 py-2">{{ mate.ch || '-' }}</td>
+                            <td class="px-3 py-2">{{ mate.last_smsj || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="mate.status === 'lost' ? 'bg-rose-100 text-rose-700' : mate.is_high_risk ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'">
+                                    {{ studentStatusText(mate.status) }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr v-if="!props.roommates.length">
+                            <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无舍友信息</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
@@ -360,6 +716,42 @@ async function saveFamily() {
 
         <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">体测成绩</h2>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学年</th>
+                            <th class="px-3 py-2 text-left">总分</th>
+                            <th class="px-3 py-2 text-left">性别</th>
+                            <th class="px-3 py-2 text-left">院系</th>
+                            <th class="px-3 py-2 text-left">班级</th>
+                            <th class="px-3 py-2 text-left">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.physicalTests" :key="item.id">
+                            <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">{{ scoreText(item.score) }}</span>
+                            </td>
+                            <td class="px-3 py-2">{{ item.gender || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.college || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.class_name || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.remark || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.physicalTests.length">
+                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无体测成绩</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -526,6 +918,7 @@ async function saveFamily() {
                 </table>
             </div>
         </section>
+            </div>
 
         <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="closeEdit">
             <form class="w-full max-w-2xl rounded-lg bg-white p-5 shadow-xl" @submit.prevent="saveFamily">

@@ -17,6 +17,8 @@ class SyncStudentFamiliesFromMiddata extends Command
         $totalRead = 0;
         $totalUpserted = 0;
         $chunkSize = 2000;
+        $progressStep = 5000;
+        $lastLogged = 0;
         $overwriteLocal = (bool) $this->option('overwrite-local');
 
         DB::connection('middata')
@@ -35,7 +37,7 @@ class SyncStudentFamiliesFromMiddata extends Command
             ->where('stu_no', '!=', '')
             ->orderBy('stu_no')
             ->orderBy('name')
-            ->chunk($chunkSize, function ($rows) use (&$totalRead, &$totalUpserted, $overwriteLocal) {
+            ->chunk($chunkSize, function ($rows) use (&$totalRead, &$totalUpserted, &$lastLogged, $progressStep, $overwriteLocal) {
                 $totalRead += $rows->count();
                 $now = now();
 
@@ -115,6 +117,11 @@ class SyncStudentFamiliesFromMiddata extends Command
                 );
 
                 $totalUpserted += count($upsertRows);
+
+                if ($totalUpserted - $lastLogged >= $progressStep) {
+                    $lastLogged = $totalUpserted;
+                    $this->info("已同步: {$totalUpserted} 条...");
+                }
             });
 
         $elapsed = round(microtime(true) - $startedAt, 2);
