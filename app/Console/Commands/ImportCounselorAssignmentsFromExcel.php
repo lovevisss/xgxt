@@ -95,10 +95,11 @@ class ImportCounselorAssignmentsFromExcel extends Command
                     $match = $this->matchClass($className);
                     CounselorClassAssignment::query()->updateOrCreate(
                         [
-                            'user_id' => $user->id,
+                            'counselor_cas_username' => $user->cas_username,
                             'normalized_class_name' => CounselorClassAssignment::normalizeClassName($className),
                         ],
                         [
+                            'user_id' => $user->id,
                             'class_code' => $match['class_code'],
                             'class_name' => $match['class_name'] ?: $className,
                             'college_code' => $collegeCode,
@@ -189,10 +190,28 @@ class ImportCounselorAssignmentsFromExcel extends Command
             return null;
         }
 
-        return Student::query()
+        $exactCode = Student::query()
             ->where('dwmc', $collegeName)
             ->whereNotNull('dwbm')
             ->value('dwbm');
+
+        if ($exactCode) {
+            return $exactCode;
+        }
+
+        $containedCode = Student::query()
+            ->where('dwmc', 'like', "%{$collegeName}%")
+            ->whereNotNull('dwbm')
+            ->value('dwbm');
+
+        if ($containedCode) {
+            return $containedCode;
+        }
+
+        return match ($collegeName) {
+            '法律与社会工作学院' => '100306',
+            default => null,
+        };
     }
 
     private function cell(array $row, ?int $index): string

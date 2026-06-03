@@ -103,10 +103,23 @@ class CounselorAssignmentController extends Controller
             'office_location' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $originalCasUsername = $user->cas_username;
         $user->fill($validated);
         $user->role = User::ROLE_COUNSELOR;
         $user->email = $validated['cas_username'].'@counselor.local';
         $user->save();
+
+        if ($originalCasUsername !== $user->cas_username) {
+            CounselorClassAssignment::query()
+                ->where(function ($query) use ($originalCasUsername, $user) {
+                    $query->where('user_id', $user->id);
+
+                    if (filled($originalCasUsername)) {
+                        $query->orWhere('counselor_cas_username', $originalCasUsername);
+                    }
+                })
+                ->update(['counselor_cas_username' => $user->cas_username]);
+        }
 
         return response()->json(['data' => $this->userPayload($user)]);
     }
@@ -143,7 +156,12 @@ class CounselorAssignmentController extends Controller
             ->whereNotNull('bjmc')
             ->where('bjmc', '!=', '')
             ->when($target?->dwbm, fn ($query) => $query->where('dwbm', $target->dwbm))
-            ->when(! $target?->dwbm && $target?->dwmc, fn ($query) => $query->where('dwmc', $target->dwmc))
+            ->when(! $target?->dwbm && $target?->dwmc, function ($query) use ($target) {
+                $query->where(function ($subQuery) use ($target) {
+                    $subQuery->where('dwmc', $target->dwmc)
+                        ->orWhere('dwmc', 'like', "%{$target->dwmc}%");
+                });
+            })
             ->where(function ($query) use ($cohorts) {
                 foreach ($cohorts as $cohort) {
                     $query->orWhere('bjmc', 'like', "{$cohort}%")
@@ -198,10 +216,11 @@ class CounselorAssignmentController extends Controller
 
         $assignment = CounselorClassAssignment::query()->updateOrCreate(
             [
-                'user_id' => $user->id,
+                'counselor_cas_username' => $user->cas_username,
                 'normalized_class_name' => CounselorClassAssignment::normalizeClassName($validated['class_name']),
             ],
             [
+                'user_id' => $user->id,
                 'class_code' => $class?->bjbm ?: ($validated['class_code'] ?? null),
                 'class_name' => $class?->bjmc ?: $validated['class_name'],
                 'college_code' => $user->dwbm,
@@ -216,7 +235,14 @@ class CounselorAssignmentController extends Controller
     public function removeClass(User $user, CounselorClassAssignment $assignment): JsonResponse
     {
         $this->authorizeAdmin();
-        abort_unless($user->isCounselor() && (int) $assignment->user_id === (int) $user->id, 404);
+        abort_unless(
+            $user->isCounselor()
+            && (
+                (string) $assignment->counselor_cas_username === (string) $user->cas_username
+                || (int) $assignment->user_id === (int) $user->id
+            ),
+            404
+        );
         $assignment->delete();
 
         return response()->json(['message' => '带班关系已移除']);
@@ -256,6 +282,7 @@ class CounselorAssignmentController extends Controller
     {
         return [
             'id' => $assignment->id,
+            'counselor_cas_username' => $assignment->counselor_cas_username,
             'class_code' => $assignment->class_code,
             'class_name' => $assignment->class_name,
             'college_code' => $assignment->college_code,

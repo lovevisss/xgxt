@@ -9,6 +9,7 @@ class CounselorClassAssignment extends Model
 {
     protected $fillable = [
         'user_id',
+        'counselor_cas_username',
         'class_code',
         'class_name',
         'normalized_class_name',
@@ -19,7 +20,7 @@ class CounselorClassAssignment extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'counselor_cas_username', 'cas_username');
     }
 
     public static function normalizeClassName(?string $value): string
