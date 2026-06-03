@@ -8,6 +8,7 @@ const props = defineProps({
     punishments: { type: Array, default: () => [] },
     loans: { type: Array, default: () => [] },
     supportRecipients: { type: Array, default: () => [] },
+    educationHistories: { type: Array, default: () => [] },
     medicalInsurances: { type: Array, default: () => [] },
     currentMedicalInsurance: { type: Object, default: null },
     safetyInsurances: { type: Array, default: () => [] },
@@ -466,6 +467,33 @@ async function saveFamily() {
                         {{ safetyStatusText(props.currentSafetyInsurance) }}
                     </span>
                 </div>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-3 text-lg font-semibold text-slate-950">大学前教育经历</h2>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">阶段</th>
+                            <th class="px-3 py-2 text-left">开始时间</th>
+                            <th class="px-3 py-2 text-left">结束时间</th>
+                            <th class="px-3 py-2 text-left">学校</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.educationHistories" :key="item.id">
+                            <td class="px-3 py-2">{{ item.qualifications || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.start_year || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.end_year || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.school_name || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.educationHistories.length">
+                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无教育经历</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 

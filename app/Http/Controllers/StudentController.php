@@ -12,6 +12,7 @@ use App\Models\StudentFamily;
 use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
 use App\Models\StudentDormitory;
+use App\Models\StudentEducationHistory;
 use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
@@ -28,6 +29,7 @@ class StudentController extends Controller
     public function index()
     {
         $baseQuery = Student::where('rylx', '0');
+        $this->applyStudentVisibility($baseQuery);
         $query = clone $baseQuery;
         $now = now();
         $lostThreshold = $now->copy()->subDays(7);
@@ -133,6 +135,7 @@ class StudentController extends Controller
             ->where('rylx', '0')
             ->whereNotNull('bjbm')
             ->where('bjbm', '!=', '');
+        $this->applyStudentVisibility($baseQuery);
 
         $gradeTotals = (clone $baseQuery)
             ->selectRaw("{$gradeExpr} as grade_code, COUNT(*) as total_count")
@@ -296,6 +299,7 @@ class StudentController extends Controller
     public function profile($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
+        abort_unless($this->canViewStudent($student), 403, 'Only assigned counselors or admins can view this student.');
         $families = StudentFamily::query()
             ->where('stu_no', $xgh)
             ->orderByDesc('is_emergency_contact')
@@ -321,6 +325,14 @@ class StudentController extends Controller
             ->where('student_xgh', $xgh)
             ->orderByDesc('academic_year')
             ->get();
+        $educationHistories = Schema::hasTable('student_education_histories')
+            ? StudentEducationHistory::query()
+                ->where('stu_no', $xgh)
+                ->orderByRaw('sort IS NULL')
+                ->orderBy('sort')
+                ->orderByDesc('start_year')
+                ->get()
+            : collect();
         $currentYear = (int) now()->year;
         $medicalInsurances = Schema::hasTable('student_medical_insurances')
             ? StudentMedicalInsurance::query()
@@ -407,6 +419,7 @@ class StudentController extends Controller
             'punishments' => $punishments,
             'loans' => $loans,
             'supportRecipients' => $supportRecipients,
+            'educationHistories' => $educationHistories,
             'medicalInsurances' => $medicalInsurances,
             'currentMedicalInsurance' => $medicalInsurances->firstWhere('annual_year', $currentYear),
             'safetyInsurances' => $safetyInsurances,
@@ -979,6 +992,7 @@ class StudentController extends Controller
     public function show($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
+        abort_unless($this->canViewStudent($student), 403, 'Only assigned counselors or admins can view this student.');
 
         return response()->json($student);
     }
@@ -987,6 +1001,7 @@ class StudentController extends Controller
     public function update($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
+        abort_unless(! config('cas.enabled') || (bool) CurrentUser::get()?->isAdmin(), 403, 'Only admins can update student records.');
         $excludeUntil = request('exclude_until');
 
         $student->fill(request()->only([
@@ -999,5 +1014,52 @@ class StudentController extends Controller
         $student->save();
 
         return response()->json($student);
+    }
+
+    private function applyStudentVisibility($query): void
+    {
+        $user = CurrentUser::get();
+        if (! config('cas.enabled') || $user === null || $user->isAdmin()) {
+            return;
+        }
+
+        if (! $user->isCounselor()) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $assignments = $user->classAssignments()->get(['class_code', 'normalized_class_name']);
+        $classCodes = $assignments->pluck('class_code')->filter()->unique()->values();
+        $classNames = $assignments->pluck('normalized_class_name')->filter()->unique()->values();
+
+        if ($classCodes->isEmpty() && $classNames->isEmpty()) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where(function ($subQuery) use ($classCodes, $classNames) {
+            if ($classCodes->isNotEmpty()) {
+                $subQuery->whereIn('bjbm', $classCodes->all());
+            }
+
+            if ($classNames->isNotEmpty()) {
+                foreach ($classNames as $className) {
+                    $subQuery->orWhere('bjmc', 'like', '%'.$className.'%');
+                }
+            }
+        });
+    }
+
+    private function canViewStudent(Student $student): bool
+    {
+        $user = CurrentUser::get();
+
+        if (! config('cas.enabled') || $user === null) {
+            return true;
+        }
+
+        return $user->canViewStudent($student);
     }
 }

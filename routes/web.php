@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CasAuthController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\CounselorAssignmentController;
 use App\Http\Controllers\SnippetController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDataImportController;
@@ -44,6 +45,16 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/student-support/import', [StudentDataImportController::class, 'redirectPage'])->name('student-support.import.page');
     Route::get('/student-support/import/template', [StudentDataImportController::class, 'template'])->defaults('type', 'support')->name('student-support.import.template');
     Route::post('/student-support/import', [StudentDataImportController::class, 'import'])->defaults('type', 'support')->name('student-support.import');
+
+    Route::get('/counselors', [CounselorAssignmentController::class, 'page'])->name('counselors.page');
+    Route::get('/counselors/data', [CounselorAssignmentController::class, 'index'])->name('counselors.index');
+    Route::post('/counselors/data', [CounselorAssignmentController::class, 'store'])->name('counselors.store');
+    Route::get('/counselors/classes', [CounselorAssignmentController::class, 'classes'])->name('counselors.classes');
+    Route::get('/counselors/{user}', [CounselorAssignmentController::class, 'show'])->name('counselors.show');
+    Route::put('/counselors/{user}', [CounselorAssignmentController::class, 'update'])->name('counselors.update');
+    Route::delete('/counselors/{user}', [CounselorAssignmentController::class, 'destroy'])->name('counselors.destroy');
+    Route::post('/counselors/{user}/classes', [CounselorAssignmentController::class, 'addClass'])->name('counselors.classes.add');
+    Route::delete('/counselors/{user}/classes/{assignment}', [CounselorAssignmentController::class, 'removeClass'])->name('counselors.classes.remove');
 
     Route::middleware('super-admin.auth')->group(function (): void {
         Route::get('/admin/users', [AdminUserController::class, 'page'])->name('admin.users.page');

@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -33,6 +34,9 @@ class User extends Authenticatable
         'role',
         'dwbm',
         'dwmc',
+        'phone',
+        'office_phone',
+        'office_location',
     ];
 
     /**
@@ -83,5 +87,40 @@ class User extends Authenticatable
             && filled($this->dwbm)
             && filled($studentDepartmentCode)
             && (string) $this->dwbm === (string) $studentDepartmentCode;
+    }
+
+    public function classAssignments(): HasMany
+    {
+        return $this->hasMany(CounselorClassAssignment::class);
+    }
+
+    public function canViewStudent(?Student $student): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if (! $this->isCounselor() || ! $student) {
+            return false;
+        }
+
+        $classCode = trim((string) ($student->bjbm ?? ''));
+        $className = CounselorClassAssignment::normalizeClassName($student->bjmc ?? '');
+
+        if ($classCode === '' && $className === '') {
+            return false;
+        }
+
+        return $this->classAssignments()
+            ->where(function ($query) use ($classCode, $className) {
+                if ($classCode !== '') {
+                    $query->where('class_code', $classCode);
+                }
+
+                if ($className !== '') {
+                    $query->orWhere('normalized_class_name', $className);
+                }
+            })
+            ->exists();
     }
 }

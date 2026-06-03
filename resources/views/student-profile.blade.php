@@ -11,6 +11,7 @@
         "punishments" => $punishments,
         "loans" => $loans,
         "supportRecipients" => $supportRecipients,
+        "educationHistories" => $educationHistories,
         "medicalInsurances" => $medicalInsurances,
         "currentMedicalInsurance" => $currentMedicalInsurance,
         "safetyInsurances" => $safetyInsurances,
