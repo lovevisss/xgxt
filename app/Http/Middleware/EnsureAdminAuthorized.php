@@ -17,7 +17,7 @@ class EnsureAdminAuthorized
 
         $user = CurrentUser::get();
 
-        if ($user && $user->isAdmin()) {
+        if ($user && ($user->isAdmin() || $user->isCounselor())) {
             return $next($request);
         }
 
@@ -32,4 +32,3 @@ class EnsureAdminAuthorized
         ], 403);
     }
 }
-

@@ -9,7 +9,10 @@ use App\Models\StudentMedicalInsurance;
 use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
+use App\Models\StudentImportTask;
 use App\Models\StudentSupportRecipient;
+use App\Jobs\ImportStudentFamilyContacts;
+use App\Services\StudentFamilyManualImportService;
 use App\Services\StudentImportWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,7 +24,11 @@ use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support', 'medical_insurance', 'safety_insurance', 'physical_test'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test'];
+
+    public function __construct(private readonly StudentFamilyManualImportService $familyImport)
+    {
+    }
 
     public function page()
     {
@@ -49,6 +56,33 @@ class StudentDataImportController extends Controller
             'source' => ['nullable', 'string', 'max:64'],
         ]);
 
+        if ($type === 'family') {
+            if ($request->boolean('async')) {
+                $path = $request->file('file')->store('student-imports');
+                $task = StudentImportTask::query()->create([
+                    'type' => 'family',
+                    'status' => StudentImportTask::STATUS_QUEUED,
+                    'original_name' => $request->file('file')->getClientOriginalName(),
+                    'path' => $path,
+                    'result' => ['imported' => 0, 'students' => 0, 'skipped' => 0, 'errors' => []],
+                ]);
+
+                ImportStudentFamilyContacts::dispatch($task->id);
+
+                return response()->json([
+                    'queued' => true,
+                    'task_id' => $task->id,
+                    'status' => $task->status,
+                    'result' => $task->result,
+                ], 202);
+            }
+
+            return response()->json($this->familyImport->import(
+                $request->file('file')->getRealPath(),
+                $request->file('file')->getClientOriginalExtension()
+            ));
+        }
+
         $sheets = $workbook->read($request->file('file')->getRealPath());
 
         return match ($type) {
@@ -64,6 +98,19 @@ class StudentDataImportController extends Controller
     public function redirectPage()
     {
         return redirect()->route('student-imports.page');
+    }
+
+    public function status(StudentImportTask $task)
+    {
+        return response()->json([
+            'id' => $task->id,
+            'type' => $task->type,
+            'status' => $task->status,
+            'result' => $task->result ?? ['imported' => 0, 'students' => 0, 'skipped' => 0, 'errors' => []],
+            'error' => $task->error,
+            'started_at' => optional($task->started_at)->toIso8601String(),
+            'finished_at' => optional($task->finished_at)->toIso8601String(),
+        ]);
     }
 
     public function redirectTemplate(string $type)
@@ -732,6 +779,13 @@ class StudentDataImportController extends Controller
                     ['2', '20250002', '李四', '男', '信息与人工智能学院', '计算机科学与技术', '一般'],
                 ],
             ],
+            'family' => [
+                '家长信息' => [
+                    ['学号', '姓名', '学院', '专业', '班级', '身份证号', '性别', '民族', '政治面貌', '籍贯', '入学前户口', '本人联系手机号', '家庭座机号', 'QQ号', '家庭住址', '户籍地址', '身高', '体重', '家庭成员称谓1', '姓名1', '工作单位1', '职务1', '联系电话1', '家庭成员称谓2', '姓名2', '工作单位2', '职务2', '联系电话2', '家庭成员称谓3', '姓名3', '工作单位3', '职务3', '联系电话3', '家庭成员称谓4', '姓名4', '工作单位4', '职务4', '联系电话4', '备注'],
+                    ['20230001', '张三', '会计学院', '会计学', '23会计1', '330100200501010001', '男', '汉族', '共青团员', '浙江杭州', '城镇', '13800000000', '', '', '浙江省杭州市', '浙江省杭州市', '175', '65', '父亲', '张建国', '杭州某公司', '经理', '13900000001', '母亲', '李芳', '杭州某学校', '教师', '13900000002', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['20230002', '李四', '金融与经贸学院', '经济学', '23经济1', '330100200502020002', '女', '汉族', '群众', '浙江宁波', '农村', '13800000003', '', '', '浙江省宁波市', '浙江省宁波市', '162', '50', '父亲', '李明', '个体经营', '', '13900000003', '母亲', '王丽', '', '', '13900000004', '父亲', '李明', '个体经营', '', '13900000003', '', '', '', '', '', '重复联系人会自动去重'],
+                ],
+            ],
             'medical_insurance' => [
                 '参保缴费名单' => [
                     ['姓名', '学号', '参保地', '参保日期', '险种', '参保状态', '城居参保身份', '年度', '年度是否缴费', '缴费开始年月', '缴费结束年月', '缴费类型'],
@@ -762,6 +816,7 @@ class StudentDataImportController extends Controller
             'award_punishment' => '学生奖惩导入示例.xlsx',
             'loan' => '学生助学贷款导入示例.xlsx',
             'support' => '学生资助对象导入示例.xlsx',
+            'family' => '学生家长信息导入示例.xlsx',
             'medical_insurance' => '大学生医保参保缴费导入示例.xlsx',
             'safety_insurance' => '大学生学平险参保导入示例.xlsx',
             'physical_test' => '学生体测成绩导入示例.xlsx',

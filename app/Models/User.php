@@ -65,7 +65,6 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return true;
         return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
     }
 

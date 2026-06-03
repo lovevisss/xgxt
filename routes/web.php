@@ -31,6 +31,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::put('/student-families/data/{id}', [StudentFamilyController::class, 'update'])->name('student-families.update');
 
     Route::get('/student-imports', [StudentDataImportController::class, 'page'])->name('student-imports.page');
+    Route::get('/student-imports/status/{task}', [StudentDataImportController::class, 'status'])->name('student-imports.status');
     Route::get('/student-imports/template/{type}', [StudentDataImportController::class, 'template'])->name('student-imports.template');
     Route::post('/student-imports/{type}', [StudentDataImportController::class, 'import'])->name('student-imports.import');
 

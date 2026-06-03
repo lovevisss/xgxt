@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 const importTypes = [
     {
@@ -34,6 +34,17 @@ const importTypes = [
         fields: '序号、学号、姓名、性别、二级学院、专业、资助等级',
         note: '按“学号 + 学年”更新，资助等级会显示在学生主页。',
         resultLabels: { imported: '资助对象' },
+    },
+    {
+        key: 'family',
+        title: '家长信息',
+        eyebrow: '历史家校联系单',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/family',
+        template: '/student-imports/template/family',
+        fields: '学号、姓名、家庭成员称谓1-4、姓名1-4、工作单位1-4、职务1-4、联系电话1-4',
+        note: '一行学生内的多个联系人会拆成多条家长记录，写入同一张 student_families 表。',
+        resultLabels: { imported: '联系人', students: '涉及学生', skipped: '跳过行' },
     },
     {
         key: 'medical_insurance',
@@ -78,6 +89,8 @@ const academicYear = ref('2025-2026');
 const source = ref('国开行');
 const notice = ref({ text: '', type: 'info' });
 const result = ref(null);
+const taskId = ref(null);
+const pollingTimer = ref(null);
 
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
@@ -94,7 +107,9 @@ function selectType(key) {
     selectedKey.value = key;
     file.value = null;
     result.value = null;
+    taskId.value = null;
     notice.value = { text: '', type: 'info' };
+    stopPolling();
 }
 
 function chooseFile(event) {
@@ -116,6 +131,9 @@ async function upload() {
 
     const formData = new FormData();
     formData.append('file', file.value);
+    if (selectedKey.value === 'family') {
+        formData.append('async', '1');
+    }
     if (showAnnualYearOptions.value) {
         formData.append('annual_year', annualYear.value);
     }
@@ -151,13 +169,71 @@ async function upload() {
         return;
     }
 
-    result.value = await response.json();
+    const payload = await response.json();
+    if (payload.queued) {
+        taskId.value = payload.task_id;
+        result.value = payload.result || { imported: 0, students: 0, skipped: 0, errors: [] };
+        notice.value = { text: '导入任务已提交，正在后台处理...', type: 'info' };
+        startPolling();
+        return;
+    }
+
+    result.value = payload;
     const hasErrors = (result.value.errors || []).length > 0;
     notice.value = {
         text: hasErrors ? '导入完成，但有部分行未通过校验。' : '导入完成。',
         type: hasErrors ? 'warning' : 'success',
     };
 }
+
+function stopPolling() {
+    if (pollingTimer.value) {
+        window.clearInterval(pollingTimer.value);
+        pollingTimer.value = null;
+    }
+}
+
+function startPolling() {
+    stopPolling();
+    pollingTimer.value = window.setInterval(fetchTaskStatus, 2000);
+    fetchTaskStatus();
+}
+
+async function fetchTaskStatus() {
+    if (!taskId.value) {
+        stopPolling();
+        return;
+    }
+
+    const response = await fetch(`/student-imports/status/${taskId.value}`, {
+        headers: { Accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+        return;
+    }
+
+    const payload = await response.json();
+    result.value = payload.result || result.value || { imported: 0, students: 0, skipped: 0, errors: [] };
+
+    if (payload.status === 'queued') {
+        notice.value = { text: '导入任务排队中，请保持队列进程运行。', type: 'info' };
+    } else if (payload.status === 'running') {
+        notice.value = { text: `正在后台导入，已写入 ${result.value.imported || 0} 条联系人...`, type: 'info' };
+    } else if (payload.status === 'succeeded') {
+        stopPolling();
+        const hasErrors = (result.value.errors || []).length > 0;
+        notice.value = {
+            text: hasErrors ? '导入完成，但有部分行未通过校验。' : '导入完成。',
+            type: hasErrors ? 'warning' : 'success',
+        };
+    } else if (payload.status === 'failed') {
+        stopPolling();
+        notice.value = { text: payload.error || '导入任务失败，请查看日志。', type: 'error' };
+    }
+}
+
+onBeforeUnmount(stopPolling);
 </script>
 
 <template>
@@ -166,7 +242,7 @@ async function upload() {
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
-                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、医保和学平险参保数据，导入后统一展示在学生主页。</p>
+                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、家长信息、医保、学平险和体测数据，导入后统一展示在学生主页。</p>
                 </div>
                 <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
             </div>
