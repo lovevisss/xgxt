@@ -8,9 +8,7 @@ const classOptions = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const notice = ref({ text: '', type: 'info' });
-const classSearch = ref('');
 const selectedClassCode = ref('');
-const manualClassName = ref('');
 const form = ref(emptyForm());
 
 const totalCounselors = computed(() => groups.value.reduce((sum, group) => sum + Number(group.count || 0), 0));
@@ -66,9 +64,7 @@ async function openDetail(counselor) {
         office_phone: detail.value.office_phone || '',
         office_location: detail.value.office_location || '',
     };
-    classSearch.value = '';
     selectedClassCode.value = '';
-    manualClassName.value = '';
     await searchClasses();
 }
 
@@ -104,7 +100,6 @@ function newCounselor() {
     form.value = emptyForm();
     classOptions.value = [];
     selectedClassCode.value = '';
-    manualClassName.value = '';
 }
 
 async function deleteCounselor() {
@@ -128,17 +123,17 @@ async function deleteCounselor() {
 
 async function searchClasses() {
     const counselorId = detail.value?.id ? `&counselor_id=${encodeURIComponent(detail.value.id)}` : '';
-    const response = await fetch(`/counselors/classes?q=${encodeURIComponent(classSearch.value)}${counselorId}`, { headers: { Accept: 'application/json' } });
+    const response = await fetch(`/counselors/classes?q=${counselorId}`, { headers: { Accept: 'application/json' } });
     classOptions.value = (await response.json()).data || [];
 }
 
 async function addClass() {
     if (!detail.value) return;
     const picked = classOptions.value.find((item) => item.class_code === selectedClassCode.value);
-    const className = picked?.class_name || manualClassName.value.trim();
+    const className = picked?.class_name || '';
 
     if (!className) {
-        showNotice('请先选择或输入班级。', 'error');
+        showNotice('请先选择班级。', 'error');
         return;
     }
 
@@ -159,8 +154,6 @@ async function addClass() {
 
     showNotice('带班关系已添加。', 'success');
     selectedClassCode.value = '';
-    manualClassName.value = '';
-    classSearch.value = '';
     classOptions.value = [];
     await openDetail(detail.value);
     await fetchGroups();
@@ -262,14 +255,12 @@ onMounted(fetchGroups);
                         </div>
                     </div>
 
-                    <div class="mb-5 grid gap-3 sm:grid-cols-[1fr_220px_auto]">
-                        <input v-model="classSearch" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" placeholder="搜索班级名称或编码" @input="searchClasses">
+                    <div class="mb-5 grid gap-3 sm:grid-cols-[1fr_auto]">
                         <select v-model="selectedClassCode" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-950">
-                            <option value="">手动输入或选择班级</option>
+                            <option value="">请选择班级</option>
                             <option v-for="item in classOptions" :key="item.class_code" :value="item.class_code">{{ item.class_name }}（{{ item.student_count || 0 }}人）</option>
                         </select>
                         <button type="button" class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white" @click="addClass">添加班级</button>
-                        <input v-model="manualClassName" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-950 sm:col-span-3" placeholder="未搜到时可手动填写班级名称">
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

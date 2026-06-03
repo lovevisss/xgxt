@@ -91,7 +91,7 @@ class User extends Authenticatable
 
     public function classAssignments(): HasMany
     {
-        return $this->hasMany(CounselorClassAssignment::class);
+        return $this->hasMany(CounselorClassAssignment::class, 'counselor_cas_username', 'cas_username');
     }
 
     public function canViewStudent(?Student $student): bool

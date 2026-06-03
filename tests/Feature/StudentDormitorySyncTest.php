@@ -1,8 +1,8 @@
 <?php
 
+use App\Models\Pass;
 use App\Models\Student;
 use App\Models\StudentDormitory;
-use App\Models\Pass;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -11,81 +11,148 @@ use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
-it('syncs dormitory rows from both middata tables', function () {
+it('syncs dormitory bed rows from ssxxb type 7 records', function () {
 	config()->set('database.connections.middata', array_merge(
 		config('database.connections.sqlite'),
 		['database' => ':memory:']
 	));
 
-	Schema::connection('middata')->create('t_ejxyybt_bzksxsssxx', function (Blueprint $table) {
-		$table->string('xh');
+	Schema::connection('middata')->create('t_ejxyybt_ssxxb', function (Blueprint $table) {
+		$table->integer('sslx');
+		$table->string('xgh')->nullable();
 		$table->string('xm')->nullable();
-		$table->string('xy')->nullable();
-		$table->string('zy')->nullable();
-		$table->string('bj')->nullable();
-		$table->string('nj')->nullable();
-		$table->string('ssh')->nullable();
-		$table->string('ch')->nullable();
-		$table->string('xz')->nullable();
-		$table->string('qslx')->nullable();
+		$table->string('ssmc')->nullable();
+		$table->string('cwbq')->nullable();
+		$table->string('bz')->nullable();
+		$table->string('fjlx')->nullable();
 		$table->string('xb')->nullable();
 	});
 
-	Schema::connection('middata')->create('t_ejxyybt_bzkslsssxx', function (Blueprint $table) {
-		$table->string('id')->nullable();
-		$table->string('xm')->nullable();
-		$table->string('xy')->nullable();
-		$table->string('zy')->nullable();
-		$table->string('bj')->nullable();
-		$table->string('nj')->nullable();
-		$table->string('ssh')->nullable();
-		$table->string('ch')->nullable();
-		$table->string('xz')->nullable();
-		$table->string('qslx')->nullable();
-		$table->string('xb')->nullable();
-	});
-
-	DB::connection('middata')->table('t_ejxyybt_bzksxsssxx')->insert([
-		'xh' => '20260001',
-		'xm' => '新生甲',
-		'xy' => '会计学院',
-		'zy' => '会计学',
-		'bj' => '24会计1班',
-		'nj' => '2024',
-		'ssh' => 'A101',
-		'ch' => '1',
-		'xz' => '4',
-		'qslx' => '四人间',
-		'xb' => '男',
-	]);
-
-	DB::connection('middata')->table('t_ejxyybt_bzkslsssxx')->insert([
-		'id' => '20250001',
-		'xm' => '老生乙',
-		'xy' => '金融学院',
-		'zy' => '金融学',
-		'bj' => '23金融2班',
-		'nj' => '2023',
-		'ssh' => 'B203',
-		'ch' => '2',
-		'xz' => '4',
-		'qslx' => '四人间',
-		'xb' => '女',
+	DB::connection('middata')->table('t_ejxyybt_ssxxb')->insert([
+		[
+			'sslx' => 7,
+			'xgh' => '20260001',
+			'xm' => 'Student A',
+			'ssmc' => 'Building 1',
+			'cwbq' => 'fallback-bed',
+			'bz' => '1#410#4',
+			'fjlx' => 'Quad',
+			'xb' => 'M',
+		],
+		[
+			'sslx' => 6,
+			'xgh' => '20260002',
+			'xm' => 'Wrong Type',
+			'ssmc' => 'A102',
+			'cwbq' => '2',
+			'bz' => '1#410#5',
+			'fjlx' => null,
+			'xb' => null,
+		],
 	]);
 
 	$this->artisan('sync:student-dormitories-from-middata')->assertExitCode(0);
 
 	$this->assertDatabaseHas('student_dormitories', [
 		'xh' => '20260001',
-		'ssh' => 'A101',
+		'xm' => 'Student A',
+		'ssh' => '1#410',
+		'ch' => '4',
+		'qslx' => 'Quad',
+		'xb' => 'M',
+		'source_table' => 't_ejxyybt_ssxxb',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'xh' => '20260002',
+	]);
+});
+
+it('removes old source rows and stale ssxxb rows during sync', function () {
+	config()->set('database.connections.middata', array_merge(
+		config('database.connections.sqlite'),
+		['database' => ':memory:']
+	));
+
+	Schema::connection('middata')->create('t_ejxyybt_ssxxb', function (Blueprint $table) {
+		$table->integer('sslx');
+		$table->string('xgh')->nullable();
+		$table->string('xm')->nullable();
+		$table->string('ssmc')->nullable();
+		$table->string('cwbq')->nullable();
+		$table->string('bz')->nullable();
+		$table->string('fjlx')->nullable();
+	});
+
+	StudentDormitory::query()->create([
+		'xh' => '20269998',
+		'xm' => 'Old Freshman Source',
+		'ssh' => 'OLD101',
+		'ch' => '1',
 		'source_table' => 't_ejxyybt_bzksxsssxx',
 	]);
 
-	$this->assertDatabaseHas('student_dormitories', [
-		'xh' => '20250001',
-		'ssh' => 'B203',
+	StudentDormitory::query()->create([
+		'xh' => '20269997',
+		'xm' => 'Old Returning Source',
+		'ssh' => 'OLD201',
+		'ch' => '2',
 		'source_table' => 't_ejxyybt_bzkslsssxx',
 	]);
+
+	StudentDormitory::query()->create([
+		'xh' => '20269996',
+		'xm' => 'Stale New Source',
+		'ssh' => 'STALE',
+		'ch' => '3',
+		'source_table' => 't_ejxyybt_ssxxb',
+	]);
+
+	StudentDormitory::query()->create([
+		'xh' => '2520100103',
+		'xm' => 'Guo Yuting',
+		'ssh' => 'OLD301',
+		'ch' => '4',
+		'source_table' => null,
+	]);
+
+	DB::connection('middata')->table('t_ejxyybt_ssxxb')->insert([
+		['sslx' => 7, 'xgh' => ' 20269999 ', 'xm' => 'Current Source', 'ssmc' => 'N101', 'cwbq' => '1', 'bz' => '1#410#1', 'fjlx' => 'Quad'],
+		['sslx' => 7, 'xgh' => '   ', 'xm' => 'Blank Number', 'ssmc' => 'N102', 'cwbq' => '2', 'bz' => '1#410#2', 'fjlx' => 'Quad'],
+		['sslx' => 7, 'xgh' => '20269999', 'xm' => 'Duplicate Number', 'ssmc' => 'N103', 'cwbq' => '3', 'bz' => '1#410#3', 'fjlx' => 'Six'],
+	]);
+
+	$this->artisan('sync:student-dormitories-from-middata')->assertExitCode(0);
+
+	$this->assertDatabaseHas('student_dormitories', [
+		'xh' => '20269999',
+		'xm' => 'Current Source',
+		'ssh' => '1#410',
+		'ch' => '1',
+		'source_table' => 't_ejxyybt_ssxxb',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'source_table' => 't_ejxyybt_bzksxsssxx',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'source_table' => 't_ejxyybt_bzkslsssxx',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'xh' => '20269996',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'xh' => '2520100103',
+	]);
+
+	$this->assertDatabaseMissing('student_dormitories', [
+		'ssh' => 'N102',
+	]);
+
+	expect(StudentDormitory::query()->count())->toBe(1);
 });
 
 it('shows dormitory and roommates on student profile', function () {
@@ -93,82 +160,96 @@ it('shows dormitory and roommates on student profile', function () {
 
 	Student::query()->create([
 		'xgh' => '20260011',
-		'xm' => '张同学',
+		'xm' => 'Student One',
 		'xbm' => '1',
 		'rylx' => '0',
-		'dwmc' => '测试学院',
+		'dwmc' => 'Test College',
 		'dwbm' => 'T',
-		'bjmc' => '24级1班',
+		'bjmc' => 'Class 1',
 		'last_smsj' => now()->subDay(),
 	]);
 
 	Student::query()->create([
 		'xgh' => '20260012',
-		'xm' => '李同学',
+		'xm' => 'Student Two',
 		'xbm' => '1',
 		'rylx' => '0',
-		'dwmc' => '测试学院',
+		'dwmc' => 'Test College',
 		'dwbm' => 'T',
 		'last_smsj' => now()->subDays(8),
 	]);
 
 	Student::query()->create([
 		'xgh' => '20260013',
-		'xm' => '王同学',
+		'xm' => 'Student Three',
 		'xbm' => '1',
 		'rylx' => '0',
-		'dwmc' => '测试学院',
+		'dwmc' => 'Test College',
 		'dwbm' => 'T',
 		'last_smsj' => now()->subDays(10),
 	]);
 
 	StudentDormitory::query()->create([
 		'xh' => '20260011',
-		'xm' => '张同学',
-		'xy' => '测试学院',
-		'zy' => '计算机',
-		'bj' => '24级1班',
+		'xm' => 'Student One',
+		'xy' => 'Test College',
+		'zy' => 'Computer Science',
+		'bj' => 'Class 1',
 		'nj' => '2024',
 		'ssh' => 'A501',
 		'ch' => '1',
 		'xz' => '4',
-		'qslx' => '四人间',
-		'xb' => '男',
+		'qslx' => 'Quad',
+		'xb' => 'M',
 	]);
 
 	StudentDormitory::query()->create([
 		'xh' => '20260012',
-		'xm' => '李同学',
-		'xy' => '测试学院',
-		'zy' => '计算机',
-		'bj' => '24级1班',
+		'xm' => 'Student Two',
+		'xy' => 'Test College',
+		'zy' => 'Computer Science',
+		'bj' => 'Class 1',
 		'nj' => '2024',
 		'ssh' => 'A501',
 		'ch' => '2',
 		'xz' => '4',
-		'qslx' => '四人间',
-		'xb' => '男',
+		'qslx' => 'Quad',
+		'xb' => 'M',
 	]);
 
 	StudentDormitory::query()->create([
 		'xh' => '20260013',
-		'xm' => '王同学',
-		'xy' => '测试学院',
-		'zy' => '计算机',
-		'bj' => '24级1班',
+		'xm' => 'Student Three',
+		'xy' => 'Test College',
+		'zy' => 'Computer Science',
+		'bj' => 'Class 1',
 		'nj' => '2024',
 		'ssh' => 'A501',
 		'ch' => '3',
 		'xz' => '4',
-		'qslx' => '四人间',
-		'xb' => '男',
+		'qslx' => 'Quad',
+		'xb' => 'M',
+	]);
+
+	StudentDormitory::query()->create([
+		'xh' => '20260014',
+		'xm' => 'Student Four',
+		'xy' => 'Test College',
+		'zy' => 'Computer Science',
+		'bj' => 'Class 1',
+		'nj' => '2024',
+		'ssh' => 'A502',
+		'ch' => '1',
+		'xz' => '4',
+		'qslx' => 'Quad',
+		'xb' => 'M',
 	]);
 
 	Pass::query()->create([
 		'gh' => '20260012',
-		'xm' => '李同学',
+		'xm' => 'Student Two',
 		'device' => 'gate-a',
-		'smdd' => '宿舍门口',
+		'smdd' => 'Dorm Gate',
 		'smsj' => now()->subDays(8),
 		'crlx' => 'in',
 	]);
@@ -183,63 +264,11 @@ it('shows dormitory and roommates on student profile', function () {
 	$response->assertSee('"high_risk_roommate_count":2', false);
 	$response->assertSee('"roommates"', false);
 	$response->assertSee('"xh":"20260012"', false);
+	$response->assertDontSee('"xh":"20260014"', false);
 	$response->assertSee('"status":"lost"', false);
 	$response->assertSee('"last_smsj":"2026-05-21T12:00:00.000000Z"', false);
 
 	Carbon::setTestNow();
-});
-
-it('skips blank student numbers and keeps higher-priority source rows', function () {
-	config()->set('database.connections.middata', array_merge(
-		config('database.connections.sqlite'),
-		['database' => ':memory:']
-	));
-
-	Schema::connection('middata')->create('t_ejxyybt_bzksxsssxx', function (Blueprint $table) {
-		$table->string('xh')->nullable();
-		$table->string('xm')->nullable();
-		$table->string('ssh')->nullable();
-		$table->string('ch')->nullable();
-		$table->string('qslx')->nullable();
-	});
-
-	Schema::connection('middata')->create('t_ejxyybt_bzkslsssxx', function (Blueprint $table) {
-		$table->string('id')->nullable();
-		$table->string('xm')->nullable();
-		$table->string('ssh')->nullable();
-		$table->string('ch')->nullable();
-		$table->string('qslx')->nullable();
-	});
-
-	DB::connection('middata')->table('t_ejxyybt_bzksxsssxx')->insert([
-		['xh' => ' 20269999 ', 'xm' => '优先新生', 'ssh' => 'N101', 'ch' => '1', 'qslx' => '四人间'],
-		['xh' => '   ', 'xm' => '空学号', 'ssh' => 'N102', 'ch' => '2', 'qslx' => '四人间'],
-	]);
-
-	DB::connection('middata')->table('t_ejxyybt_bzkslsssxx')->insert([
-		['id' => '20269999', 'xm' => '老生重复', 'ssh' => 'L201', 'ch' => '3', 'qslx' => '六人间'],
-		['id' => null, 'xm' => '老生空学号', 'ssh' => 'L202', 'ch' => '4', 'qslx' => '六人间'],
-	]);
-
-	$this->artisan('sync:student-dormitories-from-middata')->assertExitCode(0);
-
-	$this->assertDatabaseHas('student_dormitories', [
-		'xh' => '20269999',
-		'xm' => '优先新生',
-		'ssh' => 'N101',
-		'source_table' => 't_ejxyybt_bzksxsssxx',
-	]);
-
-	$this->assertDatabaseMissing('student_dormitories', [
-		'source_table' => 't_ejxyybt_bzkslsssxx',
-		'ssh' => 'L201',
-	]);
-
-	$this->assertDatabaseMissing('student_dormitories', [
-		'ssh' => 'N102',
-	]);
-
-	expect(StudentDormitory::query()->count())->toBe(1);
 });
 
 it('shows dormitory detail page with all residents', function () {
@@ -247,40 +276,40 @@ it('shows dormitory detail page with all residents', function () {
 
 	Student::query()->create([
 		'xgh' => '20261001',
-		'xm' => '甲同学',
+		'xm' => 'Student A',
 		'xbm' => '1',
 		'rylx' => '0',
-		'dwmc' => '测试学院',
+		'dwmc' => 'Test College',
 		'dwbm' => 'T',
 		'last_smsj' => now()->subDay(),
 	]);
 
 	Student::query()->create([
 		'xgh' => '20261002',
-		'xm' => '乙同学',
+		'xm' => 'Student B',
 		'xbm' => '1',
 		'rylx' => '0',
-		'dwmc' => '测试学院',
+		'dwmc' => 'Test College',
 		'dwbm' => 'T',
 		'last_smsj' => now()->subDays(9),
 	]);
 
 	StudentDormitory::query()->create([
 		'xh' => '20261001',
-		'xm' => '甲同学',
-		'xy' => '测试学院',
+		'xm' => 'Student A',
+		'xy' => 'Test College',
 		'ssh' => 'B602',
 		'ch' => '1',
-		'qslx' => '四人间',
+		'qslx' => 'Quad',
 	]);
 
 	StudentDormitory::query()->create([
 		'xh' => '20261002',
-		'xm' => '乙同学',
-		'xy' => '测试学院',
+		'xm' => 'Student B',
+		'xy' => 'Test College',
 		'ssh' => 'B602',
 		'ch' => '2',
-		'qslx' => '四人间',
+		'qslx' => 'Quad',
 	]);
 
 	$response = $this->get('/students/dormitories/B602')->assertOk();
@@ -294,4 +323,3 @@ it('shows dormitory detail page with all residents', function () {
 
 	Carbon::setTestNow();
 });
-

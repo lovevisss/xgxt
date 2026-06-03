@@ -86,9 +86,45 @@ it('imports counselors from excel and creates class assignments', function () {
         'phone' => '17769617234',
     ]);
     $this->assertDatabaseHas('counselor_class_assignments', [
+        'counselor_cas_username' => '20170901',
         'class_code' => '25203001',
         'class_name' => '25经济1',
         'normalized_class_name' => '25经济1',
+    ]);
+});
+
+it('resolves law and social work counselor college code from merged student college name', function () {
+    Student::query()->create([
+        'xgh' => '20260042',
+        'xm' => 'Law Student',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => '法律与社会工作学院、马克思主义学院',
+        'dwbm' => '100306',
+        'bjbm' => '25206001',
+        'bjmc' => '25法学1',
+    ]);
+
+    $path = storage_path('app/test-law-counselors.xlsx');
+    app(StudentImportWorkbook::class)->write($path, [
+        '工作表1' => [
+            ['辅导员信息', '', '', '', '', '', ''],
+            ['工号', '姓名', '所属院系', '手机', '电话', '办公室', '带班情况'],
+            ['20170614', '马羚', '法律与社会工作学院', '17700000000', '', '', '25法学1'],
+        ],
+    ]);
+
+    $this->artisan('import:counselor-assignments', ['path' => $path])->assertExitCode(0);
+
+    $this->assertDatabaseHas('users', [
+        'cas_username' => '20170614',
+        'dwbm' => '100306',
+        'dwmc' => '法律与社会工作学院',
+    ]);
+    $this->assertDatabaseHas('counselor_class_assignments', [
+        'counselor_cas_username' => '20170614',
+        'class_code' => '25206001',
+        'college_code' => '100306',
     ]);
 });
 
@@ -104,6 +140,7 @@ it('limits counselor student visibility to assigned classes', function () {
 
     CounselorClassAssignment::query()->create([
         'user_id' => $counselor->id,
+        'counselor_cas_username' => '20170901',
         'class_code' => '25203001',
         'class_name' => '25经济1',
         'normalized_class_name' => '25经济1',
