@@ -79,6 +79,17 @@ const importTypes = [
         note: '按“学号 + 学年”更新，导入后按学年显示在学生主页。',
         resultLabels: { imported: '体测成绩' },
     },
+    {
+        key: 'cadre_assessment',
+        title: '团学干部任职考核',
+        eyebrow: '任职与考核等级',
+        accept: '.pdf',
+        endpoint: '/student-imports/cadre_assessment',
+        template: '/student-imports/template/cadre_assessment',
+        fields: 'PDF 汇总表：姓名、团学机构、部门、任职、总分、考核等级',
+        note: '按学年导入 PDF。系统会按姓名自动匹配学生，同名无法区分的记录会进入待确认。',
+        resultLabels: { imported: '已匹配', pending: '待确认', skipped: '跳过' },
+    },
 ];
 
 const selectedKey = ref('support');
@@ -91,10 +102,11 @@ const notice = ref({ text: '', type: 'info' });
 const result = ref(null);
 const taskId = ref(null);
 const pollingTimer = ref(null);
+const resolvingMatchId = ref(null);
 
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
-const showSupportOptions = computed(() => selectedKey.value === 'support');
+const showSupportOptions = computed(() => ['support', 'cadre_assessment'].includes(selectedKey.value));
 const showAnnualYearOptions = computed(() => ['loan', 'medical_insurance', 'safety_insurance'].includes(selectedKey.value));
 
 function getCSRF() {
@@ -233,6 +245,36 @@ async function fetchTaskStatus() {
     }
 }
 
+async function resolveCadreMatch(match, candidate) {
+    if (!match?.id || !candidate?.xgh || resolvingMatchId.value) {
+        return;
+    }
+
+    resolvingMatchId.value = match.id;
+
+    const response = await fetch(`/student-imports/cadre-assessment-matches/${match.id}/resolve`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': getCSRF(),
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_xgh: candidate.xgh }),
+    });
+
+    resolvingMatchId.value = null;
+
+    if (!response.ok) {
+        notice.value = { text: '确认失败，请刷新后重试。', type: 'error' };
+        return;
+    }
+
+    result.value.pending_records = (result.value.pending_records || []).filter((item) => item.id !== match.id);
+    result.value.pending = Math.max(0, (result.value.pending || 0) - 1);
+    result.value.imported = (result.value.imported || 0) + 1;
+    notice.value = { text: `已确认 ${match.student_name} -> ${candidate.xm || candidate.xgh}`, type: 'success' };
+}
+
 onBeforeUnmount(stopPolling);
 </script>
 
@@ -313,6 +355,29 @@ onBeforeUnmount(stopPolling);
                     <ul v-if="(result.errors || []).length" class="mt-4 space-y-1 text-sm text-rose-700">
                         <li v-for="error in result.errors" :key="error">{{ error }}</li>
                     </ul>
+                    <div v-if="(result.pending_records || []).length" class="mt-4 space-y-3">
+                        <h3 class="text-sm font-semibold text-slate-900">待人工确认</h3>
+                        <div v-for="match in result.pending_records" :key="match.id" class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <div class="text-sm text-slate-800">
+                                <span class="font-semibold">{{ match.student_name }}</span>
+                                <span class="ml-2">{{ match.organization || '-' }} / {{ match.department || '-' }} / {{ match.position || '-' }}</span>
+                                <span class="ml-2 text-slate-500">{{ match.grade || '-' }}</span>
+                            </div>
+                            <div v-if="(match.candidates || []).length" class="mt-2 flex flex-wrap gap-2">
+                                <button
+                                    v-for="candidate in match.candidates"
+                                    :key="candidate.xgh"
+                                    type="button"
+                                    class="rounded border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                    :disabled="resolvingMatchId === match.id"
+                                    @click="resolveCadreMatch(match, candidate)"
+                                >
+                                    {{ candidate.xm || '-' }} {{ candidate.xgh }} {{ candidate.dwmc || '' }} {{ candidate.bjmc || '' }}
+                                </button>
+                            </div>
+                            <p v-else class="mt-2 text-xs text-amber-700">没有找到候选学生，请先核对学生基础信息后重新导入或补充匹配。</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

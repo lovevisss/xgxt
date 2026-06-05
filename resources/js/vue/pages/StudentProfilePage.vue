@@ -14,6 +14,7 @@ const props = defineProps({
     safetyInsurances: { type: Array, default: () => [] },
     currentSafetyInsurance: { type: Object, default: null },
     physicalTests: { type: Array, default: () => [] },
+    cadreAssessments: { type: Array, default: () => [] },
     currentYear: { type: Number, default: () => new Date().getFullYear() },
     dormitory: { type: Object, default: null },
     dormitorySummary: { type: Object, default: () => ({}) },
@@ -26,6 +27,7 @@ const props = defineProps({
     nextWeekUrl: { type: String, default: null },
     weeklySchedule: { type: Array, default: () => [] },
     gradesBySemester: { type: Array, default: () => [] },
+    academicYearAverages: { type: Array, default: () => [] },
     earnedCreditsTotal: { type: Number, default: 0 },
     averageGpa: { type: Number, default: null },
     recentPasses: { type: Array, default: () => [] },
@@ -40,6 +42,8 @@ const notice = ref({ text: '', type: 'info' });
 const activeInsuranceTab = ref('medical');
 const scheduleVisible = ref(true);
 const gradeVisible = ref(true);
+const latestAcademicYearAverage = computed(() => props.academicYearAverages?.[0] || null);
+const averageDetailVisible = ref({});
 const form = ref({
     id: '',
     name: '',
@@ -142,6 +146,26 @@ function toFixedText(value) {
     const num = Number(value);
 
     return Number.isFinite(num) ? num.toFixed(2) : '-';
+}
+
+function averageDetailKey(item) {
+    return item ? String(item.id || item.academic_year || '') : '';
+}
+
+function toggleAverageDetail(item) {
+    const key = averageDetailKey(item);
+    if (!key) {
+        return;
+    }
+
+    averageDetailVisible.value = {
+        ...averageDetailVisible.value,
+        [key]: !averageDetailVisible.value[key],
+    };
+}
+
+function isAverageDetailVisible(item) {
+    return Boolean(averageDetailVisible.value[averageDetailKey(item)]);
 }
 
 function gpaText(value) {
@@ -318,6 +342,86 @@ async function saveFamily() {
             </div>
         </header>
 
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-950">学习排名</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        {{ latestAcademicYearAverage?.academic_year || '暂无学年排名数据' }}
+                    </p>
+                </div>
+                <button
+                    v-if="latestAcademicYearAverage"
+                    type="button"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    @click="toggleAverageDetail(latestAcademicYearAverage)"
+                >
+                    {{ isAverageDetailVisible(latestAcademicYearAverage) ? '收起计算过程' : '查看计算过程' }}
+                </button>
+            </div>
+
+            <div v-if="latestAcademicYearAverage" class="space-y-3">
+                <div class="grid gap-3 md:grid-cols-3">
+                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm text-slate-500">学习平均成绩</p>
+                        <p class="mt-2 text-2xl font-semibold text-slate-950">{{ scoreText(latestAcademicYearAverage.average_score) }}</p>
+                        <p class="mt-1 text-xs text-slate-500">
+                            计入 {{ latestAcademicYearAverage.course_count || 0 }} 门 / {{ scoreText(latestAcademicYearAverage.total_credits) }} 学分
+                        </p>
+                    </article>
+                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm text-slate-500">班级排名</p>
+                        <p class="mt-2 text-2xl font-semibold text-slate-950">
+                            {{ latestAcademicYearAverage.class_rank || '-' }}
+                            <span class="text-base font-medium text-slate-500">/ {{ latestAcademicYearAverage.class_size || '-' }}</span>
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500">{{ latestAcademicYearAverage.class_name || props.student.bjmc || '-' }}</p>
+                    </article>
+                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm text-slate-500">专业排名</p>
+                        <p class="mt-2 text-2xl font-semibold text-slate-950">
+                            {{ latestAcademicYearAverage.major_rank || '-' }}
+                            <span class="text-base font-medium text-slate-500">/ {{ latestAcademicYearAverage.major_size || '-' }}</span>
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500">{{ latestAcademicYearAverage.major_code || '-' }}</p>
+                    </article>
+                </div>
+
+                <div v-if="isAverageDetailVisible(latestAcademicYearAverage)" class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">学期</th>
+                                <th class="px-3 py-2 text-left">课程</th>
+                                <th class="px-3 py-2 text-left">原始成绩</th>
+                                <th class="px-3 py-2 text-left">采用成绩</th>
+                                <th class="px-3 py-2 text-left">学分</th>
+                                <th class="px-3 py-2 text-left">加权分</th>
+                                <th class="px-3 py-2 text-left">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="course in latestAcademicYearAverage.calculation_courses || []" :key="`${course.semester}-${course.course_code}`">
+                                <td class="px-3 py-2">{{ course.semester || '-' }}</td>
+                                <td class="px-3 py-2">{{ course.course_name || course.course_code || '-' }}</td>
+                                <td class="px-3 py-2">{{ course.original_score ?? '-' }}</td>
+                                <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(course.score) }}</td>
+                                <td class="px-3 py-2">{{ toFixedText(course.credits) }}</td>
+                                <td class="px-3 py-2">{{ toFixedText(course.weighted_score) }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ course.calculation_note || '-' }}</td>
+                            </tr>
+                            <tr v-if="!(latestAcademicYearAverage.calculation_courses || []).length">
+                                <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无可展示的计算明细</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div v-else class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                暂无学习平均成绩和排名数据。
+            </div>
+        </section>
+
         <section id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -395,6 +499,77 @@ async function saveFamily() {
                         <p class="text-xs text-slate-500">平均绩点（GPA）</p>
                         <p class="text-xl font-bold text-slate-950">{{ gpaText(props.averageGpa) }}</p>
                     </div>
+                </div>
+
+                <div class="mb-4 overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">学年</th>
+                                <th class="px-3 py-2 text-left">学习平均成绩</th>
+                                <th class="px-3 py-2 text-left">计入学分</th>
+                                <th class="px-3 py-2 text-left">课程数</th>
+                                <th class="px-3 py-2 text-left">班级排名</th>
+                                <th class="px-3 py-2 text-left">专业排名</th>
+                                <th class="px-3 py-2 text-left">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template v-for="item in props.academicYearAverages" :key="item.id">
+                                <tr>
+                                    <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                                    <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(item.average_score) }}</td>
+                                    <td class="px-3 py-2">{{ toFixedText(item.total_credits) }}</td>
+                                    <td class="px-3 py-2">{{ item.course_count || 0 }}</td>
+                                    <td class="px-3 py-2">{{ item.class_rank ? `${item.class_rank}/${item.class_size || '-'}` : '-' }}</td>
+                                    <td class="px-3 py-2">{{ item.major_rank ? `${item.major_rank}/${item.major_size || '-'}` : '-' }}</td>
+                                    <td class="px-3 py-2">
+                                        <button type="button" class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50" @click="toggleAverageDetail(item)">
+                                            {{ isAverageDetailVisible(item) ? '收起' : '查看计算过程' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="isAverageDetailVisible(item)">
+                                    <td colspan="7" class="bg-slate-50 p-0">
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full text-xs">
+                                                <thead class="bg-slate-100 text-slate-600">
+                                                    <tr>
+                                                        <th class="px-3 py-2 text-left">学期</th>
+                                                        <th class="px-3 py-2 text-left">课程</th>
+                                                        <th class="px-3 py-2 text-left">原始成绩</th>
+                                                        <th class="px-3 py-2 text-left">采用成绩</th>
+                                                        <th class="px-3 py-2 text-left">学分</th>
+                                                        <th class="px-3 py-2 text-left">加权分</th>
+                                                        <th class="px-3 py-2 text-left">考试性质</th>
+                                                        <th class="px-3 py-2 text-left">说明</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-200 bg-white">
+                                                    <tr v-for="course in item.calculation_courses || []" :key="`${item.id}-${course.semester}-${course.course_code}`">
+                                                        <td class="px-3 py-2">{{ course.semester || '-' }}</td>
+                                                        <td class="px-3 py-2">{{ course.course_name || course.course_code || '-' }}</td>
+                                                        <td class="px-3 py-2">{{ course.original_score ?? '-' }}</td>
+                                                        <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(course.score) }}</td>
+                                                        <td class="px-3 py-2">{{ toFixedText(course.credits) }}</td>
+                                                        <td class="px-3 py-2">{{ toFixedText(course.weighted_score) }}</td>
+                                                        <td class="px-3 py-2">{{ course.exam_type || '-' }}</td>
+                                                        <td class="px-3 py-2 text-slate-600">{{ course.calculation_note || '-' }}</td>
+                                                    </tr>
+                                                    <tr v-if="!(item.calculation_courses || []).length">
+                                                        <td colspan="8" class="px-3 py-5 text-center text-slate-500">暂无可展示的计算明细</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr v-if="!props.academicYearAverages.length">
+                                <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无学年学习平均成绩</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div v-if="gradeVisible" class="space-y-3">
@@ -838,6 +1013,42 @@ async function saveFamily() {
                         </tr>
                         <tr v-if="!props.loans.length">
                             <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无助学贷款记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">团学干部任职考核</h2>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学年</th>
+                            <th class="px-3 py-2 text-left">学期</th>
+                            <th class="px-3 py-2 text-left">机构</th>
+                            <th class="px-3 py-2 text-left">部门</th>
+                            <th class="px-3 py-2 text-left">职务</th>
+                            <th class="px-3 py-2 text-left">总分</th>
+                            <th class="px-3 py-2 text-left">等级</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.cadreAssessments" :key="item.id">
+                            <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.semester ? `第${item.semester}学期` : '-' }}</td>
+                            <td class="px-3 py-2">{{ item.organization || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.department || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.position || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.total_score ?? '-' }}</td>
+                            <td class="px-3 py-2">{{ item.grade || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.cadreAssessments.length">
+                            <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无团学干部任职考核记录</td>
                         </tr>
                     </tbody>
                 </table>

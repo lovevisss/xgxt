@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\StudentAward;
+use App\Models\StudentCadreAssessmentMatch;
 use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
 use App\Models\StudentPhysicalTest;
@@ -12,6 +13,7 @@ use App\Models\StudentSafetyInsurance;
 use App\Models\StudentImportTask;
 use App\Models\StudentSupportRecipient;
 use App\Jobs\ImportStudentFamilyContacts;
+use App\Services\StudentCadreAssessmentImportService;
 use App\Services\StudentFamilyManualImportService;
 use App\Services\StudentImportWorkbook;
 use Illuminate\Http\Request;
@@ -24,9 +26,12 @@ use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test', 'cadre_assessment'];
 
-    public function __construct(private readonly StudentFamilyManualImportService $familyImport)
+    public function __construct(
+        private readonly StudentFamilyManualImportService $familyImport,
+        private readonly StudentCadreAssessmentImportService $cadreAssessmentImport,
+    )
     {
     }
 
@@ -48,6 +53,23 @@ class StudentDataImportController extends Controller
     public function import(Request $request, string $type, StudentImportWorkbook $workbook)
     {
         abort_unless(in_array($type, self::TYPES, true), 404);
+
+        if ($type === 'cadre_assessment') {
+            @set_time_limit(600);
+            @ini_set('max_execution_time', '600');
+
+            $request->validate([
+                'file' => ['required', 'file', 'mimes:pdf', 'max:51200'],
+                'academic_year' => ['required', 'string', 'max:16'],
+                'semester' => ['nullable', 'string', 'max:16'],
+            ]);
+
+            return response()->json($this->cadreAssessmentImport->import(
+                $request->file('file'),
+                trim((string) $request->input('academic_year')),
+                $request->filled('semester') ? trim((string) $request->input('semester')) : null,
+            ));
+        }
 
         $request->validate([
             'file' => ['required', 'file', 'mimes:xls,xlsx', 'max:20480'],
@@ -93,6 +115,20 @@ class StudentDataImportController extends Controller
             'safety_insurance' => response()->json($this->importSafetyInsurances($sheets, $request)),
             'physical_test' => response()->json($this->importPhysicalTests($sheets, $request)),
         };
+    }
+
+    public function resolveCadreAssessmentMatch(Request $request, StudentCadreAssessmentMatch $match)
+    {
+        $data = $request->validate([
+            'student_xgh' => ['required', 'string', 'exists:students,xgh'],
+        ]);
+
+        $assessment = $this->cadreAssessmentImport->resolve($match, $data['student_xgh']);
+
+        return response()->json([
+            'resolved' => true,
+            'assessment' => $assessment,
+        ]);
     }
 
     public function redirectPage()
@@ -807,6 +843,12 @@ class StudentDataImportController extends Controller
                     ['2023-2024学年', '李四', '20260002', '女', '金融与经贸学院', '25经济1', '76.4', ''],
                 ],
             ],
+            'cadre_assessment' => [
+                '导入说明' => [
+                    ['请直接上传团学干部考核成绩汇总 PDF'],
+                    ['系统会按姓名自动匹配学生；同名无法区分的记录会进入待确认。'],
+                ],
+            ],
         };
     }
 
@@ -820,6 +862,7 @@ class StudentDataImportController extends Controller
             'medical_insurance' => '大学生医保参保缴费导入示例.xlsx',
             'safety_insurance' => '大学生学平险参保导入示例.xlsx',
             'physical_test' => '学生体测成绩导入示例.xlsx',
+            'cadre_assessment' => '团学干部考核导入说明.xlsx',
         };
     }
 

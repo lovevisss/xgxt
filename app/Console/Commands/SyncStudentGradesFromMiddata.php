@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\StudentAcademicYearAverageService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -137,8 +138,12 @@ class SyncStudentGradesFromMiddata extends Command
                 }
             });
 
+        $academicYear = $this->academicYearFromSemester($semester);
+        $averageResult = app(StudentAcademicYearAverageService::class)->calculate($academicYear);
         $elapsed = round(microtime(true) - $startedAt, 2);
         $this->info("成绩同步完成，课程基本信息 {$totalBasics} 条，成绩 {$totalGrades} 条，耗时 {$elapsed} 秒");
+
+        $this->info("学习平均成绩计算完成：{$averageResult['students']} 人");
 
         return self::SUCCESS;
     }
@@ -180,5 +185,11 @@ class SyncStudentGradesFromMiddata extends Command
 
         return (float) $normalized;
     }
-}
 
+    private function academicYearFromSemester(string $semester): ?string
+    {
+        return preg_match('/(20\d{2})\s*[-—]\s*(20\d{2})/', $semester, $matches)
+            ? $matches[1].'-'.$matches[2]
+            : null;
+    }
+}

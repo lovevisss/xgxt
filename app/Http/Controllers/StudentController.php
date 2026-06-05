@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Pass;
 use App\Models\CourseSection;
 use App\Models\Student;
+use App\Models\StudentAcademicYearAverage;
 use App\Models\StudentAward;
+use App\Models\StudentCadreAssessment;
 use App\Models\StudentCourseSchedule;
 use App\Models\StudentCourseGrade;
 use App\Models\StudentFamily;
@@ -17,6 +19,7 @@ use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
+use App\Services\StudentAcademicYearAverageService;
 use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -352,6 +355,15 @@ class StudentController extends Controller
                 ->orderByDesc('academic_year')
                 ->get()
             : collect();
+        $cadreAssessments = Schema::hasTable('student_cadre_assessments')
+            ? StudentCadreAssessment::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('academic_year')
+                ->orderByDesc('semester')
+                ->orderBy('organization')
+                ->orderBy('department')
+                ->get()
+            : collect();
         $dormitory = StudentDormitory::query()->where('xh', $xgh)->first();
         $dormitoryResidents = filled($dormitory?->ssh)
             ? $this->buildDormitoryResidents($dormitory->ssh, $xgh)
@@ -411,6 +423,21 @@ class StudentController extends Controller
         $gradesBySemester = $this->buildGradesBySemester($gradeRows);
         $earnedCreditsTotal = $this->earnedCreditsTotal($gradeRows);
         $averageGpa = $this->averageGpa($gradeRows);
+        $academicYearAverages = Schema::hasTable('student_academic_year_averages')
+            ? StudentAcademicYearAverage::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('academic_year')
+                ->get()
+            : collect();
+        $averageService = app(StudentAcademicYearAverageService::class);
+        $academicYearAverages = $academicYearAverages->map(function (StudentAcademicYearAverage $average) use ($averageService, $xgh) {
+            $average->setAttribute(
+                'calculation_courses',
+                $averageService->courseScoreDetails($xgh, (string) $average->academic_year)->all()
+            );
+
+            return $average;
+        });
 
         return view('student-profile', [
             'student' => $student,
@@ -425,6 +452,7 @@ class StudentController extends Controller
             'safetyInsurances' => $safetyInsurances,
             'currentSafetyInsurance' => $safetyInsurances->firstWhere('annual_year', $currentYear),
             'physicalTests' => $physicalTests,
+            'cadreAssessments' => $cadreAssessments,
             'currentYear' => $currentYear,
             'dormitory' => $dormitory,
             'dormitorySummary' => $dormitorySummary,
@@ -441,6 +469,7 @@ class StudentController extends Controller
                 : null,
             'weeklySchedule' => $weeklySchedule,
             'gradesBySemester' => $gradesBySemester,
+            'academicYearAverages' => $academicYearAverages,
             'earnedCreditsTotal' => $earnedCreditsTotal,
             'averageGpa' => $averageGpa,
             'recentPasses' => $recentPasses,
