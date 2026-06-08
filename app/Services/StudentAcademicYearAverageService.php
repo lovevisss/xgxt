@@ -166,7 +166,7 @@ class StudentAcademicYearAverageService
     private function buildCourseScoreDetails(Collection $rows): Collection
     {
         return $rows
-            ->filter(fn (StudentCourseGrade $grade) => ! $this->isPhysicalEducation($grade))
+            ->filter(fn (StudentCourseGrade $grade) => ! $this->isExcludedFromAverage($grade))
             ->filter(fn (StudentCourseGrade $grade) => (float) ($grade->xf ?? 0) > 0)
             ->groupBy('kcbm')
             ->map(function (Collection $courseRows) {
@@ -301,11 +301,17 @@ class StudentAcademicYearAverageService
             : '';
     }
 
-    private function isPhysicalEducation(StudentCourseGrade $grade): bool
+    private function isExcludedFromAverage(StudentCourseGrade $grade): bool
     {
         $courseName = (string) $grade->kcmc;
 
-        return str_contains($courseName, '体育');
+        foreach (['体育', '第二课堂', '综合素质拓展'] as $keyword) {
+            if (str_contains($courseName, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isMakeupExam(StudentCourseGrade $grade): bool

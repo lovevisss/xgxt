@@ -22,6 +22,7 @@ it('calculates academic year weighted averages and rankings', function () {
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-1', 'kcbm' => 'A002', 'kcmc' => '大学英语', 'cj' => '70', 'xf' => 2, 'ksxz' => '补考']);
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-2', 'kcbm' => 'A003', 'kcmc' => '会计学', 'cj' => '旷考', 'xf' => 1, 'ksxz' => '正常考试']);
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-2', 'kcbm' => 'PE01', 'kcmc' => '大学体育', 'cj' => '100', 'xf' => 5, 'ksxz' => '正常考试']);
+    StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-2', 'kcbm' => 'SC01', 'kcmc' => '第二课堂（综合素质拓展）', 'cj' => '100', 'xf' => 10, 'ksxz' => '正常考试']);
 
     StudentCourseGrade::query()->create(['xh' => '20250002', 'xnxq' => '2025-2026-1', 'kcbm' => 'A001', 'kcmc' => '高等数学', 'cj' => '70', 'xf' => 3, 'ksxz' => '正常考试']);
     StudentCourseGrade::query()->create(['xh' => '20250002', 'xnxq' => '2025-2026-1', 'kcbm' => 'A002', 'kcmc' => '大学英语', 'cj' => '65', 'xf' => 2, 'ksxz' => '正常考试']);
