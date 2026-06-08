@@ -80,6 +80,17 @@ const importTypes = [
         resultLabels: { imported: '体测成绩' },
     },
     {
+        key: 'comprehensive_assessment',
+        title: '综测成绩',
+        eyebrow: '综合测评汇总',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/comprehensive_assessment',
+        template: '/student-imports/template/comprehensive_assessment',
+        fields: '名次、姓名、学号、综合测评成绩，以及德育、智育、体育、美育、劳育总分。支持每个年级一个工作表。',
+        note: '按“学号 + 学年”更新，导入后会展示在学生主页的综测成绩模块。',
+        resultLabels: { imported: '综测成绩' },
+    },
+    {
         key: 'cadre_assessment',
         title: '团学干部任职考核',
         eyebrow: '任职与考核等级',
@@ -106,7 +117,7 @@ const resolvingMatchId = ref(null);
 
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
-const showSupportOptions = computed(() => ['support', 'cadre_assessment'].includes(selectedKey.value));
+const showSupportOptions = computed(() => ['support', 'cadre_assessment', 'comprehensive_assessment'].includes(selectedKey.value));
 const showAnnualYearOptions = computed(() => ['loan', 'medical_insurance', 'safety_insurance'].includes(selectedKey.value));
 
 function getCSRF() {
@@ -127,6 +138,11 @@ function selectType(key) {
 function chooseFile(event) {
     file.value = event.target.files?.[0] || null;
     result.value = null;
+    if (file.value && /综测|综合测评/.test(file.value.name) && selectedKey.value !== 'comprehensive_assessment') {
+        selectedKey.value = 'comprehensive_assessment';
+        taskId.value = null;
+        stopPolling();
+    }
     notice.value = file.value
         ? { text: `已选择：${file.value.name}`, type: 'info' }
         : { text: '', type: 'info' };
@@ -284,7 +300,7 @@ onBeforeUnmount(stopPolling);
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
-                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、家长信息、医保、学平险和体测数据，导入后统一展示在学生主页。</p>
+                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
                 </div>
                 <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
             </div>

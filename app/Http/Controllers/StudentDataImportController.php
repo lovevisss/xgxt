@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Student;
 use App\Models\StudentAward;
 use App\Models\StudentCadreAssessmentMatch;
+use App\Models\StudentComprehensiveAssessment;
 use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
 use App\Models\StudentPhysicalTest;
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test', 'cadre_assessment'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test', 'cadre_assessment', 'comprehensive_assessment'];
 
     public function __construct(
         private readonly StudentFamilyManualImportService $familyImport,
@@ -114,6 +115,7 @@ class StudentDataImportController extends Controller
             'medical_insurance' => response()->json($this->importMedicalInsurances($sheets, $request)),
             'safety_insurance' => response()->json($this->importSafetyInsurances($sheets, $request)),
             'physical_test' => response()->json($this->importPhysicalTests($sheets, $request)),
+            'comprehensive_assessment' => response()->json($this->importComprehensiveAssessments($sheets, $request)),
         };
     }
 
@@ -524,6 +526,97 @@ class StudentDataImportController extends Controller
         return $result;
     }
 
+    private function importComprehensiveAssessments(array $sheets, Request $request): array
+    {
+        @set_time_limit(120);
+        $this->ensureComprehensiveAssessmentsTable();
+
+        $fallbackAcademicYear = trim((string) $request->input('academic_year', ''));
+        $result = ['imported' => 0, 'errors' => []];
+        $records = $this->comprehensiveAssessmentRecords($sheets, $fallbackAcademicYear);
+        $validRecords = [];
+
+        foreach ($records as $index => $record) {
+            $validator = Validator::make($record, [
+                'student_xgh' => ['required', 'string'],
+                'academic_year' => ['required', 'string', 'max:16'],
+                'rank' => ['nullable', 'integer', 'min:1'],
+                'total_score' => ['nullable', 'numeric', 'between:0,100'],
+                'moral_score' => ['nullable', 'numeric', 'min:0'],
+                'intellectual_score' => ['nullable', 'numeric', 'min:0'],
+                'physical_score' => ['nullable', 'numeric', 'min:0'],
+                'aesthetic_score' => ['nullable', 'numeric', 'min:0'],
+                'labor_score' => ['nullable', 'numeric', 'min:0'],
+            ]);
+
+            if ($validator->fails()) {
+                $location = trim((string) ($record['source_sheet'] ?? ''));
+                $result['errors'][] = ($location !== '' ? $location.' ' : '').'第'.($index + 1).' 条：'.$validator->errors()->first();
+                continue;
+            }
+
+            $validRecords[] = $record;
+        }
+
+        if ($validRecords === []) {
+            return $result;
+        }
+
+        $studentNames = Student::query()
+            ->whereIn('xgh', collect($validRecords)->pluck('student_xgh')->unique()->values())
+            ->pluck('xm', 'xgh');
+        $now = now();
+
+        DB::transaction(function () use ($validRecords, $studentNames, $now, &$result): void {
+            foreach (array_chunk($validRecords, 1000) as $chunk) {
+                $payload = array_map(function (array $record) use ($studentNames, $now): array {
+                    return [
+                        'student_xgh' => $record['student_xgh'],
+                        'student_name' => $studentNames[$record['student_xgh']] ?? $record['student_name'],
+                        'academic_year' => $record['academic_year'],
+                        'college' => $record['college'],
+                        'class_name' => $record['class_name'],
+                        'rank' => $record['rank'],
+                        'total_score' => $record['total_score'],
+                        'moral_score' => $record['moral_score'],
+                        'intellectual_score' => $record['intellectual_score'],
+                        'physical_score' => $record['physical_score'],
+                        'aesthetic_score' => $record['aesthetic_score'],
+                        'labor_score' => $record['labor_score'],
+                        'source_sheet' => $record['source_sheet'],
+                        'imported_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }, $chunk);
+
+                StudentComprehensiveAssessment::query()->upsert(
+                    $payload,
+                    ['student_xgh', 'academic_year'],
+                    [
+                        'student_name',
+                        'college',
+                        'class_name',
+                        'rank',
+                        'total_score',
+                        'moral_score',
+                        'intellectual_score',
+                        'physical_score',
+                        'aesthetic_score',
+                        'labor_score',
+                        'source_sheet',
+                        'imported_at',
+                        'updated_at',
+                    ]
+                );
+
+                $result['imported'] += count($payload);
+            }
+        });
+
+        return $result;
+    }
+
     private function ensureMedicalInsurancesTable(): void
     {
         if (Schema::hasTable('student_medical_insurances')) {
@@ -595,6 +688,34 @@ class StudentDataImportController extends Controller
             $table->timestamps();
 
             $table->unique(['student_xgh', 'academic_year'], 'uniq_student_physical_student_year');
+        });
+    }
+
+    private function ensureComprehensiveAssessmentsTable(): void
+    {
+        if (Schema::hasTable('student_comprehensive_assessments')) {
+            return;
+        }
+
+        Schema::create('student_comprehensive_assessments', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_xgh', 32)->index();
+            $table->string('student_name')->nullable();
+            $table->string('academic_year', 16)->index();
+            $table->string('college')->nullable()->index();
+            $table->string('class_name')->nullable()->index();
+            $table->unsignedInteger('rank')->nullable();
+            $table->decimal('total_score', 6, 3)->nullable();
+            $table->decimal('moral_score', 6, 3)->nullable();
+            $table->decimal('intellectual_score', 6, 3)->nullable();
+            $table->decimal('physical_score', 6, 3)->nullable();
+            $table->decimal('aesthetic_score', 6, 3)->nullable();
+            $table->decimal('labor_score', 6, 3)->nullable();
+            $table->string('source_sheet')->nullable();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['student_xgh', 'academic_year'], 'uniq_student_comprehensive_student_year');
         });
     }
 
@@ -784,6 +905,138 @@ class StudentDataImportController extends Controller
         return $records;
     }
 
+    private function comprehensiveAssessmentRecords(array $sheets, string $fallbackAcademicYear): array
+    {
+        $records = [];
+
+        foreach ($sheets as $sheetName => $rows) {
+            $header = $this->headerIndex($rows, ['名次', '学号']);
+            if ($header === null) {
+                continue;
+            }
+
+            $academicYear = $fallbackAcademicYear !== ''
+                ? $fallbackAcademicYear
+                : $this->inferAcademicYear($rows);
+            $college = null;
+            $className = null;
+            $seenHeader = false;
+            $columns = $this->defaultComprehensiveAssessmentColumns();
+
+            foreach ($rows as $rowIndex => $row) {
+                $rowText = preg_replace('/\s+/u', '', implode(' ', $row));
+                if (is_string($rowText) && str_contains($rowText, '二级学院')) {
+                    $college = $this->inferLabelFromText($rowText, '二级学院') ?? $college;
+                    $className = $this->inferLabelFromText($rowText, '班级') ?? $className;
+                    continue;
+                }
+
+                if ($this->headerIndex([$row], ['名次', '学号']) !== null) {
+                    $seenHeader = true;
+                    $columns = $this->comprehensiveAssessmentColumns($row, $rows[$rowIndex + 1] ?? []);
+                    continue;
+                }
+
+                if (! $seenHeader) {
+                    continue;
+                }
+
+                if ($this->isBlankRow($row) || $this->cell($row, $columns['student_xgh']) === '') {
+                    continue;
+                }
+
+                if (! preg_match('/^\d{6,}$/', $this->cell($row, $columns['student_xgh']))) {
+                    continue;
+                }
+
+                $records[] = [
+                    'student_xgh' => $this->cell($row, $columns['student_xgh']),
+                    'student_name' => preg_replace('/\s+/u', '', $this->cell($row, $columns['student_name'])),
+                    'academic_year' => $academicYear,
+                    'college' => $college,
+                    'class_name' => $className,
+                    'rank' => $this->integer($this->cell($row, $columns['rank'])),
+                    'total_score' => $this->score($this->cell($row, $columns['total_score'])),
+                    'moral_score' => $this->score($this->cell($row, $columns['moral_score'])),
+                    'intellectual_score' => $this->score($this->cell($row, $columns['intellectual_score'])),
+                    'physical_score' => $this->score($this->cell($row, $columns['physical_score'])),
+                    'aesthetic_score' => $this->score($this->cell($row, $columns['aesthetic_score'])),
+                    'labor_score' => $this->score($this->cell($row, $columns['labor_score'])),
+                    'source_sheet' => (string) $sheetName,
+                ];
+            }
+        }
+
+        if ($records === []) {
+            return [['student_xgh' => '', 'academic_year' => $fallbackAcademicYear]];
+        }
+
+        return $records;
+    }
+
+    private function comprehensiveAssessmentColumns(array $groupHeader, array $detailHeader): array
+    {
+        $columns = $this->defaultComprehensiveAssessmentColumns();
+        $currentGroup = null;
+
+        foreach ($groupHeader as $index => $value) {
+            $normalized = $this->normalizeHeader((string) $value);
+            if ($normalized === '') {
+                $normalized = $currentGroup;
+            } else {
+                $currentGroup = $normalized;
+            }
+
+            if ($normalized === null || $normalized === '') {
+                continue;
+            }
+
+            if (str_contains($normalized, '名次')) {
+                $columns['rank'] = $index;
+            } elseif (str_contains($normalized, '姓名')) {
+                $columns['student_name'] = $index;
+            } elseif (str_contains($normalized, '学号')) {
+                $columns['student_xgh'] = $index;
+            } elseif (str_contains($normalized, '综合测评成绩') || str_contains($normalized, '综合测')) {
+                $columns['total_score'] = $index;
+            }
+
+            $detail = $this->normalizeHeader((string) ($detailHeader[$index] ?? ''));
+            if (! str_contains($detail, '总分')) {
+                continue;
+            }
+
+            if (str_contains($normalized, '德育')) {
+                $columns['moral_score'] = $index;
+            } elseif (str_contains($normalized, '智育')) {
+                $columns['intellectual_score'] = $index;
+            } elseif (str_contains($normalized, '体育')) {
+                $columns['physical_score'] = $index;
+            } elseif (str_contains($normalized, '美育')) {
+                $columns['aesthetic_score'] = $index;
+            } elseif (str_contains($normalized, '劳育')) {
+                $columns['labor_score'] = $index;
+            }
+        }
+
+        return $columns;
+    }
+
+    private function defaultComprehensiveAssessmentColumns(): array
+    {
+        return [
+            'rank' => 0,
+            'student_name' => 1,
+            'student_xgh' => 2,
+            'total_score' => 3,
+            'moral_score' => 7,
+            'intellectual_score' => 11,
+            'physical_score' => 15,
+            'aesthetic_score' => 18,
+            'labor_score' => 21,
+        ];
+    }
+
     private function templateSheets(string $type): array
     {
         return match ($type) {
@@ -843,6 +1096,17 @@ class StudentDataImportController extends Controller
                     ['2023-2024学年', '李四', '20260002', '女', '金融与经贸学院', '25经济1', '76.4', ''],
                 ],
             ],
+            'comprehensive_assessment' => [
+                '综测成绩' => [
+                    ['浙江财经大学东方学院学生综合测评成绩汇总表', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['（2024——2025学年）', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['二级学院：会计学院 班级：22会计1班 辅导员签名：', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['名次', '姓   名', '学  号', '综合测评成绩', '德育分', '', '', '', '智育分', '', '', '', '体育分', '', '', '', '美育分', '', '', '劳育分', '', ''],
+                    ['', '', '', '', '基础分', '加分', '减分', '总分', '平均成绩', '加分', '减分', '总分', '体育成绩', '加分', '减分', '总分', '美育成绩', '加分', '总分', '劳育成绩', '加分', '总分'],
+                    ['1', '张三', '20260001', '94.28', '70', '30', '0', '100', '93.68', '3', '0', '96.68', '80.8', '0', '0', '80.8', '70', '22.8', '92.8', '70', '15.8', '85.8'],
+                    ['2', '李四', '20260002', '91.68', '70', '25.15', '0', '95.15', '89.7', '9.8', '0', '99.5', '82.5', '0', '0', '82.5', '70', '5.5', '75.5', '70', '1', '71'],
+                ],
+            ],
             'cadre_assessment' => [
                 '导入说明' => [
                     ['请直接上传团学干部考核成绩汇总 PDF'],
@@ -862,6 +1126,7 @@ class StudentDataImportController extends Controller
             'medical_insurance' => '大学生医保参保缴费导入示例.xlsx',
             'safety_insurance' => '大学生学平险参保导入示例.xlsx',
             'physical_test' => '学生体测成绩导入示例.xlsx',
+            'comprehensive_assessment' => '学生综测成绩导入示例.xlsx',
             'cadre_assessment' => '团学干部考核导入说明.xlsx',
         };
     }
@@ -896,10 +1161,11 @@ class StudentDataImportController extends Controller
     private function headerIndex(array $rows, array $requiredHeaders): ?int
     {
         foreach ($rows as $index => $row) {
-            $joined = implode('|', array_map(fn ($value) => trim((string) $value), $row));
+            $joined = $this->normalizeHeader(implode('|', array_map(fn ($value) => trim((string) $value), $row)));
             $matched = true;
             foreach ($requiredHeaders as $header) {
-                if (! str_contains($joined, $header)) {
+                $normalizedHeader = $this->normalizeHeader($header);
+                if (! str_contains($joined, $normalizedHeader)) {
                     $matched = false;
                     break;
                 }
@@ -910,6 +1176,11 @@ class StudentDataImportController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizeHeader(string $value): string
+    {
+        return preg_replace('/\s+/u', '', trim($value)) ?: '';
     }
 
     private function inferYear(array $rows): ?int
@@ -932,6 +1203,34 @@ class StudentDataImportController extends Controller
         }
 
         return date('Y').'-'.((int) date('Y') + 1);
+    }
+
+    private function inferLabelFromRows(array $rows, string $label): ?string
+    {
+        foreach (array_slice($rows, 0, 6) as $row) {
+            $text = preg_replace('/\s+/u', '', implode(' ', $row));
+            if (! is_string($text) || $text === '') {
+                continue;
+            }
+
+            $value = $this->inferLabelFromText($text, $label);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function inferLabelFromText(string $text, string $label): ?string
+    {
+        if (preg_match('/'.preg_quote($label, '/').'[:：](.+?)(?=班级|辅导员|二级学院公章|$)/u', $text, $matches) !== 1) {
+            return null;
+        }
+
+        $value = trim($matches[1]);
+
+        return $value === '' ? null : $value;
     }
 
     private function cell(array $row, int $index): string
@@ -969,6 +1268,19 @@ class StudentDataImportController extends Controller
         }
 
         return preg_match('/(19|20)\d{2}/', $value, $matches) ? (int) $matches[0] : null;
+    }
+
+    private function integer(string $value): ?int
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/\d+/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) $matches[0];
     }
 
     private function date(string $value): ?string

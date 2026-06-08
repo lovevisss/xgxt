@@ -8,6 +8,7 @@ use App\Models\Student;
 use App\Models\StudentAcademicYearAverage;
 use App\Models\StudentAward;
 use App\Models\StudentCadreAssessment;
+use App\Models\StudentComprehensiveAssessment;
 use App\Models\StudentCourseSchedule;
 use App\Models\StudentCourseGrade;
 use App\Models\StudentFamily;
@@ -355,6 +356,12 @@ class StudentController extends Controller
                 ->orderByDesc('academic_year')
                 ->get()
             : collect();
+        $comprehensiveAssessments = Schema::hasTable('student_comprehensive_assessments')
+            ? StudentComprehensiveAssessment::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('academic_year')
+                ->get()
+            : collect();
         $cadreAssessments = Schema::hasTable('student_cadre_assessments')
             ? StudentCadreAssessment::query()
                 ->where('student_xgh', $xgh)
@@ -452,6 +459,7 @@ class StudentController extends Controller
             'safetyInsurances' => $safetyInsurances,
             'currentSafetyInsurance' => $safetyInsurances->firstWhere('annual_year', $currentYear),
             'physicalTests' => $physicalTests,
+            'comprehensiveAssessments' => $comprehensiveAssessments,
             'cadreAssessments' => $cadreAssessments,
             'currentYear' => $currentYear,
             'dormitory' => $dormitory,

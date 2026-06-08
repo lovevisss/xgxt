@@ -14,6 +14,7 @@ const props = defineProps({
     safetyInsurances: { type: Array, default: () => [] },
     currentSafetyInsurance: { type: Object, default: null },
     physicalTests: { type: Array, default: () => [] },
+    comprehensiveAssessments: { type: Array, default: () => [] },
     cadreAssessments: { type: Array, default: () => [] },
     currentYear: { type: Number, default: () => new Date().getFullYear() },
     dormitory: { type: Object, default: null },
@@ -419,6 +420,48 @@ async function saveFamily() {
             </div>
             <div v-else class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                 暂无学习平均成绩和排名数据。
+            </div>
+        </section>
+
+        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">学年</th>
+                            <th class="px-3 py-2 text-left">名次</th>
+                            <th class="px-3 py-2 text-left">综合测评</th>
+                            <th class="px-3 py-2 text-left">德育</th>
+                            <th class="px-3 py-2 text-left">智育</th>
+                            <th class="px-3 py-2 text-left">体育</th>
+                            <th class="px-3 py-2 text-left">美育</th>
+                            <th class="px-3 py-2 text-left">劳育</th>
+                            <th class="px-3 py-2 text-left">学院 / 班级</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.comprehensiveAssessments" :key="item.id">
+                            <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.rank || '-' }}</td>
+                            <td class="px-3 py-2">
+                                <span class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ scoreText(item.total_score) }}</span>
+                            </td>
+                            <td class="px-3 py-2">{{ scoreText(item.moral_score) }}</td>
+                            <td class="px-3 py-2">{{ scoreText(item.intellectual_score) }}</td>
+                            <td class="px-3 py-2">{{ scoreText(item.physical_score) }}</td>
+                            <td class="px-3 py-2">{{ scoreText(item.aesthetic_score) }}</td>
+                            <td class="px-3 py-2">{{ scoreText(item.labor_score) }}</td>
+                            <td class="px-3 py-2">{{ item.college || '-' }} / {{ item.class_name || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.comprehensiveAssessments.length">
+                            <td colspan="9" class="px-3 py-6 text-center text-slate-500">暂无综测成绩</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
