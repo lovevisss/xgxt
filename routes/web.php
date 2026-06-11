@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\CounselorAssignmentController;
 use App\Http\Controllers\SnippetController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\StudentAccessPermissionController;
 use App\Http\Controllers\StudentDataImportController;
 use App\Http\Controllers\StudentFamilyController;
 use Illuminate\Support\Facades\Route;
@@ -56,6 +57,14 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::delete('/counselors/{user}', [CounselorAssignmentController::class, 'destroy'])->name('counselors.destroy');
     Route::post('/counselors/{user}/classes', [CounselorAssignmentController::class, 'addClass'])->name('counselors.classes.add');
     Route::delete('/counselors/{user}/classes/{assignment}', [CounselorAssignmentController::class, 'removeClass'])->name('counselors.classes.remove');
+
+    Route::get('/student-access-permissions', [StudentAccessPermissionController::class, 'page'])->name('student-access-permissions.page');
+    Route::get('/student-access-permissions/data', [StudentAccessPermissionController::class, 'index'])->name('student-access-permissions.index');
+    Route::post('/student-access-permissions/data', [StudentAccessPermissionController::class, 'store'])->name('student-access-permissions.store');
+    Route::put('/student-access-permissions/{permission}', [StudentAccessPermissionController::class, 'update'])->name('student-access-permissions.update');
+    Route::delete('/student-access-permissions/{permission}', [StudentAccessPermissionController::class, 'destroy'])->name('student-access-permissions.destroy');
+    Route::post('/student-access-permissions/import', [StudentAccessPermissionController::class, 'import'])->name('student-access-permissions.import');
+    Route::get('/student-access-permissions/template', [StudentAccessPermissionController::class, 'template'])->name('student-access-permissions.template');
 
     Route::middleware('super-admin.auth')->group(function (): void {
         Route::get('/admin/users', [AdminUserController::class, 'page'])->name('admin.users.page');

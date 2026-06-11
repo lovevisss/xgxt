@@ -77,6 +77,17 @@ class User extends Authenticatable
         return $this->role === self::ROLE_COUNSELOR;
     }
 
+    public function studentAccessPermissions(): HasMany
+    {
+        return $this->hasMany(StudentAccessPermission::class, 'employee_no', 'cas_username');
+    }
+
+    public function hasActiveStudentAccessPermission(): bool
+    {
+        return filled($this->cas_username)
+            && $this->studentAccessPermissions()->where('is_active', true)->exists();
+    }
+
     public function canManageStudentDepartment(?string $studentDepartmentCode): bool
     {
         if ($this->isAdmin()) {
@@ -100,7 +111,18 @@ class User extends Authenticatable
             return true;
         }
 
-        if (! $this->isCounselor() || ! $student) {
+        if (! $student) {
+            return false;
+        }
+
+        if ($this->studentAccessPermissions()
+            ->where('is_active', true)
+            ->get()
+            ->contains(fn (StudentAccessPermission $permission) => $permission->allowsDepartment($student->dwbm))) {
+            return true;
+        }
+
+        if (! $this->isCounselor()) {
             return false;
         }
 

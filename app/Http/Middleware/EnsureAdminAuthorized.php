@@ -21,6 +21,10 @@ class EnsureAdminAuthorized
             return $next($request);
         }
 
+        if ($user && $user->hasActiveStudentAccessPermission() && $this->isReadOnlyStudentRoute($request)) {
+            return $next($request);
+        }
+
         if ($request->expectsJson() || $request->is('*/data*')) {
             return response()->json([
                 'message' => '当前账号不是管理员，无法访问该资源。',
@@ -30,5 +34,18 @@ class EnsureAdminAuthorized
         return response()->view('forbidden', [
             'message' => '当前账号不是管理员，无法访问该页面。',
         ], 403);
+    }
+
+    private function isReadOnlyStudentRoute(Request $request): bool
+    {
+        return $request->isMethod('GET')
+            && (
+                $request->is('students')
+                || $request->is('students/data')
+                || $request->is('students/data/*')
+                || $request->is('students/filters')
+                || $request->is('students/profile/*')
+                || $request->is('students/dormitories/*')
+            );
     }
 }

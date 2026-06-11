@@ -13,9 +13,9 @@ it('calculates academic year weighted averages and rankings', function () {
     StudentClass::query()->create(['class_code' => '250101', 'class_name' => '25会计1班', 'major_code' => '2501']);
     StudentClass::query()->create(['class_code' => '250102', 'class_name' => '25会计2班', 'major_code' => '2501']);
 
-    Student::query()->create(['xgh' => '20250001', 'xm' => '甲同学', 'rylx' => '0', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
-    Student::query()->create(['xgh' => '20250002', 'xm' => '乙同学', 'rylx' => '0', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
-    Student::query()->create(['xgh' => '20250003', 'xm' => '丙同学', 'rylx' => '0', 'bjbm' => '250102', 'bjmc' => '25会计2班']);
+    Student::query()->create(['xgh' => '20250001', 'xm' => '甲同学', 'xbm' => '1', 'rylx' => '0', 'dwmc' => '会计学院', 'dwbm' => 'ACC', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
+    Student::query()->create(['xgh' => '20250002', 'xm' => '乙同学', 'xbm' => '1', 'rylx' => '0', 'dwmc' => '会计学院', 'dwbm' => 'ACC', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
+    Student::query()->create(['xgh' => '20250003', 'xm' => '丙同学', 'xbm' => '1', 'rylx' => '0', 'dwmc' => '会计学院', 'dwbm' => 'ACC', 'bjbm' => '250102', 'bjmc' => '25会计2班']);
 
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-1', 'kcbm' => 'A001', 'kcmc' => '高等数学', 'cj' => '80', 'xf' => 3, 'ksxz' => '正常考试']);
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-1', 'kcbm' => 'A002', 'kcmc' => '大学英语', 'cj' => '50', 'xf' => 2, 'ksxz' => '正常考试']);
@@ -53,7 +53,7 @@ it('calculates academic year weighted averages and rankings', function () {
 });
 
 it('shows academic year average calculation courses on student profile', function () {
-    Student::query()->create(['xgh' => '20250001', 'xm' => '甲同学', 'rylx' => '0', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
+    Student::query()->create(['xgh' => '20250001', 'xm' => '甲同学', 'xbm' => '1', 'rylx' => '0', 'dwmc' => '会计学院', 'dwbm' => 'ACC', 'bjbm' => '250101', 'bjmc' => '25会计1班']);
     StudentCourseGrade::query()->create(['xh' => '20250001', 'xnxq' => '2025-2026-1', 'kcbm' => 'A001', 'kcmc' => '高等数学', 'cj' => '80', 'xf' => 3, 'ksxz' => '正常考试']);
 
     DB::table('student_academic_year_averages')->insert([
@@ -78,6 +78,6 @@ it('shows academic year average calculation courses on student profile', functio
         ->assertSee('"class_rank":1', false)
         ->assertSee('"major_rank":1', false)
         ->assertSee('"calculation_courses":[', false)
-        ->assertSee('"course_name":"高等数学"', false)
+        ->assertSee('"course_name":"\u9ad8\u7b49\u6570\u5b66"', false)
         ->assertSee('"weighted_score":240', false);
 });

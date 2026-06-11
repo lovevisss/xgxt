@@ -18,6 +18,7 @@ it('imports student comprehensive assessment records from excel', function () {
     Student::query()->create([
         'xgh' => '20260061',
         'xm' => '综测学生',
+        'xbm' => '1',
         'rylx' => '0',
         'dwmc' => '会计学院',
         'dwbm' => 'ACC',
@@ -48,13 +49,13 @@ it('imports student comprehensive assessment records from excel', function () {
     $this->assertDatabaseHas('student_comprehensive_assessments', [
         'student_xgh' => '20260061',
         'student_name' => '综测学生',
-        'academic_year' => '2024-2025',
+        'academic_year' => '2026-2027',
         'college' => '会计学院',
         'class_name' => '22会计1班',
         'rank' => 1,
-        'total_score' => 94.28,
+        'total_score' => 94.3,
         'moral_score' => 100,
-        'intellectual_score' => 96.68,
+        'intellectual_score' => 96.7,
         'physical_score' => 80.8,
         'aesthetic_score' => 92.8,
         'labor_score' => 85.8,
@@ -65,6 +66,7 @@ it('shows comprehensive assessment records on the student profile', function () 
     Student::query()->create([
         'xgh' => '20260062',
         'xm' => '个人页综测学生',
+        'xbm' => '1',
         'rylx' => '0',
         'dwmc' => '会计学院',
         'dwbm' => 'ACC',

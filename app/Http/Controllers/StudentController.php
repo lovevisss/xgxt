@@ -1060,7 +1060,19 @@ class StudentController extends Controller
             return;
         }
 
-        if (! $user->isCounselor()) {
+        $accessPermissions = $user->studentAccessPermissions()->where('is_active', true)->get(['scope_type', 'department_code']);
+        if ($accessPermissions->contains(fn ($permission) => $permission->scope_type === \App\Models\StudentAccessPermission::SCOPE_ALL)) {
+            return;
+        }
+
+        $departmentCodes = $accessPermissions
+            ->where('scope_type', \App\Models\StudentAccessPermission::SCOPE_COLLEGE)
+            ->pluck('department_code')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if (! $user->isCounselor() && $departmentCodes->isEmpty()) {
             $query->whereRaw('1 = 0');
 
             return;
@@ -1070,15 +1082,19 @@ class StudentController extends Controller
         $classCodes = $assignments->pluck('class_code')->filter()->unique()->values();
         $classNames = $assignments->pluck('normalized_class_name')->filter()->unique()->values();
 
-        if ($classCodes->isEmpty() && $classNames->isEmpty()) {
+        if ($classCodes->isEmpty() && $classNames->isEmpty() && $departmentCodes->isEmpty()) {
             $query->whereRaw('1 = 0');
 
             return;
         }
 
-        $query->where(function ($subQuery) use ($classCodes, $classNames) {
+        $query->where(function ($subQuery) use ($classCodes, $classNames, $departmentCodes) {
+            if ($departmentCodes->isNotEmpty()) {
+                $subQuery->whereIn('dwbm', $departmentCodes->all());
+            }
+
             if ($classCodes->isNotEmpty()) {
-                $subQuery->whereIn('bjbm', $classCodes->all());
+                $subQuery->orWhereIn('bjbm', $classCodes->all());
             }
 
             if ($classNames->isNotEmpty()) {
