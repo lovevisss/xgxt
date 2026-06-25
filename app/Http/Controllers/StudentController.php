@@ -16,6 +16,7 @@ use App\Models\StudentLoan;
 use App\Models\StudentMedicalInsurance;
 use App\Models\StudentDormitory;
 use App\Models\StudentEducationHistory;
+use App\Models\StudentMoralAssessment;
 use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
@@ -367,6 +368,13 @@ class StudentController extends Controller
                 ->orderByDesc('academic_year')
                 ->get()
             : collect();
+        $moralAssessments = Schema::hasTable('student_moral_assessments')
+            ? StudentMoralAssessment::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('academic_year')
+                ->orderByDesc('semester')
+                ->get()
+            : collect();
         $cadreAssessments = Schema::hasTable('student_cadre_assessments')
             ? StudentCadreAssessment::query()
                 ->where('student_xgh', $xgh)
@@ -466,6 +474,7 @@ class StudentController extends Controller
             'currentSafetyInsurance' => $safetyInsurances->firstWhere('annual_year', $currentYear),
             'physicalTests' => $physicalTests,
             'comprehensiveAssessments' => $comprehensiveAssessments,
+            'moralAssessments' => $moralAssessments,
             'cadreAssessments' => $cadreAssessments,
             'currentYear' => $currentYear,
             'dormitory' => $dormitory,

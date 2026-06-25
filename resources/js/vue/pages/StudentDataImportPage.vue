@@ -102,6 +102,17 @@ const importTypes = [
         resultLabels: { imported: '综测成绩' },
     },
     {
+        key: 'moral_assessment',
+        title: '学期德育分',
+        eyebrow: '德育量化考核',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/moral_assessment',
+        template: '/student-imports/template/moral_assessment',
+        fields: '名次、学号、姓名、德育基础分、加分、减分、德育总分、备注。支持每个年级一个工作表。',
+        note: '按“学号 + 学年 + 学期”更新，导入后会展示在学生主页的综测成绩旁边。',
+        resultLabels: { imported: '学期德育分' },
+    },
+    {
         key: 'cadre_assessment',
         title: '团学干部任职考核',
         eyebrow: '任职与考核等级',
@@ -119,6 +130,7 @@ const file = ref(null);
 const uploading = ref(false);
 const annualYear = ref(String(new Date().getFullYear()));
 const academicYear = ref('2025-2026');
+const semester = ref('1');
 const source = ref('国开行');
 const notice = ref({ text: '', type: 'info' });
 const result = ref(null);
@@ -128,7 +140,8 @@ const resolvingMatchId = ref(null);
 
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
-const showSupportOptions = computed(() => ['support', 'cadre_assessment', 'comprehensive_assessment'].includes(selectedKey.value));
+const showSupportOptions = computed(() => ['support', 'cadre_assessment', 'comprehensive_assessment', 'moral_assessment'].includes(selectedKey.value));
+const showSemesterOptions = computed(() => selectedKey.value === 'moral_assessment');
 const showAnnualYearOptions = computed(() => ['loan', 'medical_insurance', 'safety_insurance'].includes(selectedKey.value));
 
 function getCSRF() {
@@ -149,7 +162,11 @@ function selectType(key) {
 function chooseFile(event) {
     file.value = event.target.files?.[0] || null;
     result.value = null;
-    if (file.value && /综测|综合测评/.test(file.value.name) && selectedKey.value !== 'comprehensive_assessment') {
+    if (file.value && /德育/.test(file.value.name) && selectedKey.value !== 'moral_assessment') {
+        selectedKey.value = 'moral_assessment';
+        taskId.value = null;
+        stopPolling();
+    } else if (file.value && /综测|综合测评/.test(file.value.name) && selectedKey.value !== 'comprehensive_assessment') {
         selectedKey.value = 'comprehensive_assessment';
         taskId.value = null;
         stopPolling();
@@ -185,6 +202,9 @@ async function upload() {
     }
     if (showSupportOptions.value) {
         formData.append('academic_year', academicYear.value);
+    }
+    if (showSemesterOptions.value) {
+        formData.append('semester', semester.value);
     }
 
     const response = await fetch(selectedType.value.endpoint, {
@@ -361,6 +381,11 @@ onBeforeUnmount(stopPolling);
                 <label v-if="showSupportOptions" class="mt-5 block text-sm text-slate-600">
                     学年
                     <input v-model="academicYear" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text" placeholder="2025-2026">
+                </label>
+
+                <label v-if="showSemesterOptions" class="mt-3 block text-sm text-slate-600">
+                    学期
+                    <input v-model="semester" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text" placeholder="1">
                 </label>
 
                 <div class="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">

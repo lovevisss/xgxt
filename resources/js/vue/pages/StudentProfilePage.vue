@@ -16,6 +16,7 @@ const props = defineProps({
     currentSafetyInsurance: { type: Object, default: null },
     physicalTests: { type: Array, default: () => [] },
     comprehensiveAssessments: { type: Array, default: () => [] },
+    moralAssessments: { type: Array, default: () => [] },
     cadreAssessments: { type: Array, default: () => [] },
     currentYear: { type: Number, default: () => new Date().getFullYear() },
     dormitory: { type: Object, default: null },
@@ -236,6 +237,10 @@ function dateText(value) {
     }
 
     return String(value).slice(0, 10);
+}
+
+function semesterText(value) {
+    return value ? `第${value}学期` : '-';
 }
 
 const weekDays = [
@@ -506,45 +511,91 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
-                <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 grid gap-6 xl:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
+                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">学年</th>
+                                <th class="px-3 py-2 text-left">名次</th>
+                                <th class="px-3 py-2 text-left">综合测评</th>
+                                <th class="px-3 py-2 text-left">德育</th>
+                                <th class="px-3 py-2 text-left">智育</th>
+                                <th class="px-3 py-2 text-left">体育</th>
+                                <th class="px-3 py-2 text-left">美育</th>
+                                <th class="px-3 py-2 text-left">劳育</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="item in props.comprehensiveAssessments" :key="item.id">
+                                <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
+                                <td class="px-3 py-2">{{ item.rank || '-' }}</td>
+                                <td class="px-3 py-2">
+                                    <span class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ scoreText(item.total_score) }}</span>
+                                </td>
+                                <td class="px-3 py-2">{{ scoreText(item.moral_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.intellectual_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.physical_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.aesthetic_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.labor_score) }}</td>
+                            </tr>
+                            <tr v-if="!props.comprehensiveAssessments.length">
+                                <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无综测成绩</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
-                        <tr>
-                            <th class="px-3 py-2 text-left">学年</th>
-                            <th class="px-3 py-2 text-left">名次</th>
-                            <th class="px-3 py-2 text-left">综合测评</th>
-                            <th class="px-3 py-2 text-left">德育</th>
-                            <th class="px-3 py-2 text-left">智育</th>
-                            <th class="px-3 py-2 text-left">体育</th>
-                            <th class="px-3 py-2 text-left">美育</th>
-                            <th class="px-3 py-2 text-left">劳育</th>
-                            <th class="px-3 py-2 text-left">学院 / 班级</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="item in props.comprehensiveAssessments" :key="item.id">
-                            <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
-                            <td class="px-3 py-2">{{ item.rank || '-' }}</td>
-                            <td class="px-3 py-2">
-                                <span class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ scoreText(item.total_score) }}</span>
-                            </td>
-                            <td class="px-3 py-2">{{ scoreText(item.moral_score) }}</td>
-                            <td class="px-3 py-2">{{ scoreText(item.intellectual_score) }}</td>
-                            <td class="px-3 py-2">{{ scoreText(item.physical_score) }}</td>
-                            <td class="px-3 py-2">{{ scoreText(item.aesthetic_score) }}</td>
-                            <td class="px-3 py-2">{{ scoreText(item.labor_score) }}</td>
-                            <td class="px-3 py-2">{{ item.college || '-' }} / {{ item.class_name || '-' }}</td>
-                        </tr>
-                        <tr v-if="!props.comprehensiveAssessments.length">
-                            <td colspan="9" class="px-3 py-6 text-center text-slate-500">暂无综测成绩</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-950">学期德育分</h2>
+                        <p class="mt-1 text-sm text-slate-500">按学年学期展示德育量化考核。</p>
+                    </div>
+                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">学年学期</th>
+                                <th class="px-3 py-2 text-left">名次</th>
+                                <th class="px-3 py-2 text-left">总分</th>
+                                <th class="px-3 py-2 text-left">基础</th>
+                                <th class="px-3 py-2 text-left">加分</th>
+                                <th class="px-3 py-2 text-left">减分</th>
+                                <th class="px-3 py-2 text-left">学院 / 班级</th>
+                                <th class="px-3 py-2 text-left">备注</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="item in props.moralAssessments" :key="item.id">
+                                <td class="px-3 py-2">
+                                    <div class="font-semibold text-slate-950">{{ item.academic_year || '-' }}</div>
+                                    <div class="mt-0.5 text-xs text-slate-500">{{ semesterText(item.semester) }}</div>
+                                </td>
+                                <td class="px-3 py-2">{{ item.rank || '-' }}</td>
+                                <td class="px-3 py-2">
+                                    <span class="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{{ scoreText(item.total_score) }}</span>
+                                </td>
+                                <td class="px-3 py-2">{{ scoreText(item.base_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.bonus_score) }}</td>
+                                <td class="px-3 py-2">{{ scoreText(item.deduction_score) }}</td>
+                                <td class="px-3 py-2">{{ item.college || '-' }} / {{ item.class_name || '-' }}</td>
+                                <td class="px-3 py-2">{{ item.remark || '-' }}</td>
+                            </tr>
+                            <tr v-if="!props.moralAssessments.length">
+                                <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无学期德育分</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 

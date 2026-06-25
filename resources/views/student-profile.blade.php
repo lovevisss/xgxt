@@ -19,6 +19,7 @@
         "currentSafetyInsurance" => $currentSafetyInsurance,
         "physicalTests" => $physicalTests,
         "comprehensiveAssessments" => $comprehensiveAssessments,
+        "moralAssessments" => $moralAssessments,
         "cadreAssessments" => $cadreAssessments,
         "currentYear" => $currentYear,
         "dormitory" => $dormitory,
