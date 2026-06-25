@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\UserLoginLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -73,6 +74,37 @@ it('allows only super admins to manage user roles', function () {
     ]);
 });
 
+it('allows only super admins to view login logs', function () {
+    $superAdmin = User::factory()->create([
+        'cas_username' => 'root-log',
+        'role' => User::ROLE_SUPER_ADMIN,
+    ]);
+
+    $normalAdmin = User::factory()->create([
+        'cas_username' => 'admin-log',
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    UserLoginLog::query()->create([
+        'user_id' => $normalAdmin->id,
+        'cas_username' => $normalAdmin->cas_username,
+        'name' => $normalAdmin->name,
+        'logged_in_at' => now(),
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Test Browser',
+    ]);
+
+    $this->withSession([
+        'cas_user' => ['user' => $normalAdmin->cas_username],
+    ])->get('/admin/login-logs')->assertForbidden();
+
+    $this->withSession([
+        'cas_user' => ['user' => $superAdmin->cas_username],
+    ])->getJson('/admin/login-logs/data')
+        ->assertOk()
+        ->assertJsonPath('data.0.cas_username', $normalAdmin->cas_username);
+});
+
 it('sets first CAS-synced user as super admin', function () {
     Http::fake([
         'https://cas.paas.zufedfc.edu.cn/cas/serviceValidate*' => Http::response(<<<'XML'
@@ -96,4 +128,3 @@ XML, 200),
         'role' => User::ROLE_SUPER_ADMIN,
     ]);
 });
-

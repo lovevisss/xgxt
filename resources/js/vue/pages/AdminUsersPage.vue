@@ -74,7 +74,10 @@ onMounted(async () => {
                     <h1 class="text-3xl font-bold">管理员配置</h1>
                     <p class="mt-1 text-sm text-slate-500">仅超级管理员可调整用户角色。</p>
                 </div>
-                <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
+                <div class="flex gap-2">
+                    <a href="/admin/login-logs" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">登录日志</a>
+                    <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
+                </div>
             </div>
         </header>
 
@@ -120,4 +123,3 @@ onMounted(async () => {
         </section>
     </main>
 </template>
-

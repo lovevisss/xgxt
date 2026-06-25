@@ -54,6 +54,10 @@ XML, 200),
         'dwbm' => 'CS',
         'dwmc' => 'Computer School',
     ]);
+    $this->assertDatabaseHas('user_login_logs', [
+        'cas_username' => 'teacher001',
+        'name' => 'Test Teacher',
+    ]);
 });
 
 it('logs out from Laravel session before redirecting to CAS logout', function () {

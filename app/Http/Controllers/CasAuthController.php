@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UserLoginLog;
 use App\Services\CasClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -43,7 +44,17 @@ class CasAuthController extends Controller
             'logged_in_at' => now()->toIso8601String(),
         ]);
 
-        Auth::login($this->syncCasUser((string) $result['user'], $result['attributes']));
+        $user = $this->syncCasUser((string) $result['user'], $result['attributes']);
+
+        Auth::login($user);
+        UserLoginLog::query()->create([
+            'user_id' => $user->id,
+            'cas_username' => (string) $result['user'],
+            'name' => $user->name,
+            'logged_in_at' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+        ]);
 
         return redirect($returnUrl);
     }
