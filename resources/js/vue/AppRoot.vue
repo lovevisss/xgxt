@@ -7,8 +7,10 @@ import StudentDataImportPage from './pages/StudentDataImportPage.vue';
 import StudentProfilePage from './pages/StudentProfilePage.vue';
 import StudentDormitoryPage from './pages/StudentDormitoryPage.vue';
 import CounselorAssignmentsPage from './pages/CounselorAssignmentsPage.vue';
+import AdminLoginLogsPage from './pages/AdminLoginLogsPage.vue';
 import AdminUsersPage from './pages/AdminUsersPage.vue';
 import StudentAccessPermissionsPage from './pages/StudentAccessPermissionsPage.vue';
+import SyncTasksPage from './pages/SyncTasksPage.vue';
 import SnippetsIndexPage from './pages/SnippetsIndexPage.vue';
 import SnippetsCreatePage from './pages/SnippetsCreatePage.vue';
 import SnippetsShowPage from './pages/SnippetsShowPage.vue';
@@ -26,8 +28,10 @@ const pages = {
     studentProfile: StudentProfilePage,
     studentDormitory: StudentDormitoryPage,
     counselorAssignments: CounselorAssignmentsPage,
+    adminLoginLogs: AdminLoginLogsPage,
     adminUsers: AdminUsersPage,
     studentAccessPermissions: StudentAccessPermissionsPage,
+    syncTasks: SyncTasksPage,
     snippetsIndex: SnippetsIndexPage,
     snippetsCreate: SnippetsCreatePage,
     snippetsShow: SnippetsShowPage,

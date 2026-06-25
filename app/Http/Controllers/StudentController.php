@@ -20,6 +20,7 @@ use App\Models\StudentPhysicalTest;
 use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
 use App\Models\StudentSupportRecipient;
+use App\Models\StudentTechnologyCompetitionAward;
 use App\Services\StudentAcademicYearAverageService;
 use App\Support\CurrentUser;
 use Illuminate\Support\Carbon;
@@ -304,11 +305,7 @@ class StudentController extends Controller
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
         abort_unless($this->canViewStudent($student), 403, 'Only assigned counselors or admins can view this student.');
-        $families = StudentFamily::query()
-            ->where('stu_no', $xgh)
-            ->orderByDesc('is_emergency_contact')
-            ->orderBy('id')
-            ->get();
+        $families = $this->latestStudentFamilies($xgh);
         $awards = StudentAward::query()
             ->where('student_xgh', $xgh)
             ->orderByDesc('annual_year')
@@ -329,6 +326,14 @@ class StudentController extends Controller
             ->where('student_xgh', $xgh)
             ->orderByDesc('academic_year')
             ->get();
+        $technologyCompetitionAwards = Schema::hasTable('student_technology_competition_awards')
+            ? StudentTechnologyCompetitionAward::query()
+                ->where('student_xgh', $xgh)
+                ->orderByDesc('awarded_at')
+                ->orderByDesc('annual_year')
+                ->orderBy('award_name')
+                ->get()
+            : collect();
         $educationHistories = Schema::hasTable('student_education_histories')
             ? StudentEducationHistory::query()
                 ->where('stu_no', $xgh)
@@ -453,6 +458,7 @@ class StudentController extends Controller
             'punishments' => $punishments,
             'loans' => $loans,
             'supportRecipients' => $supportRecipients,
+            'technologyCompetitionAwards' => $technologyCompetitionAwards,
             'educationHistories' => $educationHistories,
             'medicalInsurances' => $medicalInsurances,
             'currentMedicalInsurance' => $medicalInsurances->firstWhere('annual_year', $currentYear),
@@ -1103,6 +1109,73 @@ class StudentController extends Controller
                 }
             }
         });
+    }
+
+    private function latestStudentFamilies(string $studentNumber): Collection
+    {
+        return StudentFamily::query()
+            ->where('stu_no', $studentNumber)
+            ->get()
+            ->sort(function (StudentFamily $left, StudentFamily $right) {
+                $timestampCompare = $this->familyLatestTimestamp($right) <=> $this->familyLatestTimestamp($left);
+
+                return $timestampCompare !== 0 ? $timestampCompare : ($right->id <=> $left->id);
+            })
+            ->unique(fn (StudentFamily $family) => $this->familyIdentityKey($family))
+            ->sort(function (StudentFamily $left, StudentFamily $right) {
+                $emergencyCompare = (int) $right->is_emergency_contact <=> (int) $left->is_emergency_contact;
+
+                if ($emergencyCompare !== 0) {
+                    return $emergencyCompare;
+                }
+
+                $relationshipCompare = strcmp(
+                    $this->normalizeFamilyIdentityPart($left->relationship ?: $left->specific_relationship),
+                    $this->normalizeFamilyIdentityPart($right->relationship ?: $right->specific_relationship)
+                );
+
+                if ($relationshipCompare !== 0) {
+                    return $relationshipCompare;
+                }
+
+                $nameCompare = strcmp(
+                    $this->normalizeFamilyIdentityPart($left->name),
+                    $this->normalizeFamilyIdentityPart($right->name)
+                );
+
+                return $nameCompare !== 0 ? $nameCompare : ($left->id <=> $right->id);
+            })
+            ->values();
+    }
+
+    private function familyIdentityKey(StudentFamily $family): string
+    {
+        $name = $this->normalizeFamilyIdentityPart($family->name);
+        $relationship = $this->normalizeFamilyIdentityPart($family->relationship ?: $family->specific_relationship);
+
+        if ($name !== '') {
+            return "name:{$name}|relationship:{$relationship}";
+        }
+
+        return 'phone:'.$this->normalizeFamilyIdentityPart($family->phone).'|relationship:'.$relationship;
+    }
+
+    private function familyLatestTimestamp(StudentFamily $family): int
+    {
+        foreach (['local_modified_at', 'synced_at', 'updated_at', 'created_at'] as $field) {
+            $value = $family->{$field};
+
+            if ($value) {
+                return Carbon::parse($value)->getTimestamp();
+            }
+        }
+
+        return 0;
+    }
+
+    private function normalizeFamilyIdentityPart(?string $value): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/u', '', (string) $value) ?? ''));
     }
 
     private function canViewStudent(Student $student): bool

@@ -150,6 +150,51 @@ it('shows a student profile page with family info', function () {
         ->assertSee('"stu_no":"20260004"', false);
 });
 
+it('shows the latest family record when the same parent has multiple records', function () {
+    Student::query()->create([
+        'xgh' => '20260006',
+        'xm' => 'Profile Student',
+        'xbm' => '1',
+        'rylx' => '0',
+        'dwmc' => 'Finance College',
+        'dwbm' => 'FIN',
+        'bjmc' => 'Class 1',
+    ]);
+
+    StudentFamily::query()->create([
+        'sync_key' => md5('20260006|Parent A|Father|old'),
+        'stu_no' => '20260006',
+        'name' => 'Parent A',
+        'relationship' => 'Father',
+        'work_unit' => 'Old Company',
+        'position' => 'Old Job',
+        'phone' => '13100000000',
+        'is_emergency_contact' => true,
+        'created_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ]);
+
+    StudentFamily::query()->create([
+        'sync_key' => md5('20260006|Parent A|Father|new'),
+        'stu_no' => '20260006',
+        'name' => 'Parent A',
+        'relationship' => 'Father',
+        'work_unit' => 'New Company',
+        'position' => 'New Job',
+        'phone' => '13200000000',
+        'is_emergency_contact' => false,
+        'created_at' => now()->subDay(),
+        'updated_at' => now()->subDay(),
+    ]);
+
+    $this->get('/students/profile/20260006')
+        ->assertOk()
+        ->assertSee('"work_unit":"New Company"', false)
+        ->assertSee('"phone":"13200000000"', false)
+        ->assertDontSee('"work_unit":"Old Company"', false)
+        ->assertDontSee('"phone":"13100000000"', false);
+});
+
 it('allows same-department counselors and super admins to update family records when CAS is enabled', function () {
     config()->set('cas.enabled', true);
 

@@ -13,6 +13,7 @@ use App\Models\StudentPunishment;
 use App\Models\StudentSafetyInsurance;
 use App\Models\StudentImportTask;
 use App\Models\StudentSupportRecipient;
+use App\Models\StudentTechnologyCompetitionAward;
 use App\Jobs\ImportStudentFamilyContacts;
 use App\Services\StudentCadreAssessmentImportService;
 use App\Services\StudentFamilyManualImportService;
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Validator;
 
 class StudentDataImportController extends Controller
 {
-    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test', 'cadre_assessment', 'comprehensive_assessment'];
+    private const TYPES = ['award_punishment', 'loan', 'support', 'family', 'medical_insurance', 'safety_insurance', 'physical_test', 'cadre_assessment', 'comprehensive_assessment', 'technology_competition_award'];
 
     public function __construct(
         private readonly StudentFamilyManualImportService $familyImport,
@@ -116,6 +117,7 @@ class StudentDataImportController extends Controller
             'safety_insurance' => response()->json($this->importSafetyInsurances($sheets, $request)),
             'physical_test' => response()->json($this->importPhysicalTests($sheets, $request)),
             'comprehensive_assessment' => response()->json($this->importComprehensiveAssessments($sheets, $request)),
+            'technology_competition_award' => response()->json($this->importTechnologyCompetitionAwards($sheets)),
         };
     }
 
@@ -617,6 +619,80 @@ class StudentDataImportController extends Controller
         return $result;
     }
 
+    private function importTechnologyCompetitionAwards(array $sheets): array
+    {
+        @set_time_limit(120);
+        $this->ensureTechnologyCompetitionAwardsTable();
+
+        $rows = $this->rowsWithHeader($sheets, ['学号', '荣誉名称']);
+        $records = $this->technologyCompetitionAwardRecords($rows);
+        $result = ['imported' => 0, 'errors' => []];
+        $validRecords = [];
+
+        foreach ($records as $index => $record) {
+            $validator = Validator::make($record, [
+                'student_xgh' => ['required', 'string'],
+                'award_name' => ['required', 'string'],
+                'awarded_at' => ['nullable', 'date'],
+                'annual_year' => ['nullable', 'integer', 'between:1900,2100'],
+            ]);
+
+            if ($validator->fails()) {
+                $result['errors'][] = '第'.($index + 1).' 条：'.$validator->errors()->first();
+                continue;
+            }
+
+            $validRecords[] = $record;
+        }
+
+        if ($validRecords === []) {
+            return $result;
+        }
+
+        $studentNames = Student::query()
+            ->whereIn('xgh', collect($validRecords)->pluck('student_xgh')->unique()->values())
+            ->pluck('xm', 'xgh');
+        $now = now();
+
+        DB::transaction(function () use ($validRecords, $studentNames, $now, &$result): void {
+            foreach (array_chunk($validRecords, 1000) as $chunk) {
+                $payload = array_map(function (array $record) use ($studentNames, $now): array {
+                    return [
+                        'student_xgh' => $record['student_xgh'],
+                        'student_name' => $studentNames[$record['student_xgh']] ?? $record['student_name'],
+                        'college' => $record['college'],
+                        'class_name' => $record['class_name'],
+                        'grade' => $record['grade'],
+                        'award_name' => $record['award_name'],
+                        'awarded_at' => $record['awarded_at'],
+                        'annual_year' => $record['annual_year'],
+                        'imported_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }, $chunk);
+
+                StudentTechnologyCompetitionAward::query()->upsert(
+                    $payload,
+                    ['student_xgh', 'award_name', 'awarded_at'],
+                    [
+                        'student_name',
+                        'college',
+                        'class_name',
+                        'grade',
+                        'annual_year',
+                        'imported_at',
+                        'updated_at',
+                    ]
+                );
+
+                $result['imported'] += count($payload);
+            }
+        });
+
+        return $result;
+    }
+
     private function ensureMedicalInsurancesTable(): void
     {
         if (Schema::hasTable('student_medical_insurances')) {
@@ -716,6 +792,29 @@ class StudentDataImportController extends Controller
             $table->timestamps();
 
             $table->unique(['student_xgh', 'academic_year'], 'uniq_student_comprehensive_student_year');
+        });
+    }
+
+    private function ensureTechnologyCompetitionAwardsTable(): void
+    {
+        if (Schema::hasTable('student_technology_competition_awards')) {
+            return;
+        }
+
+        Schema::create('student_technology_competition_awards', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_xgh', 32)->index();
+            $table->string('student_name')->nullable();
+            $table->string('college')->nullable()->index();
+            $table->string('class_name')->nullable()->index();
+            $table->string('grade')->nullable()->index();
+            $table->string('award_name');
+            $table->dateTime('awarded_at')->nullable()->index();
+            $table->unsignedSmallInteger('annual_year')->nullable()->index();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['student_xgh', 'award_name', 'awarded_at'], 'uniq_student_tech_award');
         });
     }
 
@@ -974,6 +1073,36 @@ class StudentDataImportController extends Controller
         return $records;
     }
 
+    private function technologyCompetitionAwardRecords(array $rows): array
+    {
+        $header = $this->headerIndex($rows, ['学号', '荣誉名称']);
+        if ($header === null) {
+            return [['student_xgh' => '', 'award_name' => '']];
+        }
+
+        $headers = $rows[$header] ?? [];
+        $records = [];
+        foreach (array_slice($rows, $header + 1) as $row) {
+            if ($this->isBlankRow($row)) {
+                continue;
+            }
+
+            $awardedAt = $this->dateTime($this->cellByHeader($row, $headers, ['时间', '获奖时间', '日期']));
+            $records[] = [
+                'student_xgh' => $this->cellByHeader($row, $headers, ['学号']),
+                'student_name' => $this->cellByHeader($row, $headers, ['姓名']),
+                'college' => $this->cellByHeader($row, $headers, ['学院', '二级学院']),
+                'class_name' => $this->cellByHeader($row, $headers, ['班级']),
+                'grade' => $this->cellByHeader($row, $headers, ['年级']),
+                'award_name' => $this->cellByHeader($row, $headers, ['荣誉名称', '获奖名称', '奖项名称']),
+                'awarded_at' => $awardedAt,
+                'annual_year' => $this->year($awardedAt ?? ''),
+            ];
+        }
+
+        return $records;
+    }
+
     private function comprehensiveAssessmentColumns(array $groupHeader, array $detailHeader): array
     {
         $columns = $this->defaultComprehensiveAssessmentColumns();
@@ -1107,6 +1236,13 @@ class StudentDataImportController extends Controller
                     ['2', '李四', '20260002', '91.68', '70', '25.15', '0', '95.15', '89.7', '9.8', '0', '99.5', '82.5', '0', '0', '82.5', '70', '5.5', '75.5', '70', '1', '71'],
                 ],
             ],
+            'technology_competition_award' => [
+                '科技竞赛获奖' => [
+                    ['姓名', '学号', '学院', '班级', '年级', '荣誉名称', '时间'],
+                    ['张三', '20260001', '会计学院', '25会计1', '2025', '第十一届浙江省大学生工程实践与创新能力大赛银奖', '2026-05-01 18:00:00'],
+                    ['李四', '20260002', '信息与人工智能学院', '25计算机1', '2025', '东方学院企业竞争模拟大赛二等奖', '2026-06-01 18:00:00'],
+                ],
+            ],
             'cadre_assessment' => [
                 '导入说明' => [
                     ['请直接上传团学干部考核成绩汇总 PDF'],
@@ -1127,6 +1263,7 @@ class StudentDataImportController extends Controller
             'safety_insurance' => '大学生学平险参保导入示例.xlsx',
             'physical_test' => '学生体测成绩导入示例.xlsx',
             'comprehensive_assessment' => '学生综测成绩导入示例.xlsx',
+            'technology_competition_award' => '学生科技竞赛获奖导入示例.xlsx',
             'cadre_assessment' => '团学干部考核导入说明.xlsx',
         };
     }
@@ -1241,9 +1378,10 @@ class StudentDataImportController extends Controller
     private function cellByHeader(array $row, array $headers, array $candidates): string
     {
         foreach ($headers as $index => $header) {
-            $normalized = trim((string) $header);
+            $normalized = $this->normalizeHeader((string) $header);
             foreach ($candidates as $candidate) {
-                if ($normalized === $candidate || str_contains($normalized, $candidate)) {
+                $normalizedCandidate = $this->normalizeHeader($candidate);
+                if ($normalized === $normalizedCandidate || str_contains($normalized, $normalizedCandidate)) {
                     return $this->cell($row, $index);
                 }
             }
@@ -1295,6 +1433,26 @@ class StudentDataImportController extends Controller
 
         try {
             return Carbon::parse($value)->toDateString();
+        } catch (\Throwable) {
+            return $value;
+        }
+    }
+
+    private function dateTime(string $value): ?string
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return Carbon::create(1899, 12, 30)
+                ->addDays((int) floor((float) $value))
+                ->addSeconds((int) round((((float) $value) - floor((float) $value)) * 86400))
+                ->toDateTimeString();
+        }
+
+        try {
+            return Carbon::parse($value)->toDateTimeString();
         } catch (\Throwable) {
             return $value;
         }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CasAuthController;
+use App\Http\Controllers\AdminLoginLogController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\CounselorAssignmentController;
 use App\Http\Controllers\SnippetController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentAccessPermissionController;
 use App\Http\Controllers\StudentDataImportController;
 use App\Http\Controllers\StudentFamilyController;
+use App\Http\Controllers\SyncTaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/sso/login', [CasAuthController::class, 'login'])->name('cas.login');
@@ -48,6 +50,11 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/student-support/import/template', [StudentDataImportController::class, 'template'])->defaults('type', 'support')->name('student-support.import.template');
     Route::post('/student-support/import', [StudentDataImportController::class, 'import'])->defaults('type', 'support')->name('student-support.import');
 
+    Route::get('/sync-tasks', [SyncTaskController::class, 'page'])->name('sync-tasks.page');
+    Route::get('/sync-tasks/data', [SyncTaskController::class, 'index'])->name('sync-tasks.index');
+    Route::post('/sync-tasks/data', [SyncTaskController::class, 'store'])->name('sync-tasks.store');
+    Route::get('/sync-tasks/data/{task}', [SyncTaskController::class, 'show'])->name('sync-tasks.show');
+
     Route::get('/counselors', [CounselorAssignmentController::class, 'page'])->name('counselors.page');
     Route::get('/counselors/data', [CounselorAssignmentController::class, 'index'])->name('counselors.index');
     Route::post('/counselors/data', [CounselorAssignmentController::class, 'store'])->name('counselors.store');
@@ -70,6 +77,8 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
         Route::get('/admin/users', [AdminUserController::class, 'page'])->name('admin.users.page');
         Route::get('/admin/users/data', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::put('/admin/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('admin.users.update-role');
+        Route::get('/admin/login-logs', [AdminLoginLogController::class, 'page'])->name('admin.login-logs.page');
+        Route::get('/admin/login-logs/data', [AdminLoginLogController::class, 'index'])->name('admin.login-logs.index');
     });
 });
 

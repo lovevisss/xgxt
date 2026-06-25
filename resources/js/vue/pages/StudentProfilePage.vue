@@ -8,6 +8,7 @@ const props = defineProps({
     punishments: { type: Array, default: () => [] },
     loans: { type: Array, default: () => [] },
     supportRecipients: { type: Array, default: () => [] },
+    technologyCompetitionAwards: { type: Array, default: () => [] },
     educationHistories: { type: Array, default: () => [] },
     medicalInsurances: { type: Array, default: () => [] },
     currentMedicalInsurance: { type: Object, default: null },
@@ -41,10 +42,19 @@ const editing = ref(null);
 const saving = ref(false);
 const notice = ref({ text: '', type: 'info' });
 const activeInsuranceTab = ref('medical');
+const activeProfileSection = ref('basic');
 const scheduleVisible = ref(true);
 const gradeVisible = ref(true);
 const latestAcademicYearAverage = computed(() => props.academicYearAverages?.[0] || null);
 const averageDetailVisible = ref({});
+const profileSections = [
+    { key: 'basic', label: '基础档案', description: '基础、教育、住宿' },
+    { key: 'academic', label: '学业表现', description: '排名、综测、课表、成绩' },
+    { key: 'activity', label: '在校动态', description: '刷码、随行人员' },
+    { key: 'support', label: '资助保障', description: '保险、资助、贷款' },
+    { key: 'honor', label: '荣誉奖惩', description: '竞赛、干部、奖惩' },
+    { key: 'family', label: '家庭联系', description: '家长联系人' },
+];
 const form = ref({
     id: '',
     name: '',
@@ -64,6 +74,10 @@ function getCSRF() {
 
 function showNotice(text, type = 'info') {
     notice.value = { text, type };
+}
+
+function selectProfileSection(key) {
+    activeProfileSection.value = key;
 }
 
 function openEdit(family) {
@@ -139,6 +153,47 @@ function directionText(direction) {
     return direction || '-';
 }
 
+const latestPass = computed(() => props.recentPasses?.[0] || null);
+const possibleFriendCount = computed(() => props.companionInsights.filter((item) => item.is_possible_friend).length);
+const strongestCompanion = computed(() => props.companionInsights?.[0] || null);
+
+function dateTimeText(value) {
+    if (!value) {
+        return '-';
+    }
+
+    return String(value).replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+}
+
+function passDatePart(value) {
+    const text = dateTimeText(value);
+
+    return text === '-' ? '-' : text.slice(0, 10);
+}
+
+function passTimePart(value) {
+    const text = dateTimeText(value);
+
+    return text === '-' ? '-' : text.slice(11, 19) || '-';
+}
+
+function directionTone(direction) {
+    if (direction === 'in') {
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    }
+    if (direction === 'out') {
+        return 'border-orange-200 bg-orange-50 text-orange-700';
+    }
+
+    return 'border-slate-200 bg-slate-50 text-slate-600';
+}
+
+function companionTone(item) {
+    return item?.is_possible_friend
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-slate-200 bg-slate-50 text-slate-600';
+}
+
 function studentStatusText(status) {
     return status === 'lost' ? '失联' : '正常';
 }
@@ -173,6 +228,14 @@ function gpaText(value) {
     const num = Number(value);
 
     return Number.isFinite(num) ? num.toFixed(2) : '-';
+}
+
+function dateText(value) {
+    if (!value) {
+        return '-';
+    }
+
+    return String(value).slice(0, 10);
 }
 
 const weekDays = [
@@ -343,7 +406,27 @@ async function saveFamily() {
             </div>
         </header>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside class="lg:sticky lg:top-6 lg:self-start">
+                <nav class="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:overflow-visible">
+                    <div class="flex min-w-max gap-2 lg:min-w-0 lg:flex-col">
+                        <button
+                            v-for="section in profileSections"
+                            :key="section.key"
+                            type="button"
+                            class="w-full rounded-md border px-4 py-3 text-left transition"
+                            :class="activeProfileSection === section.key ? 'border-slate-900 bg-slate-50 text-slate-950 shadow-sm' : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950'"
+                            @click="selectProfileSection(section.key)"
+                        >
+                            <span class="block text-sm font-semibold">{{ section.label }}</span>
+                            <span class="mt-1 block whitespace-nowrap text-xs text-slate-500 lg:whitespace-normal">{{ section.description }}</span>
+                        </button>
+                    </div>
+                </nav>
+            </aside>
+
+            <div class="min-w-0">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">学习排名</h2>
@@ -423,7 +506,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
@@ -465,7 +548,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950">课表信息</h2>
@@ -522,7 +605,7 @@ async function saveFamily() {
                 </div>
             </section>
 
-            <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950">成绩信息</h2>
@@ -657,7 +740,7 @@ async function saveFamily() {
 
             <div class="space-y-6">
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">基础信息</h2>
             <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div><span class="text-slate-500">学号：</span>{{ props.student.xgh || '-' }}</div>
@@ -688,7 +771,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">大学前教育经历</h2>
             <div class="overflow-x-auto rounded-lg border border-slate-200">
                 <table class="min-w-full text-sm">
@@ -715,7 +798,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">住宿信息</h2>
             <div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div>
@@ -787,7 +870,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-3">
                     <h2 class="text-lg font-semibold text-slate-950">保险参保记录</h2>
@@ -889,78 +972,112 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="mb-3 text-lg font-semibold text-slate-950">最近5次刷码记录</h2>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
-                        <tr>
-                            <th class="px-3 py-2 text-left">时间</th>
-                            <th class="px-3 py-2 text-left">地点</th>
-                            <th class="px-3 py-2 text-left">出入类型</th>
-                            <th class="px-3 py-2 text-left">设备</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="item in props.recentPasses" :key="`${item.gh}-${item.smsj}-${item.device || 'none'}`">
-                            <td class="px-3 py-2">{{ item.smsj || '-' }}</td>
-                            <td class="px-3 py-2">{{ item.smdd || '-' }}</td>
-                            <td class="px-3 py-2">{{ directionText(item.crlx) }}</td>
-                            <td class="px-3 py-2">{{ item.device || '-' }}</td>
-                        </tr>
-                        <tr v-if="!props.recentPasses.length">
-                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无刷码记录</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Campus activity</p>
+                    <h2 class="mt-1 text-lg font-semibold text-slate-950">刷码动态</h2>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-3 lg:w-[620px]">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div class="text-xs text-slate-500">最近一次</div>
+                        <div class="mt-1 font-semibold text-slate-950">{{ dateTimeText(latestPass?.smsj) }}</div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div class="text-xs text-slate-500">最近地点</div>
+                        <div class="mt-1 truncate font-semibold text-slate-950">{{ latestPass?.smdd || '-' }}</div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div class="text-xs text-slate-500">同行提示</div>
+                        <div class="mt-1 font-semibold" :class="possibleFriendCount ? 'text-amber-700' : 'text-slate-950'">
+                            {{ possibleFriendCount ? `${possibleFriendCount} 人可能为朋友` : '暂无高频同行' }}
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <div v-if="props.recentPasses.length" class="overflow-hidden rounded-lg border border-slate-200">
+                <div class="grid grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden">
+                    <span>时间</span>
+                    <span>地点</span>
+                    <span>方向</span>
+                    <span>设备</span>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    <div
+                        v-for="item in props.recentPasses"
+                        :key="`${item.gh}-${item.smsj}-${item.device || 'none'}`"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] lg:items-center"
+                    >
+                        <div>
+                            <div class="font-semibold text-slate-950">{{ passTimePart(item.smsj) }}</div>
+                            <div class="mt-0.5 text-xs text-slate-500">{{ passDatePart(item.smsj) }}</div>
+                        </div>
+                        <div class="font-medium text-slate-900">{{ item.smdd || '-' }}</div>
+                        <div>
+                            <span class="inline-flex min-w-14 justify-center rounded-full border px-2.5 py-1 text-xs font-semibold" :class="directionTone(item.crlx)">
+                                {{ directionText(item.crlx) }}
+                            </span>
+                        </div>
+                        <div class="break-all font-mono text-xs text-slate-600">{{ item.device || '-' }}</div>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="rounded-lg border border-dashed border-slate-300 px-3 py-8 text-center text-sm text-slate-500">暂无刷码记录</div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
-                <h2 class="text-lg font-semibold text-slate-950">10秒内同向随行人员</h2>
-                <p class="text-xs text-slate-500">同地点、同进出方向，累计超过2次标记为可能为朋友</p>
+        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-950">10秒内同向随行人员</h2>
+                    <p class="mt-1 text-sm text-slate-500">同地点、同进出方向累计超过 2 次时标记为可能为朋友。</p>
+                </div>
+                <div v-if="strongestCompanion" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    最高频：{{ strongestCompanion.xm || strongestCompanion.xgh || '-' }}，{{ strongestCompanion.companion_count }} 次
+                </div>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
-                        <tr>
-                            <th class="px-3 py-2 text-left">学号</th>
-                            <th class="px-3 py-2 text-left">姓名</th>
-                            <th class="px-3 py-2 text-left">同向随行次数</th>
-                            <th class="px-3 py-2 text-left">最近出现时间</th>
-                            <th class="px-3 py-2 text-left">最近地点</th>
-                            <th class="px-3 py-2 text-left">标记</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="item in props.companionInsights" :key="item.xgh">
-                            <td class="px-3 py-2">
-                                <a v-if="item.xgh" class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xgh }}</a>
-                                <span v-else>-</span>
-                            </td>
-                            <td class="px-3 py-2">
-                                <a v-if="item.xgh" class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
-                                <span v-else>{{ item.xm || '-' }}</span>
-                            </td>
-                            <td class="px-3 py-2">{{ item.companion_count }}</td>
-                            <td class="px-3 py-2">{{ item.last_met_at || '-' }}</td>
-                            <td class="px-3 py-2">{{ item.last_smdd || '-' }} / {{ directionText(item.last_crlx) }}</td>
-                            <td class="px-3 py-2">
-                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="item.is_possible_friend ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'">
-                                    {{ item.is_possible_friend ? '可能为朋友' : '观察中' }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr v-if="!props.companionInsights.length">
-                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无随行人员记录</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div v-if="props.companionInsights.length" class="overflow-hidden rounded-lg border border-slate-200">
+                <div class="grid grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden">
+                    <span>人员</span>
+                    <span>同行次数</span>
+                    <span>最近出现</span>
+                    <span>地点 / 方向</span>
+                    <span>标记</span>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    <div
+                        v-for="item in props.companionInsights"
+                        :key="item.xgh"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] lg:items-center"
+                    >
+                        <div>
+                            <a v-if="item.xgh" class="font-semibold text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
+                            <span v-else class="font-semibold text-slate-900">{{ item.xm || '-' }}</span>
+                            <div class="mt-0.5 font-mono text-xs text-slate-500">{{ item.xgh || '-' }}</div>
+                        </div>
+                        <div>
+                            <span class="inline-flex min-w-12 justify-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">{{ item.companion_count }}</span>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-slate-950">{{ passTimePart(item.last_met_at) }}</div>
+                            <div class="mt-0.5 text-xs text-slate-500">{{ passDatePart(item.last_met_at) }}</div>
+                        </div>
+                        <div class="text-slate-700">
+                            <span class="font-medium text-slate-900">{{ item.last_smdd || '-' }}</span>
+                            <span class="ml-2 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold" :class="directionTone(item.last_crlx)">{{ directionText(item.last_crlx) }}</span>
+                        </div>
+                        <div>
+                            <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold" :class="companionTone(item)">
+                                {{ item.is_possible_friend ? '可能为朋友' : '观察中' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
+            <div v-else class="rounded-lg border border-dashed border-slate-300 px-3 py-8 text-center text-sm text-slate-500">暂无随行人员记录</div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">体测成绩</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
@@ -996,7 +1113,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
@@ -1028,7 +1145,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">助学贷款记录</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
@@ -1062,7 +1179,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold text-slate-950">团学干部任职考核</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
@@ -1098,7 +1215,39 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="mb-6 grid gap-6 lg:grid-cols-2">
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold text-slate-950">科技竞赛获奖</h2>
+                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-left">时间</th>
+                            <th class="px-3 py-2 text-left">荣誉名称</th>
+                            <th class="px-3 py-2 text-left">年级</th>
+                            <th class="px-3 py-2 text-left">学院</th>
+                            <th class="px-3 py-2 text-left">班级</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr v-for="item in props.technologyCompetitionAwards" :key="item.id">
+                            <td class="px-3 py-2">{{ dateText(item.awarded_at) }}</td>
+                            <td class="px-3 py-2">{{ item.award_name || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.grade || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.college || '-' }}</td>
+                            <td class="px-3 py-2">{{ item.class_name || '-' }}</td>
+                        </tr>
+                        <tr v-if="!props.technologyCompetitionAwards.length">
+                            <td colspan="5" class="px-3 py-6 text-center text-slate-500">暂无科技竞赛获奖记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 grid gap-6 lg:grid-cols-2">
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="mb-3 flex items-center justify-between gap-2">
                     <h2 class="text-lg font-semibold text-slate-950">奖励记录</h2>
@@ -1156,7 +1305,7 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'family'" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">家长信息</h2>
@@ -1201,6 +1350,8 @@ async function saveFamily() {
             </div>
         </section>
             </div>
+            </div>
+        </div>
 
         <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="closeEdit">
             <form class="w-full max-w-2xl rounded-lg bg-white p-5 shadow-xl" @submit.prevent="saveFamily">

@@ -14,6 +14,17 @@ const importTypes = [
         resultLabels: { reward_imported: '奖励', punishment_imported: '惩罚' },
     },
     {
+        key: 'technology_competition_award',
+        title: '科技竞赛获奖',
+        eyebrow: '竞赛与荣誉',
+        accept: '.xlsx,.xls',
+        endpoint: '/student-imports/technology_competition_award',
+        template: '/student-imports/template/technology_competition_award',
+        fields: '姓名、学号、学院、班级、年级、荣誉名称、时间',
+        note: '按“学号 + 荣誉名称 + 时间”更新，导入后展示在学生主页的科技竞赛获奖模块。',
+        resultLabels: { imported: '科技竞赛获奖' },
+    },
+    {
         key: 'loan',
         title: '助学贷款',
         eyebrow: '生源地贷款',
@@ -140,6 +151,10 @@ function chooseFile(event) {
     result.value = null;
     if (file.value && /综测|综合测评/.test(file.value.name) && selectedKey.value !== 'comprehensive_assessment') {
         selectedKey.value = 'comprehensive_assessment';
+        taskId.value = null;
+        stopPolling();
+    } else if (file.value && /科技竞赛|竞赛类获奖/.test(file.value.name) && selectedKey.value !== 'technology_competition_award') {
+        selectedKey.value = 'technology_competition_award';
         taskId.value = null;
         stopPolling();
     }
@@ -300,7 +315,7 @@ onBeforeUnmount(stopPolling);
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
-                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
+                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、科技竞赛获奖、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
                 </div>
                 <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
             </div>
