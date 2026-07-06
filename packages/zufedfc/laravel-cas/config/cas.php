@@ -1,7 +1,7 @@
 <?php
 
-use App\Auth\XgxtCasUserResolver;
 use App\Models\User;
+use Zufedfc\LaravelCas\Resolvers\DefaultCasUserResolver;
 
 return [
     'enabled' => filter_var(env('CAS_ENABLED', false), FILTER_VALIDATE_BOOL),
@@ -22,11 +22,11 @@ return [
     ],
 
     'user' => [
-        'resolver' => XgxtCasUserResolver::class,
+        'resolver' => DefaultCasUserResolver::class,
         'model' => User::class,
         'username_column' => 'cas_username',
         'name_attributes' => ['name', 'xm', 'cn', 'displayName', 'userName'],
         'email_attributes' => ['email', 'mail'],
-        'email_domain' => env('CAS_EMAIL_DOMAIN', 'zufedfc.edu.cn'),
+        'email_domain' => env('CAS_EMAIL_DOMAIN', 'cas.local'),
     ],
 ];

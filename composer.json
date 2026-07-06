@@ -14,7 +14,8 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "openspout/openspout": "^5.7",
-        "phpoffice/phpspreadsheet": "^4.0"
+        "phpoffice/phpspreadsheet": "^4.0",
+        "zufedfc/laravel-cas": "@dev"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -23,6 +24,7 @@
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
+        "orchestra/testbench": "10.0.0",
         "pestphp/pest": "^3.8",
         "pestphp/pest-plugin-laravel": "^3.2"
     },
@@ -35,9 +37,19 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "Zufedfc\\LaravelCas\\Tests\\": "packages/zufedfc/laravel-cas/tests/",
             "Tests\\": "tests/"
         }
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/zufedfc/laravel-cas",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "scripts": {
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

@@ -12,7 +12,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'cas.auth' => \App\Http\Middleware\EnsureCasAuthenticated::class,
             'admin.auth' => \App\Http\Middleware\EnsureAdminAuthorized::class,
             'super-admin.auth' => \App\Http\Middleware\EnsureSuperAdminAuthorized::class,
         ]);

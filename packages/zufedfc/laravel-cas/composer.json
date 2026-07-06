@@ -1,0 +1,35 @@
+{
+    "name": "zufedfc/laravel-cas",
+    "description": "Reusable CAS authentication integration for Laravel 12 applications.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "ext-dom": "*",
+        "laravel/framework": "^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "10.0.0",
+        "pestphp/pest": "^3.8",
+        "pestphp/pest-plugin-laravel": "^3.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Zufedfc\\LaravelCas\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Zufedfc\\LaravelCas\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Zufedfc\\LaravelCas\\CasServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

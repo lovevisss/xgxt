@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\CasAuthController;
 use App\Http\Controllers\AdminLoginLogController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\CounselorAssignmentController;
@@ -11,11 +10,6 @@ use App\Http\Controllers\StudentDataImportController;
 use App\Http\Controllers\StudentFamilyController;
 use App\Http\Controllers\SyncTaskController;
 use Illuminate\Support\Facades\Route;
-
-Route::get('/sso/login', [CasAuthController::class, 'login'])->name('cas.login');
-Route::get('/sso/logout', [CasAuthController::class, 'logout'])->name('cas.logout');
-Route::post('/sso/userOnlineDetect', [CasAuthController::class, 'userOnlineDetect'])->name('cas.userOnlineDetect');
-Route::match(['GET', 'POST'], '/sso/slo', [CasAuthController::class, 'slo'])->name('cas.slo');
 
 Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::resource('snippets', SnippetController::class);
