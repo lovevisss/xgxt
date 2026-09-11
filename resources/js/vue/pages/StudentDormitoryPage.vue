@@ -1,4 +1,6 @@
 <script setup>
+import { formatDatePart, formatTimePart } from '../utils/dateTime';
+
 const props = defineProps({
     ssh: { type: String, required: true },
     residents: { type: Array, default: () => [] },
@@ -62,7 +64,13 @@ function statusText(status) {
                             <td class="px-3 py-2">{{ resident.xy || '-' }}</td>
                             <td class="px-3 py-2">{{ resident.bj || '-' }}</td>
                             <td class="px-3 py-2">{{ resident.ch || '-' }}</td>
-                            <td class="px-3 py-2">{{ resident.last_smsj || '-' }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 tabular-nums">
+                                <time v-if="resident.last_smsj" :datetime="resident.last_smsj">
+                                    <span class="block font-medium text-slate-800">{{ formatDatePart(resident.last_smsj) }}</span>
+                                    <span class="block text-xs text-slate-500">{{ formatTimePart(resident.last_smsj) }}</span>
+                                </time>
+                                <span v-else class="text-slate-400">-</span>
+                            </td>
                             <td class="px-3 py-2">
                                 <span class="rounded px-2 py-1 text-xs font-semibold" :class="resident.status === 'lost' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
                                     {{ statusText(resident.status) }}
@@ -78,4 +86,3 @@ function statusText(status) {
         </section>
     </main>
 </template>
-

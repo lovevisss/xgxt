@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\CounselorClassCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -72,13 +73,14 @@ class SyncStudentsFromMiddata extends Command
                     $total += count($rows);
                 }
 
-                if ($total - $lastLogged >= $progressStep) {
+                if ($progressStep <= $total - $lastLogged) {
                     $lastLogged = $total;
                     $this->info("已同步: {$total} 条...");
                 }
             });
 
         $elapsed = round(microtime(true) - $startedAt, 2);
+        app(CounselorClassCatalog::class)->forget();
         $this->info("同步完成, 总共同步 {$total} 条, 耗时 {$elapsed} 秒");
 
         return self::SUCCESS;

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\CounselorClassCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -62,6 +63,7 @@ class SyncStudentClassesFromMiddata extends Command
             });
 
         $elapsed = round(microtime(true) - $startedAt, 2);
+        app(CounselorClassCatalog::class)->forget();
         $this->info("班级信息同步完成，读取 {$totalRead} 条，写入 {$totalUpserted} 条，耗时 {$elapsed} 秒");
 
         return self::SUCCESS;

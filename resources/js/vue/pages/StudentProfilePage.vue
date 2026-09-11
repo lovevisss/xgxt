@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue';
+import { formatDatePart as passDatePart, formatDateTime as dateTimeText, formatTimePart as passTimePart } from '../utils/dateTime';
 
 const props = defineProps({
     student: { type: Object, required: true },
@@ -157,26 +158,6 @@ function directionText(direction) {
 const latestPass = computed(() => props.recentPasses?.[0] || null);
 const possibleFriendCount = computed(() => props.companionInsights.filter((item) => item.is_possible_friend).length);
 const strongestCompanion = computed(() => props.companionInsights?.[0] || null);
-
-function dateTimeText(value) {
-    if (!value) {
-        return '-';
-    }
-
-    return String(value).replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-}
-
-function passDatePart(value) {
-    const text = dateTimeText(value);
-
-    return text === '-' ? '-' : text.slice(0, 10);
-}
-
-function passTimePart(value) {
-    const text = dateTimeText(value);
-
-    return text === '-' ? '-' : text.slice(11, 19) || '-';
-}
 
 function directionTone(direction) {
     if (direction === 'in') {
@@ -799,7 +780,7 @@ async function saveFamily() {
                 <div><span class="text-slate-500">分院：</span>{{ props.student.dwmc || '-' }}</div>
                 <div><span class="text-slate-500">班级：</span>{{ props.student.bjmc || '-' }}</div>
                 <div><span class="text-slate-500">联系电话：</span>{{ props.student.yddh || '-' }}</div>
-                <div><span class="text-slate-500">最近刷码：</span>{{ props.student.last_smsj || '-' }}</div>
+                <div><span class="text-slate-500">最近刷码：</span><time class="font-medium tabular-nums text-slate-800" :datetime="props.student.last_smsj || undefined">{{ dateTimeText(props.student.last_smsj) }}</time></div>
                 <div><span class="text-slate-500">状态：</span>{{ props.student.status || '-' }}</div>
                 <div>
                     <span class="text-slate-500">{{ props.currentYear }}年度医保：</span>
@@ -906,7 +887,13 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ mate.zy || '-' }}</td>
                             <td class="px-3 py-2">{{ mate.bj || '-' }}</td>
                             <td class="px-3 py-2">{{ mate.ch || '-' }}</td>
-                            <td class="px-3 py-2">{{ mate.last_smsj || '-' }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 tabular-nums">
+                                <time v-if="mate.last_smsj" :datetime="mate.last_smsj">
+                                    <span class="block font-medium text-slate-800">{{ passDatePart(mate.last_smsj) }}</span>
+                                    <span class="block text-xs text-slate-500">{{ passTimePart(mate.last_smsj) }}</span>
+                                </time>
+                                <span v-else class="text-slate-400">-</span>
+                            </td>
                             <td class="px-3 py-2">
                                 <span class="rounded px-2 py-1 text-xs font-semibold" :class="mate.status === 'lost' ? 'bg-rose-100 text-rose-700' : mate.is_high_risk ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'">
                                     {{ studentStatusText(mate.status) }}

@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
+import { formatDatePart, formatTimePart } from '../utils/dateTime';
 
 const studentsData = ref([]);
 const paginationInfo = ref({});
@@ -184,7 +185,13 @@ onMounted(async () => {
                             <td class="px-3 py-2"><a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(student.xgh)}`">{{ student.xm }}</a></td>
                             <td class="px-3 py-2">{{ student.bjmc || '-' }}</td>
                             <td class="px-3 py-2">{{ student.yddh || '-' }}</td>
-                            <td class="px-3 py-2">{{ student.last_smsj || '-' }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 tabular-nums">
+                                <time v-if="student.last_smsj" :datetime="student.last_smsj">
+                                    <span class="block font-medium text-slate-800">{{ formatDatePart(student.last_smsj) }}</span>
+                                    <span class="block text-xs text-slate-500">{{ formatTimePart(student.last_smsj) }}</span>
+                                </time>
+                                <span v-else class="text-slate-400">-</span>
+                            </td>
                             <td class="px-3 py-2">{{ student.status === 'lost' ? '失联' : '正常' }}</td>
                             <td class="px-3 py-2"><button class="rounded border border-slate-300 px-2 py-1 text-xs" @click="openEditModal(student)">编辑</button></td>
                         </tr>
@@ -226,4 +233,3 @@ onMounted(async () => {
         </div>
     </main>
 </template>
-
