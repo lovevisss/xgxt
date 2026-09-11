@@ -19,7 +19,8 @@ return [
         'prefix' => env('CAS_ROUTE_PREFIX', 'sso'),
         'middleware' => ['web'],
         'names' => [
-            'login' => 'cas.login',
+            'redirect' => 'cas.redirect',
+            'callback' => 'cas.callback',
             'logout' => 'cas.logout',
             'slo' => 'cas.slo',
             'user_online_detect' => 'cas.user-online-detect',

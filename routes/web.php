@@ -13,11 +13,13 @@ use App\Http\Controllers\SyncTaskController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/auth/cas/redirect', [CasAuthController::class, 'redirect'])->middleware('guest')->name('cas.redirect');
+Route::get('/auth/cas/callback', [CasAuthController::class, 'callback'])->middleware('guest')->name('cas.callback');
+Route::get('/auth/cas/logout', [CasAuthController::class, 'logout'])->middleware('auth')->name('cas.logout');
+
 Route::prefix(config('cas.routes.prefix', 'sso'))
     ->middleware(config('cas.routes.middleware', ['web']))
     ->group(function (): void {
-        Route::get('/login', [CasAuthController::class, 'login'])->name(config('cas.routes.names.login', 'cas.login'));
-        Route::get('/logout', [CasAuthController::class, 'logout'])->name(config('cas.routes.names.logout', 'cas.logout'));
         Route::match(['GET', 'POST'], '/slo', [CasAuthController::class, 'slo'])
             ->withoutMiddleware([VerifyCsrfToken::class])
             ->name(config('cas.routes.names.slo', 'cas.slo'));

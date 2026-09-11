@@ -119,7 +119,7 @@ it('sets first CAS-synced user as super admin', function () {
 XML, 200),
     ]);
 
-    $this->get('/sso/login?returnUrl=/students&ticket=ST-1-first')
+    $this->get('/auth/cas/callback?returnUrl=/students&ticket=ST-1-first')
         ->assertRedirect('/students')
         ->assertSessionHas('cas_user.user', 'teacher-first');
 

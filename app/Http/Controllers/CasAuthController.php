@@ -21,18 +21,27 @@ class CasAuthController extends Controller
     ) {
     }
 
-    public function login(Request $request): Response
+    public function redirect(Request $request): Response
+    {
+        $this->ensureEnabled();
+        $returnUrl = $this->safeReturnUrl((string) $request->query('returnUrl', '/'));
+        $request->session()->put($this->returnUrlSessionKey(), $returnUrl);
+
+        return redirect()->away($this->client->loginUrl(route($this->routeName('callback'))));
+    }
+
+    public function callback(Request $request): Response
     {
         $this->ensureEnabled();
 
         $ticket = trim((string) $request->query('ticket', ''));
-        $service = url(route($this->routeName('login'), [], false));
+        $service = route($this->routeName('callback'));
 
         if ($ticket === '') {
-            $returnUrl = $this->safeReturnUrl((string) $request->query('returnUrl', '/'));
-            $request->session()->put($this->returnUrlSessionKey(), $returnUrl);
-
-            return redirect()->away($this->client->loginUrl($service));
+            return $this->validationFailureResponse(
+                CasValidationResult::failure('Missing ticket.', CasValidationResult::ERROR_REJECTED),
+                $this->pendingReturnUrl($request),
+            );
         }
 
         $returnUrl = $this->pendingReturnUrl($request);
@@ -75,7 +84,7 @@ class CasAuthController extends Controller
         event(new CasLoggedOut($username, $request));
 
         if (! $isCallback) {
-            $callback = url(route($this->routeName('logout'), ['returnUrl' => $returnUrl, 'logout' => 'logout'], false));
+            $callback = url($returnUrl);
 
             return redirect()->away($this->client->logoutUrl($callback));
         }
@@ -187,7 +196,7 @@ class CasAuthController extends Controller
         return response()->view('cas-error', [
             'title' => $title,
             'message' => $message,
-            'retryUrl' => route($this->routeName('login'), ['returnUrl' => $returnUrl]),
+            'retryUrl' => route($this->routeName('redirect'), ['returnUrl' => $returnUrl]),
         ], $status);
     }
 }

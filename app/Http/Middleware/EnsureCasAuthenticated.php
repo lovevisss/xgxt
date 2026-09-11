@@ -38,6 +38,6 @@ class EnsureCasAuthenticated
 
         $returnUrl = '/'.ltrim($request->getRequestUri(), '/');
 
-        return redirect()->route((string) config('cas.routes.names.login'), ['returnUrl' => $returnUrl]);
+        return redirect()->route((string) config('cas.routes.names.redirect'), ['returnUrl' => $returnUrl]);
     }
 }

@@ -14,7 +14,7 @@
         <p class="mt-3 text-sm text-slate-600">{{ $message ?? '当前账号暂无访问权限，请联系超级管理员处理。' }}</p>
         <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
             <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">返回首页</a>
-            <a href="/sso/logout?returnUrl=/" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">退出并切换账号</a>
+            <a href="/auth/cas/logout?returnUrl=/" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">退出并切换账号</a>
         </div>
     </section>
 </main>
