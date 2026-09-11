@@ -65,15 +65,15 @@ class CasClient
         $startedAt = hrtime(true);
 
         try {
+            $url = $endpoint.'?'.http_build_query([
+                'service' => $service,
+                'ticket' => $ticket,
+                'username' => $username,
+            ]);
             $response = $this->http
-                ->asForm()
                 ->connectTimeout($this->connectTimeout())
                 ->timeout($this->timeout())
-                ->post($endpoint, [
-                    'service' => $service,
-                    'ticket' => $ticket,
-                    'username' => $username,
-                ]);
+                ->post($url);
         } catch (Throwable $exception) {
             $this->logFailure('online_detection', $endpoint, $startedAt, [
                 'exception' => $exception::class,

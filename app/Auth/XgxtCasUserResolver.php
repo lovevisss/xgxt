@@ -33,8 +33,8 @@ class XgxtCasUserResolver implements CasUserResolver
             $values['password'] = Hash::make(Str::random(40));
         }
 
-        $departmentCode = $staff?->department_code ?? $this->firstAttribute($attributes, ['dwbm', 'department_code', 'deptCode', 'orgCode']);
-        $departmentName = $staff?->department_name ?? $this->firstAttribute($attributes, ['dwmc', 'department_name', 'deptName', 'orgName']);
+        $departmentCode = $staff?->department_code ?? $this->firstAttribute($attributes, ['organizationCode', 'dwbm', 'department_code', 'deptCode', 'orgCode']);
+        $departmentName = $staff?->department_name ?? $this->firstAttribute($attributes, ['organizationName', 'dwmc', 'department_name', 'deptName', 'orgName']);
 
         if ($departmentCode !== null) {
             $values['dwbm'] = $departmentCode;

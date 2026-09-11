@@ -45,7 +45,7 @@ it('uses the backchannel URL for CAS online detection', function () {
     $user = User::factory()->create(['cas_username' => 'teacher-online']);
 
     Http::fake([
-        'https://cas.internal.example/cas/login/userOnlineDetect' => Http::response([
+        'https://cas.internal.example/cas/login/userOnlineDetect*' => Http::response([
             'data' => ['isAlive' => true],
         ]),
     ]);
@@ -62,7 +62,17 @@ it('uses the backchannel URL for CAS online detection', function () {
         ->assertOk()
         ->assertJson(['isAlive' => true]);
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://cas.internal.example/cas/login/userOnlineDetect');
+    Http::assertSent(function ($request): bool {
+        parse_str(parse_url($request->url(), PHP_URL_QUERY) ?? '', $query);
+
+        return $request->method() === 'POST'
+            && str_starts_with($request->url(), 'https://cas.internal.example/cas/login/userOnlineDetect?')
+            && $query === [
+                'service' => 'https://student.zufedfc.edu.cn/sso/login',
+                'ticket' => 'ST-online',
+                'username' => 'teacher-online',
+            ];
+    });
 });
 
 it('shows a single service unavailable page when the CAS connection fails and redacts the ticket from logs', function () {
@@ -136,8 +146,8 @@ it('validates CAS ticket and creates local authenticated session', function () {
     <cas:user>teacher001</cas:user>
     <cas:attributes>
       <cas:name>Test Teacher</cas:name>
-      <cas:dwbm>CS</cas:dwbm>
-      <cas:dwmc>Computer School</cas:dwmc>
+      <cas:organizationCode>CS</cas:organizationCode>
+      <cas:organizationName>Computer School</cas:organizationName>
     </cas:attributes>
   </cas:authenticationSuccess>
 </cas:serviceResponse>
