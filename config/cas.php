@@ -9,6 +9,7 @@ return [
     'backchannel_url' => env('CAS_BACKCHANNEL_URL', env('CAS_SERVER_URL', 'https://cas.paas.zufedfc.edu.cn/cas')),
     'session_key' => env('CAS_SESSION_KEY', 'cas_user'),
     'guard' => env('CAS_GUARD', 'web'),
+    'verify_ssl' => filter_var(env('CAS_VERIFY_SSL', true), FILTER_VALIDATE_BOOL),
     'connect_timeout' => (int) env('CAS_CONNECT_TIMEOUT', 3),
     'http_timeout' => (int) env('CAS_HTTP_TIMEOUT', 10),
     'remember_minutes' => (int) env('CAS_REMEMBER_MINUTES', env('SESSION_LIFETIME', 120)),

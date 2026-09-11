@@ -6,6 +6,7 @@ use App\Data\CasValidationResult;
 use DOMDocument;
 use DOMElement;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -17,27 +18,30 @@ class CasClient
 
     public function loginUrl(string $service): string
     {
-        return $this->publicEndpoint('login').'?'.http_build_query(['service' => $service]);
+        return $this->urlWithQuery($this->publicEndpoint('login'), ['service' => $service]);
     }
 
     public function logoutUrl(string $service): string
     {
-        return $this->publicEndpoint('logout').'?'.http_build_query(['service' => $service]);
+        return $this->urlWithQuery($this->publicEndpoint('logout'), ['service' => $service]);
     }
 
     public function validate(string $service, string $ticket): CasValidationResult
     {
         $endpoint = $this->backchannelEndpoint('serviceValidate');
+        $url = $this->urlWithQuery($endpoint, [
+            'service' => $service,
+            'ticket' => $ticket,
+        ]);
         $startedAt = hrtime(true);
 
         try {
             $response = $this->http
+                ->withOptions(['verify' => $this->verifySsl()])
+                ->accept('application/xml,text/xml')
                 ->connectTimeout($this->connectTimeout())
                 ->timeout($this->timeout())
-                ->get($endpoint, [
-                    'service' => $service,
-                    'ticket' => $ticket,
-                ]);
+                ->get($url);
         } catch (Throwable $exception) {
             $this->logFailure('ticket_validation', $endpoint, $startedAt, [
                 'exception' => $exception::class,
@@ -65,12 +69,13 @@ class CasClient
         $startedAt = hrtime(true);
 
         try {
-            $url = $endpoint.'?'.http_build_query([
+            $url = $this->urlWithQuery($endpoint, [
                 'service' => $service,
                 'ticket' => $ticket,
                 'username' => $username,
             ]);
             $response = $this->http
+                ->withOptions(['verify' => $this->verifySsl()])
                 ->connectTimeout($this->connectTimeout())
                 ->timeout($this->timeout())
                 ->post($url);
@@ -176,6 +181,16 @@ class CasClient
     private function timeout(): int
     {
         return max(1, (int) config('cas.http_timeout', 10));
+    }
+
+    private function verifySsl(): bool
+    {
+        return (bool) config('cas.verify_ssl', true);
+    }
+
+    private function urlWithQuery(string $url, array $query): string
+    {
+        return $url.'?'.Arr::query($query);
     }
 
     private function logFailure(string $operation, string $endpoint, int $startedAt, array $context = []): void

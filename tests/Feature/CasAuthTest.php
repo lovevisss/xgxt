@@ -17,6 +17,7 @@ beforeEach(function () {
         'cas.server_url' => 'https://cas.paas.zufedfc.edu.cn/cas',
         'cas.backchannel_url' => 'https://cas.paas.zufedfc.edu.cn/cas',
         'cas.session_key' => 'cas_user',
+        'cas.verify_ssl' => true,
     ]);
 });
 
@@ -37,7 +38,17 @@ XML, 200),
     $this->get('/sso/login?returnUrl=/students&ticket=ST-backchannel')
         ->assertRedirect('/students');
 
-    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cas.internal.example/cas/serviceValidate?'));
+    Http::assertSent(function ($request): bool {
+        parse_str(parse_url($request->url(), PHP_URL_QUERY) ?? '', $query);
+
+        return $request->method() === 'GET'
+            && str_starts_with($request->url(), 'https://cas.internal.example/cas/serviceValidate?')
+            && $request->hasHeader('Accept', 'application/xml,text/xml')
+            && $query === [
+                'service' => 'https://student.zufedfc.edu.cn/sso/login?returnUrl=%2Fstudents',
+                'ticket' => 'ST-backchannel',
+            ];
+    });
 });
 
 it('uses the backchannel URL for CAS online detection', function () {
