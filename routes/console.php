@@ -8,6 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Schedule::command('sync:staff-from-middata')->dailyAt('00:45');
 Schedule::command('sync:passes-from-middata --days=3')->cron('0 1 */2 * *');
 Schedule::command('sync:student-dormitories-from-middata')->cron('10 1 */2 * *');
 Schedule::command('sync:student-classes-from-middata')->cron('12 1 */2 * *');

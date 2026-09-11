@@ -10,6 +10,12 @@ use Illuminate\Validation\Rule;
 class SyncTaskController extends Controller
 {
     private const DEFINITIONS = [
+        'staff' => [
+            'title' => '在职教职工',
+            'command' => 'sync:staff-from-middata',
+            'description' => '同步在职教职工目录，供统一权限管理选择人员。',
+            'options' => [],
+        ],
         'students' => [
             'title' => '学生基础信息',
             'command' => 'sync:students-from-middata',

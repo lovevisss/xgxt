@@ -9,6 +9,7 @@ it('shows the sync task center with all sync commands', function () {
     $this->get('/sync-tasks')
         ->assertOk()
         ->assertSee('data-page="syncTasks"', false)
+        ->assertSee('sync:staff-from-middata', false)
         ->assertSee('sync:students-from-middata', false)
         ->assertSee('sync:passes-from-middata', false)
         ->assertSee('sync:student-families-from-middata', false)

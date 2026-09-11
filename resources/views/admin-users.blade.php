@@ -1,8 +1,7 @@
 @extends('layouts.vue-app')
 
-@section('title', '管理员配置')
+@section('title', '人员与权限管理')
 @section('page', 'adminUsers')
 @section('props')
 @json([])
 @endsection
-

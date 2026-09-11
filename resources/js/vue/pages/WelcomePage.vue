@@ -11,7 +11,7 @@
                 <a href="/sync-tasks" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">同步中心</a>
                 <a href="/counselors" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">辅导员带班管理</a>
                 <a href="/student-access-permissions" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">学生权限清单</a>
-                <a href="/admin/users" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">管理员配置</a>
+                <a href="/admin/users" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">人员与权限</a>
             </div>
         </header>
     </main>

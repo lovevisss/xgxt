@@ -7,6 +7,7 @@ import StudentDataImportPage from './pages/StudentDataImportPage.vue';
 import StudentProfilePage from './pages/StudentProfilePage.vue';
 import StudentDormitoryPage from './pages/StudentDormitoryPage.vue';
 import CounselorAssignmentsPage from './pages/CounselorAssignmentsPage.vue';
+import CounselorPermissionsPage from './pages/CounselorPermissionsPage.vue';
 import AdminLoginLogsPage from './pages/AdminLoginLogsPage.vue';
 import AdminUsersPage from './pages/AdminUsersPage.vue';
 import StudentAccessPermissionsPage from './pages/StudentAccessPermissionsPage.vue';
@@ -28,6 +29,7 @@ const pages = {
     studentProfile: StudentProfilePage,
     studentDormitory: StudentDormitoryPage,
     counselorAssignments: CounselorAssignmentsPage,
+    counselorPermissions: CounselorPermissionsPage,
     adminLoginLogs: AdminLoginLogsPage,
     adminUsers: AdminUsersPage,
     studentAccessPermissions: StudentAccessPermissionsPage,

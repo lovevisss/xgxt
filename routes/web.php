@@ -53,6 +53,16 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/counselors/data', [CounselorAssignmentController::class, 'index'])->name('counselors.index');
     Route::post('/counselors/data', [CounselorAssignmentController::class, 'store'])->name('counselors.store');
     Route::get('/counselors/classes', [CounselorAssignmentController::class, 'classes'])->name('counselors.classes');
+    Route::post('/counselors/import', [CounselorAssignmentController::class, 'import']);
+    Route::get('/counselors/permissions', function () {
+        abort_unless(\App\Support\CurrentUser::get()?->isSuperAdmin(), 403);
+
+        return redirect('/admin/users?focus=counselor');
+    });
+    Route::get('/counselors/permissions/data', [\App\Http\Controllers\CounselorManagementPermissionController::class, 'index']);
+    Route::post('/counselors/permissions/data', [\App\Http\Controllers\CounselorManagementPermissionController::class, 'save']);
+    Route::delete('/counselors/permissions/{permission}', [\App\Http\Controllers\CounselorManagementPermissionController::class, 'destroy']);
+    Route::put('/counselors/{user}/classes/{assignment}/match', [CounselorAssignmentController::class, 'matchClass']);
     Route::get('/counselors/{user}', [CounselorAssignmentController::class, 'show'])->name('counselors.show');
     Route::put('/counselors/{user}', [CounselorAssignmentController::class, 'update'])->name('counselors.update');
     Route::delete('/counselors/{user}', [CounselorAssignmentController::class, 'destroy'])->name('counselors.destroy');
@@ -71,6 +81,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
         Route::get('/admin/users', [AdminUserController::class, 'page'])->name('admin.users.page');
         Route::get('/admin/users/data', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::put('/admin/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('admin.users.update-role');
+        Route::put('/admin/staff/{staffMember}/permissions', [AdminUserController::class, 'updatePermissions'])->name('admin.staff.update-permissions');
         Route::get('/admin/login-logs', [AdminLoginLogController::class, 'page'])->name('admin.login-logs.page');
         Route::get('/admin/login-logs/data', [AdminLoginLogController::class, 'index'])->name('admin.login-logs.index');
     });

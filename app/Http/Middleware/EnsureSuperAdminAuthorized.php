@@ -17,6 +17,12 @@ class EnsureSuperAdminAuthorized
 
         $user = CurrentUser::get();
 
+        if ($user?->isInactiveStaffMember()) {
+            return $request->expectsJson()
+                ? response()->json(['message' => '当前账号已不在在职教职工目录中。'], 403)
+                : response()->view('forbidden', ['message' => '当前账号已不在在职教职工目录中。'], 403);
+        }
+
         if ($user && $user->isSuperAdmin()) {
             return $next($request);
         }
@@ -32,4 +38,3 @@ class EnsureSuperAdminAuthorized
         ], 403);
     }
 }
-

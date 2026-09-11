@@ -32,11 +32,11 @@ return [
     'connections' => [
         'middata' => [
             'driver' => 'mysql',
-            'host' => env('MIDDATA_DB_HOST', '10.1.12.162'),
+            'host' => env('MIDDATA_DB_HOST', '127.0.0.1'),
             'port' => env('MIDDATA_DB_PORT', '3306'),
             'database' => env('MIDDATA_DB_DATABASE', 'middata'),
-            'username' => env('MIDDATA_DB_USERNAME', 'root'),
-            'password' => env('MIDDATA_DB_PASSWORD', '7488'),
+            'username' => env('MIDDATA_DB_USERNAME', ''),
+            'password' => env('MIDDATA_DB_PASSWORD', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

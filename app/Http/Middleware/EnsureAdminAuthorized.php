@@ -17,6 +17,15 @@ class EnsureAdminAuthorized
 
         $user = CurrentUser::get();
 
+        if ($user?->isInactiveStaffMember()) {
+            return $request->expectsJson()
+                ? response()->json(['message' => '当前账号已不在在职教职工目录中。'], 403)
+                : response()->view('forbidden', ['message' => '当前账号已不在在职教职工目录中。'], 403);
+        }
+        if ($user && ($request->is('counselors') || $request->is('counselors/*')) && app(\App\Services\CounselorManagement::class)->permission()) {
+            return $next($request);
+        }
+
         if ($user && ($user->isAdmin() || $user->isCounselor())) {
             return $next($request);
         }

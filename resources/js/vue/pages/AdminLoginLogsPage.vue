@@ -69,7 +69,7 @@ onMounted(() => {
                     <p class="mt-1 text-sm text-slate-500">查看 CAS 用户登录账号、时间和来源信息。</p>
                 </div>
                 <div class="flex gap-2">
-                    <a href="/admin/users" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">管理员配置</a>
+                    <a href="/admin/users" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">人员与权限</a>
                     <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">返回首页</a>
                 </div>
             </div>

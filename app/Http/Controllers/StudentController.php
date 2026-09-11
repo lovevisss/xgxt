@@ -1093,7 +1093,7 @@ class StudentController extends Controller
             return;
         }
 
-        $assignments = $user->classAssignments()->get(['class_code', 'normalized_class_name']);
+        $assignments = $user->classAssignments()->get(['class_code', 'normalized_class_name', 'college_code']);
         $classCodes = $assignments->pluck('class_code')->filter()->unique()->values();
         $classNames = $assignments->pluck('normalized_class_name')->filter()->unique()->values();
 
@@ -1103,19 +1103,19 @@ class StudentController extends Controller
             return;
         }
 
-        $query->where(function ($subQuery) use ($classCodes, $classNames, $departmentCodes) {
+        $query->where(function ($subQuery) use ($assignments, $departmentCodes) {
             if ($departmentCodes->isNotEmpty()) {
                 $subQuery->whereIn('dwbm', $departmentCodes->all());
             }
 
-            if ($classCodes->isNotEmpty()) {
-                $subQuery->orWhereIn('bjbm', $classCodes->all());
-            }
-
-            if ($classNames->isNotEmpty()) {
-                foreach ($classNames as $className) {
-                    $subQuery->orWhere('bjmc', 'like', '%'.$className.'%');
-                }
+            foreach ($assignments as $assignment) {
+                if (blank($assignment->college_code)) continue;
+                $subQuery->orWhere(function ($scope) use ($assignment) {
+                    $scope->where('dwbm', $assignment->college_code)->where(function ($classes) use ($assignment) {
+                        if (filled($assignment->class_code)) $classes->where('bjbm', $assignment->class_code);
+                        if (filled($assignment->normalized_class_name)) $classes->orWhereIn(DB::raw("LOWER(REPLACE(TRIM(bjmc), ' ', ''))"), [$assignment->normalized_class_name, $assignment->normalized_class_name.'班']);
+                    });
+                });
             }
         });
     }
