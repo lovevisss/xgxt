@@ -46,7 +46,7 @@
             "type": "path",
             "url": "packages/zufedfc/laravel-cas",
             "options": {
-                "symlink": true
+                "symlink": false
             }
         }
     ],

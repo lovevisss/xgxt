@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5f648a0f4fd372170a5d73a807c43cff",
+    "content-hash": "dc11fb5bf2805a3e40240c88dd52522f",
     "packages": [
         {
             "name": "brick/math",
@@ -6246,7 +6246,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/zufedfc/laravel-cas",
-                "reference": "79bb5d2e8fe1da342eb639291a3eb8d6ba0c0d40"
+                "reference": "bfbfd59efa9ed7c672ada4f979f81ac05b3fac02"
             },
             "require": {
                 "ext-dom": "*",
@@ -6281,7 +6281,7 @@
             ],
             "description": "Reusable CAS authentication integration for Laravel 12 applications.",
             "transport-options": {
-                "symlink": true,
+                "symlink": false,
                 "relative": true
             }
         }
