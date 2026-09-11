@@ -38,7 +38,11 @@ class CasAuthController extends Controller
         }
 
         $user = $this->users->resolve($result->username, $result->attributes);
-        $this->auth->guard((string) config('cas.guard', 'web'))->login($user);
+        $guard = $this->auth->guard((string) config('cas.guard', 'web'));
+        if (method_exists($guard, 'setRememberDuration')) {
+            $guard->setRememberDuration(max(1, (int) config('cas.remember_minutes', 120)));
+        }
+        $guard->login($user, true);
         $request->session()->regenerate();
         $request->session()->put(config('cas.session_key'), [
             'service' => $service,

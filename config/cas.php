@@ -9,6 +9,7 @@ return [
     'session_key' => env('CAS_SESSION_KEY', 'cas_user'),
     'guard' => env('CAS_GUARD', 'web'),
     'http_timeout' => (int) env('CAS_HTTP_TIMEOUT', 10),
+    'remember_minutes' => (int) env('CAS_REMEMBER_MINUTES', env('SESSION_LIFETIME', 120)),
 
     'routes' => [
         'prefix' => env('CAS_ROUTE_PREFIX', 'sso'),

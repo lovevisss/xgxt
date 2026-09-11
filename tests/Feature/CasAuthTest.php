@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureCasAuthenticated;
 use App\Models\User;
+use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -52,9 +53,15 @@ it('validates CAS ticket and creates local authenticated session', function () {
 XML, 200),
     ]);
 
-    $this->get('/sso/login?returnUrl=/students&ticket=ST-1-test')
+    $response = $this->get('/sso/login?returnUrl=/students&ticket=ST-1-test');
+
+    $response
         ->assertRedirect('/students')
         ->assertSessionHas('cas_user.user', 'teacher001');
+
+    $recaller = app(AuthFactory::class)->guard('web')->getRecallerName();
+    $response->assertCookie($recaller);
+    $rememberCookie = $response->getCookie($recaller)?->getValue();
 
     $this->assertAuthenticated();
     $this->assertDatabaseHas('users', [
@@ -67,6 +74,14 @@ XML, 200),
         'cas_username' => 'teacher001',
         'name' => 'Test Teacher',
     ]);
+
+    $this->app->make(AuthFactory::class)->forgetGuards();
+    $this->flushSession();
+
+    $this->withCookie($recaller, $rememberCookie)
+        ->get('/students')
+        ->assertOk()
+        ->assertSessionHas('cas_user.user', 'teacher001');
 });
 
 it('logs out from Laravel session before redirecting to CAS logout', function () {
