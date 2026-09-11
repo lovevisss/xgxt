@@ -25,14 +25,17 @@ class CasAuthController extends Controller
     {
         $this->ensureEnabled();
 
-        $returnUrl = $this->safeReturnUrl((string) $request->query('returnUrl', '/'));
-        $service = url(route($this->routeName('login'), ['returnUrl' => $returnUrl], false));
         $ticket = trim((string) $request->query('ticket', ''));
+        $service = url(route($this->routeName('login'), [], false));
 
         if ($ticket === '') {
+            $returnUrl = $this->safeReturnUrl((string) $request->query('returnUrl', '/'));
+            $request->session()->put($this->returnUrlSessionKey(), $returnUrl);
+
             return redirect()->away($this->client->loginUrl($service));
         }
 
+        $returnUrl = $this->pendingReturnUrl($request);
         $result = $this->client->validate($service, $ticket);
         if (! $result->successful || $result->username === null) {
             return $this->validationFailureResponse($result, $returnUrl);
@@ -54,6 +57,8 @@ class CasAuthController extends Controller
         ]);
 
         event(new CasAuthenticated($user, $result->username, $result->attributes, $ticket, $request));
+
+        $request->session()->forget($this->returnUrlSessionKey());
 
         return redirect($returnUrl);
     }
@@ -142,6 +147,22 @@ class CasAuthController extends Controller
         }
 
         return $returnUrl;
+    }
+
+    private function pendingReturnUrl(Request $request): string
+    {
+        $returnUrl = $request->session()->get($this->returnUrlSessionKey());
+
+        if (! is_string($returnUrl) || $returnUrl === '') {
+            $returnUrl = (string) $request->query('returnUrl', '/');
+        }
+
+        return $this->safeReturnUrl($returnUrl);
+    }
+
+    private function returnUrlSessionKey(): string
+    {
+        return (string) config('cas.return_url_session_key', 'cas_return_url');
     }
 
     private function routeName(string $route): string

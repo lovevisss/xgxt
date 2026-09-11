@@ -17,6 +17,7 @@ beforeEach(function () {
         'cas.server_url' => 'https://cas.paas.zufedfc.edu.cn/cas',
         'cas.backchannel_url' => 'https://cas.paas.zufedfc.edu.cn/cas',
         'cas.session_key' => 'cas_user',
+        'cas.return_url_session_key' => 'cas_return_url',
         'cas.verify_ssl' => true,
     ]);
 });
@@ -33,9 +34,10 @@ XML, 200),
     ]);
 
     $this->get('/sso/login?returnUrl=/students')
-        ->assertRedirectContains('https://cas.paas.zufedfc.edu.cn/cas/login?service=');
+        ->assertRedirectContains('https://cas.paas.zufedfc.edu.cn/cas/login?service=')
+        ->assertSessionHas('cas_return_url', '/students');
 
-    $this->get('/sso/login?returnUrl=/students&ticket=ST-backchannel')
+    $this->get('/sso/login?ticket=ST-backchannel')
         ->assertRedirect('/students');
 
     Http::assertSent(function ($request): bool {
@@ -45,7 +47,7 @@ XML, 200),
             && str_starts_with($request->url(), 'https://cas.internal.example/cas/serviceValidate?')
             && $request->hasHeader('Accept', 'application/xml,text/xml')
             && $query === [
-                'service' => 'https://student.zufedfc.edu.cn/sso/login?returnUrl=%2Fstudents',
+                'service' => 'https://student.zufedfc.edu.cn/sso/login',
                 'ticket' => 'ST-backchannel',
             ];
     });
@@ -146,7 +148,10 @@ it('redirects to the CAS server when login starts without a ticket', function ()
     $response = $this->get('/sso/login?returnUrl=/students');
 
     $response->assertRedirect();
-    expect($response->headers->get('Location'))->toStartWith('https://cas.paas.zufedfc.edu.cn/cas/login?service=');
+    parse_str(parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY) ?? '', $query);
+
+    expect($query['service'] ?? null)->toBe('https://student.zufedfc.edu.cn/sso/login');
+    $response->assertSessionHas('cas_return_url', '/students');
 });
 
 it('validates CAS ticket and creates local authenticated session', function () {
@@ -165,11 +170,13 @@ it('validates CAS ticket and creates local authenticated session', function () {
 XML, 200),
     ]);
 
-    $response = $this->get('/sso/login?returnUrl=/students&ticket=ST-1-test');
+    $this->get('/sso/login?returnUrl=/students')->assertRedirect();
+    $response = $this->get('/sso/login?ticket=ST-1-test');
 
     $response
         ->assertRedirect('/students')
-        ->assertSessionHas('cas_user.user', 'teacher001');
+        ->assertSessionHas('cas_user.user', 'teacher001')
+        ->assertSessionMissing('cas_return_url');
 
     $recaller = app(AuthFactory::class)->guard('web')->getRecallerName();
     $response->assertCookie($recaller);
@@ -204,7 +211,7 @@ it('logs out from Laravel session before redirecting to CAS logout', function ()
         ->withSession([
             'cas_user' => [
                 'user' => 'teacher001',
-                'service' => 'http://localhost/sso/login?returnUrl=%2Fstudents',
+                'service' => 'https://student.zufedfc.edu.cn/sso/login',
                 'ticket' => 'ST-1-test',
             ],
         ])
@@ -225,7 +232,7 @@ it('clears local authentication when CAS single logout callback arrives', functi
         ->withSession([
             'cas_user' => [
                 'user' => 'teacher001',
-                'service' => 'http://localhost/sso/login?returnUrl=%2Fstudents',
+                'service' => 'https://student.zufedfc.edu.cn/sso/login',
                 'ticket' => 'ST-1-test',
             ],
         ])
@@ -245,7 +252,7 @@ it('supports CAS single logout jsonp callbacks', function () {
         ->withSession([
             'cas_user' => [
                 'user' => 'teacher001',
-                'service' => 'http://localhost/sso/login?returnUrl=%2Fstudents',
+                'service' => 'https://student.zufedfc.edu.cn/sso/login',
                 'ticket' => 'ST-1-test',
             ],
         ])
