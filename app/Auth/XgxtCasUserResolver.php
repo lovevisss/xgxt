@@ -2,13 +2,13 @@
 
 namespace App\Auth;
 
+use App\Contracts\CasUserResolver;
 use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Zufedfc\LaravelCas\Contracts\CasUserResolver;
 
 class XgxtCasUserResolver implements CasUserResolver
 {

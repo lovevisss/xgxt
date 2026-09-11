@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dc11fb5bf2805a3e40240c88dd52522f",
+    "content-hash": "0f9f4a54d777878587ae0dc38a34077f",
     "packages": [
         {
             "name": "brick/math",
@@ -6239,51 +6239,6 @@
                 "source": "https://github.com/webmozarts/assert/tree/1.11.0"
             },
             "time": "2022-06-03T18:03:27+00:00"
-        },
-        {
-            "name": "zufedfc/laravel-cas",
-            "version": "dev-master",
-            "dist": {
-                "type": "path",
-                "url": "packages/zufedfc/laravel-cas",
-                "reference": "bfbfd59efa9ed7c672ada4f979f81ac05b3fac02"
-            },
-            "require": {
-                "ext-dom": "*",
-                "laravel/framework": "^12.0",
-                "php": "^8.2"
-            },
-            "require-dev": {
-                "orchestra/testbench": "10.0.0",
-                "pestphp/pest": "^3.8",
-                "pestphp/pest-plugin-laravel": "^3.2"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Zufedfc\\LaravelCas\\CasServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Zufedfc\\LaravelCas\\": "src/"
-                }
-            },
-            "autoload-dev": {
-                "psr-4": {
-                    "Zufedfc\\LaravelCas\\Tests\\": "tests/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "description": "Reusable CAS authentication integration for Laravel 12 applications.",
-            "transport-options": {
-                "symlink": false,
-                "relative": true
-            }
         }
     ],
     "packages-dev": [
@@ -10024,12 +9979,11 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "zufedfc/laravel-cas": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
+        "ext-dom": "*",
         "php": "^8.2"
     },
     "platform-dev": {},

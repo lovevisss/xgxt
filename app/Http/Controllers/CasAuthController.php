@@ -1,16 +1,15 @@
 <?php
 
-namespace Zufedfc\LaravelCas\Http\Controllers;
+namespace App\Http\Controllers;
 
+use App\Auth\CasClient;
+use App\Contracts\CasUserResolver;
+use App\Events\CasAuthenticated;
+use App\Events\CasLoggedOut;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
 use Symfony\Component\HttpFoundation\Response;
-use Zufedfc\LaravelCas\CasClient;
-use Zufedfc\LaravelCas\Contracts\CasUserResolver;
-use Zufedfc\LaravelCas\Events\CasAuthenticated;
-use Zufedfc\LaravelCas\Events\CasLoggedOut;
 
 class CasAuthController extends Controller
 {
@@ -18,7 +17,8 @@ class CasAuthController extends Controller
         private readonly CasClient $client,
         private readonly CasUserResolver $users,
         private readonly AuthFactory $auth,
-    ) {}
+    ) {
+    }
 
     public function login(Request $request): RedirectResponse
     {
@@ -48,13 +48,7 @@ class CasAuthController extends Controller
             'logged_in_at' => now()->toIso8601String(),
         ]);
 
-        event(new CasAuthenticated(
-            $user,
-            $result->username,
-            $result->attributes,
-            $ticket,
-            $request,
-        ));
+        event(new CasAuthenticated($user, $result->username, $result->attributes, $ticket, $request));
 
         return redirect($returnUrl);
     }
@@ -71,10 +65,7 @@ class CasAuthController extends Controller
         event(new CasLoggedOut($username, $request));
 
         if (! $isCallback) {
-            $callback = url(route($this->routeName('logout'), [
-                'returnUrl' => $returnUrl,
-                'logout' => 'logout',
-            ], false));
+            $callback = url(route($this->routeName('logout'), ['returnUrl' => $returnUrl, 'logout' => 'logout'], false));
 
             return redirect()->away($this->client->logoutUrl($callback));
         }
@@ -116,8 +107,7 @@ class CasAuthController extends Controller
 
         $callback = (string) $request->query('callback', '');
         if ($callback !== '' && preg_match('/^[A-Za-z_$][A-Za-z0-9_.$]*$/', $callback) === 1) {
-            return response($callback.'('.json_encode(['success' => true]).');')
-                ->header('Content-Type', 'application/javascript');
+            return response($callback.'('.json_encode(['success' => true]).');')->header('Content-Type', 'application/javascript');
         }
 
         return response()->json(['success' => true]);

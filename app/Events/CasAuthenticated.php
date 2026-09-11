@@ -1,6 +1,6 @@
 <?php
 
-namespace Zufedfc\LaravelCas\Events;
+namespace App\Events;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -16,5 +16,6 @@ class CasAuthenticated
         public readonly array $attributes,
         public readonly string $ticket,
         public readonly Request $request,
-    ) {}
+    ) {
+    }
 }

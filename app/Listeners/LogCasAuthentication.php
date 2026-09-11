@@ -2,8 +2,8 @@
 
 namespace App\Listeners;
 
+use App\Events\CasAuthenticated;
 use App\Models\UserLoginLog;
-use Zufedfc\LaravelCas\Events\CasAuthenticated;
 
 class LogCasAuthentication
 {

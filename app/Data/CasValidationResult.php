@@ -1,6 +1,6 @@
 <?php
 
-namespace Zufedfc\LaravelCas\Data;
+namespace App\Data;
 
 final readonly class CasValidationResult
 {
@@ -9,7 +9,8 @@ final readonly class CasValidationResult
         public ?string $username = null,
         public array $attributes = [],
         public ?string $message = null,
-    ) {}
+    ) {
+    }
 
     public static function success(string $username, array $attributes = []): self
     {

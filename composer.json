@@ -10,12 +10,12 @@
     "license": "MIT",
 
     "require": {
+        "ext-dom": "*",
         "php": "^8.2",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "openspout/openspout": "^5.7",
-        "phpoffice/phpspreadsheet": "^4.0",
-        "zufedfc/laravel-cas": "@dev"
+        "phpoffice/phpspreadsheet": "^4.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -37,19 +37,9 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Zufedfc\\LaravelCas\\Tests\\": "packages/zufedfc/laravel-cas/tests/",
             "Tests\\": "tests/"
         }
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "packages/zufedfc/laravel-cas",
-            "options": {
-                "symlink": false
-            }
-        }
-    ],
     "scripts": {
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

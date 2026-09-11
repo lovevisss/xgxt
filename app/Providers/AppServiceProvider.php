@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Auth\CasClient;
+use App\Contracts\CasUserResolver;
+use App\Events\CasAuthenticated;
 use App\Listeners\LogCasAuthentication;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
-use Zufedfc\LaravelCas\Events\CasAuthenticated;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(CasClient::class);
+        $this->app->bind(CasUserResolver::class, fn ($app) => $app->make(config('cas.user.resolver')));
     }
 
     /**

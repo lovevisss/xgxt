@@ -1,15 +1,18 @@
 <?php
 
-namespace Zufedfc\LaravelCas;
+namespace App\Auth;
 
+use App\Data\CasValidationResult;
 use DOMDocument;
 use DOMElement;
 use Illuminate\Http\Client\Factory as HttpFactory;
-use Zufedfc\LaravelCas\Data\CasValidationResult;
+use Throwable;
 
 class CasClient
 {
-    public function __construct(private readonly HttpFactory $http) {}
+    public function __construct(private readonly HttpFactory $http)
+    {
+    }
 
     public function loginUrl(string $service): string
     {
@@ -24,13 +27,11 @@ class CasClient
     public function validate(string $service, string $ticket): CasValidationResult
     {
         try {
-            $response = $this->http
-                ->timeout($this->timeout())
-                ->get($this->endpoint('serviceValidate'), [
-                    'service' => $service,
-                    'ticket' => $ticket,
-                ]);
-        } catch (\Throwable $exception) {
+            $response = $this->http->timeout($this->timeout())->get($this->endpoint('serviceValidate'), [
+                'service' => $service,
+                'ticket' => $ticket,
+            ]);
+        } catch (Throwable $exception) {
             report($exception);
 
             return CasValidationResult::failure('Unable to contact the CAS server.');
@@ -46,27 +47,23 @@ class CasClient
     public function isUserOnline(string $service, string $ticket, string $username): bool
     {
         try {
-            $response = $this->http
-                ->asForm()
-                ->timeout($this->timeout())
-                ->post($this->endpoint('login/userOnlineDetect'), [
-                    'service' => $service,
-                    'ticket' => $ticket,
-                    'username' => $username,
-                ]);
-        } catch (\Throwable $exception) {
+            $response = $this->http->asForm()->timeout($this->timeout())->post($this->endpoint('login/userOnlineDetect'), [
+                'service' => $service,
+                'ticket' => $ticket,
+                'username' => $username,
+            ]);
+        } catch (Throwable $exception) {
             report($exception);
 
             return false;
         }
 
-        return $response->successful()
-            && (bool) data_get($response->json(), 'data.isAlive', false);
+        return $response->successful() && (bool) data_get($response->json(), 'data.isAlive', false);
     }
 
     private function parseValidationResponse(string $xml): CasValidationResult
     {
-        $document = new DOMDocument();
+        $document = new DOMDocument;
         $document->preserveWhiteSpace = false;
 
         if (! @$document->loadXML($xml, LIBXML_NONET)) {
@@ -82,9 +79,7 @@ class CasClient
         if ($successNodes->length > 0) {
             $success = $successNodes->item(0);
             $userNodes = $success?->getElementsByTagName('user');
-            $username = $userNodes && $userNodes->length > 0
-                ? trim((string) $userNodes->item(0)->nodeValue)
-                : '';
+            $username = $userNodes && $userNodes->length > 0 ? trim((string) $userNodes->item(0)->nodeValue) : '';
 
             if ($username === '' || ! $success instanceof DOMElement) {
                 return CasValidationResult::failure('CAS response did not include a username.');
@@ -130,9 +125,7 @@ class CasClient
     private function addAttribute(array &$attributes, string $name, string $value): void
     {
         if (array_key_exists($name, $attributes)) {
-            $attributes[$name] = is_array($attributes[$name])
-                ? [...$attributes[$name], $value]
-                : [$attributes[$name], $value];
+            $attributes[$name] = is_array($attributes[$name]) ? [...$attributes[$name], $value] : [$attributes[$name], $value];
 
             return;
         }

@@ -2,14 +2,28 @@
 
 use App\Http\Controllers\AdminLoginLogController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\CasAuthController;
 use App\Http\Controllers\CounselorAssignmentController;
 use App\Http\Controllers\SnippetController;
-use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentAccessPermissionController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDataImportController;
 use App\Http\Controllers\StudentFamilyController;
 use App\Http\Controllers\SyncTaskController;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix(config('cas.routes.prefix', 'sso'))
+    ->middleware(config('cas.routes.middleware', ['web']))
+    ->group(function (): void {
+        Route::get('/login', [CasAuthController::class, 'login'])->name(config('cas.routes.names.login', 'cas.login'));
+        Route::get('/logout', [CasAuthController::class, 'logout'])->name(config('cas.routes.names.logout', 'cas.logout'));
+        Route::match(['GET', 'POST'], '/slo', [CasAuthController::class, 'slo'])
+            ->withoutMiddleware([VerifyCsrfToken::class])
+            ->name(config('cas.routes.names.slo', 'cas.slo'));
+        Route::post('/userOnlineDetect', [CasAuthController::class, 'userOnlineDetect'])
+            ->name(config('cas.routes.names.user_online_detect', 'cas.user-online-detect'));
+    });
 
 Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::resource('snippets', SnippetController::class);

@@ -1,6 +1,6 @@
 <?php
 
-namespace Zufedfc\LaravelCas\Contracts;
+namespace App\Contracts;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 

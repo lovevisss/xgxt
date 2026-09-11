@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Middleware\EnsureCasAuthenticated;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Http;
-use Zufedfc\LaravelCas\Http\Middleware\EnsureCasAuthenticated;
+use Illuminate\Support\Facades\Route;
 
 uses(RefreshDatabase::class);
 
@@ -17,8 +17,11 @@ beforeEach(function () {
     ]);
 });
 
-it('registers the CAS middleware alias at application bootstrap', function () {
-    expect(app(Router::class)->getMiddleware()['cas.auth'] ?? null)->toBe(EnsureCasAuthenticated::class);
+it('registers the application CAS middleware on protected routes', function () {
+    $middleware = Route::getRoutes()->getByName('students.page')?->gatherMiddleware() ?? [];
+
+    expect(app(EnsureCasAuthenticated::class))->toBeInstanceOf(EnsureCasAuthenticated::class)
+        ->and($middleware)->toContain('cas.auth');
 });
 
 it('redirects protected pages to CAS login when there is no local CAS session', function () {

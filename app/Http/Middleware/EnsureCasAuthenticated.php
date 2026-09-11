@@ -1,6 +1,6 @@
 <?php
 
-namespace Zufedfc\LaravelCas\Http\Middleware;
+namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
@@ -20,11 +20,6 @@ class EnsureCasAuthenticated
 
         $returnUrl = '/'.ltrim($request->getRequestUri(), '/');
 
-        return redirect()->route($this->routeName('login'), ['returnUrl' => $returnUrl]);
-    }
-
-    private function routeName(string $route): string
-    {
-        return (string) config("cas.routes.names.{$route}");
+        return redirect()->route((string) config('cas.routes.names.login'), ['returnUrl' => $returnUrl]);
     }
 }
