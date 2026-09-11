@@ -2,7 +2,9 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Http;
+use Zufedfc\LaravelCas\Http\Middleware\EnsureCasAuthenticated;
 
 uses(RefreshDatabase::class);
 
@@ -13,6 +15,10 @@ beforeEach(function () {
         'cas.server_url' => 'https://cas.paas.zufedfc.edu.cn/cas',
         'cas.session_key' => 'cas_user',
     ]);
+});
+
+it('registers the CAS middleware alias at application bootstrap', function () {
+    expect(app(Router::class)->getMiddleware()['cas.auth'] ?? null)->toBe(EnsureCasAuthenticated::class);
 });
 
 it('redirects protected pages to CAS login when there is no local CAS session', function () {
