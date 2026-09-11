@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Auth\CasClient;
 use App\Contracts\CasUserResolver;
+use App\Data\CasValidationResult;
 use App\Events\CasAuthenticated;
 use App\Events\CasLoggedOut;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
@@ -20,7 +21,7 @@ class CasAuthController extends Controller
     ) {
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(Request $request): Response
     {
         $this->ensureEnabled();
 
@@ -34,7 +35,7 @@ class CasAuthController extends Controller
 
         $result = $this->client->validate($service, $ticket);
         if (! $result->successful || $result->username === null) {
-            return redirect($returnUrl)->with('cas_error', $result->message);
+            return $this->validationFailureResponse($result, $returnUrl);
         }
 
         $user = $this->users->resolve($result->username, $result->attributes);
@@ -151,5 +152,21 @@ class CasAuthController extends Controller
     private function ensureEnabled(): void
     {
         abort_unless(config('cas.enabled'), 404);
+    }
+
+    private function validationFailureResponse(CasValidationResult $result, string $returnUrl): Response
+    {
+        [$status, $title, $message] = match ($result->errorCode) {
+            CasValidationResult::ERROR_REJECTED => [401, '登录验证失败', '统一认证未接受本次登录凭证，票据可能已经过期或被使用。'],
+            CasValidationResult::ERROR_HTTP => [502, 'CAS 服务响应异常', '统一认证服务器暂时无法完成登录验证，请稍后重试。'],
+            CasValidationResult::ERROR_INVALID_RESPONSE => [502, 'CAS 响应无法识别', '统一认证服务器返回了无法识别的数据，请联系系统管理员。'],
+            default => [502, 'CAS 服务暂时不可用', '系统暂时无法连接统一认证服务器，请稍后重试。'],
+        };
+
+        return response()->view('cas-error', [
+            'title' => $title,
+            'message' => $message,
+            'retryUrl' => route($this->routeName('login'), ['returnUrl' => $returnUrl]),
+        ], $status);
     }
 }

@@ -6,6 +6,7 @@ use App\Data\CasValidationResult;
 use DOMDocument;
 use DOMElement;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class CasClient
@@ -16,29 +17,43 @@ class CasClient
 
     public function loginUrl(string $service): string
     {
-        return $this->endpoint('login').'?'.http_build_query(['service' => $service]);
+        return $this->publicEndpoint('login').'?'.http_build_query(['service' => $service]);
     }
 
     public function logoutUrl(string $service): string
     {
-        return $this->endpoint('logout').'?'.http_build_query(['service' => $service]);
+        return $this->publicEndpoint('logout').'?'.http_build_query(['service' => $service]);
     }
 
     public function validate(string $service, string $ticket): CasValidationResult
     {
-        try {
-            $response = $this->http->timeout($this->timeout())->get($this->endpoint('serviceValidate'), [
-                'service' => $service,
-                'ticket' => $ticket,
-            ]);
-        } catch (Throwable $exception) {
-            report($exception);
+        $endpoint = $this->backchannelEndpoint('serviceValidate');
+        $startedAt = hrtime(true);
 
-            return CasValidationResult::failure('Unable to contact the CAS server.');
+        try {
+            $response = $this->http
+                ->connectTimeout($this->connectTimeout())
+                ->timeout($this->timeout())
+                ->get($endpoint, [
+                    'service' => $service,
+                    'ticket' => $ticket,
+                ]);
+        } catch (Throwable $exception) {
+            $this->logFailure('ticket_validation', $endpoint, $startedAt, [
+                'exception' => $exception::class,
+                'code' => $exception->getCode(),
+            ]);
+
+            return CasValidationResult::failure('Unable to contact the CAS server.', CasValidationResult::ERROR_CONNECTION);
         }
 
         if (! $response->successful()) {
-            return CasValidationResult::failure("CAS validation returned HTTP {$response->status()}.");
+            $this->logFailure('ticket_validation', $endpoint, $startedAt, ['status' => $response->status()]);
+
+            return CasValidationResult::failure(
+                "CAS validation returned HTTP {$response->status()}.",
+                CasValidationResult::ERROR_HTTP,
+            );
         }
 
         return $this->parseValidationResponse($response->body());
@@ -46,14 +61,24 @@ class CasClient
 
     public function isUserOnline(string $service, string $ticket, string $username): bool
     {
+        $endpoint = $this->backchannelEndpoint('login/userOnlineDetect');
+        $startedAt = hrtime(true);
+
         try {
-            $response = $this->http->asForm()->timeout($this->timeout())->post($this->endpoint('login/userOnlineDetect'), [
-                'service' => $service,
-                'ticket' => $ticket,
-                'username' => $username,
-            ]);
+            $response = $this->http
+                ->asForm()
+                ->connectTimeout($this->connectTimeout())
+                ->timeout($this->timeout())
+                ->post($endpoint, [
+                    'service' => $service,
+                    'ticket' => $ticket,
+                    'username' => $username,
+                ]);
         } catch (Throwable $exception) {
-            report($exception);
+            $this->logFailure('online_detection', $endpoint, $startedAt, [
+                'exception' => $exception::class,
+                'code' => $exception->getCode(),
+            ]);
 
             return false;
         }
@@ -67,12 +92,12 @@ class CasClient
         $document->preserveWhiteSpace = false;
 
         if (! @$document->loadXML($xml, LIBXML_NONET)) {
-            return CasValidationResult::failure('CAS returned invalid XML.');
+            return CasValidationResult::failure('CAS returned invalid XML.', CasValidationResult::ERROR_INVALID_RESPONSE);
         }
 
         $root = $document->documentElement;
         if (! $root || $root->localName !== 'serviceResponse') {
-            return CasValidationResult::failure('CAS returned an unexpected response.');
+            return CasValidationResult::failure('CAS returned an unexpected response.', CasValidationResult::ERROR_INVALID_RESPONSE);
         }
 
         $successNodes = $root->getElementsByTagName('authenticationSuccess');
@@ -82,7 +107,7 @@ class CasClient
             $username = $userNodes && $userNodes->length > 0 ? trim((string) $userNodes->item(0)->nodeValue) : '';
 
             if ($username === '' || ! $success instanceof DOMElement) {
-                return CasValidationResult::failure('CAS response did not include a username.');
+                return CasValidationResult::failure('CAS response did not include a username.', CasValidationResult::ERROR_INVALID_RESPONSE);
             }
 
             return CasValidationResult::success($username, $this->extractAttributes($success));
@@ -92,10 +117,10 @@ class CasClient
         if ($failureNodes->length > 0) {
             $message = trim((string) $failureNodes->item(0)->nodeValue);
 
-            return CasValidationResult::failure($message ?: 'CAS authentication failed.');
+            return CasValidationResult::failure($message ?: 'CAS authentication failed.', CasValidationResult::ERROR_REJECTED);
         }
 
-        return CasValidationResult::failure('CAS returned an unknown response.');
+        return CasValidationResult::failure('CAS returned an unknown response.', CasValidationResult::ERROR_INVALID_RESPONSE);
     }
 
     private function extractAttributes(DOMElement $success): array
@@ -133,13 +158,33 @@ class CasClient
         $attributes[$name] = $value;
     }
 
-    private function endpoint(string $path): string
+    private function publicEndpoint(string $path): string
     {
         return rtrim((string) config('cas.server_url'), '/').'/'.ltrim($path, '/');
+    }
+
+    private function backchannelEndpoint(string $path): string
+    {
+        return rtrim((string) config('cas.backchannel_url', config('cas.server_url')), '/').'/'.ltrim($path, '/');
+    }
+
+    private function connectTimeout(): int
+    {
+        return max(1, (int) config('cas.connect_timeout', 3));
     }
 
     private function timeout(): int
     {
         return max(1, (int) config('cas.http_timeout', 10));
+    }
+
+    private function logFailure(string $operation, string $endpoint, int $startedAt, array $context = []): void
+    {
+        Log::warning('CAS backchannel request failed.', [
+            'operation' => $operation,
+            'endpoint' => $endpoint,
+            'duration_ms' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
+            ...$context,
+        ]);
     }
 }
