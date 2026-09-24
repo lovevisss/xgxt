@@ -15,8 +15,15 @@ class StudentCadreAssessmentImportService
 
     public function import(UploadedFile $file, string $academicYear, ?string $semester = null): array
     {
-        $text = $this->extractText($file);
-        $records = $this->parseText($text, $academicYear, $semester, $file->getClientOriginalName());
+        $extension = strtolower($file->getClientOriginalExtension());
+        $records = $extension === 'docx'
+            ? $this->parseDocxFile($file->getRealPath(), $academicYear, $semester, $file->getClientOriginalName())
+            : $this->parseText(
+                $this->extractPdfText($file),
+                $academicYear,
+                $semester,
+                $file->getClientOriginalName()
+            );
         $result = ['imported' => 0, 'pending' => 0, 'skipped' => 0, 'errors' => [], 'pending_records' => []];
 
         DB::transaction(function () use ($records, &$result): void {
@@ -87,12 +94,77 @@ class StudentCadreAssessmentImportService
         return $records;
     }
 
-    private function extractText(UploadedFile $file): string
+    public function parseDocxFile(
+        string $path,
+        string $academicYear,
+        ?string $semester = null,
+        ?string $sourceFile = null
+    ): array {
+        $archive = new \ZipArchive();
+
+        if ($archive->open($path) !== true) {
+            throw new \RuntimeException('无法打开 DOCX 文件，请确认文件未损坏。');
+        }
+
+        try {
+            $documentXml = $archive->getFromName('word/document.xml');
+        } finally {
+            $archive->close();
+        }
+
+        if (! is_string($documentXml) || trim($documentXml) === '') {
+            throw new \RuntimeException('DOCX 中未找到可读取的正文内容。');
+        }
+
+        $document = new \DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadXML($documentXml, LIBXML_NONET | LIBXML_COMPACT);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            throw new \RuntimeException('DOCX 正文格式无法解析。');
+        }
+
+        $xpath = new \DOMXPath($document);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $records = [];
+
+        foreach ($xpath->query('//w:tbl') ?: [] as $table) {
+            foreach ($xpath->query('./w:tr', $table) ?: [] as $row) {
+                $cells = [];
+
+                foreach ($xpath->query('./w:tc', $row) ?: [] as $cell) {
+                    $parts = [];
+
+                    foreach ($xpath->query('.//w:t', $cell) ?: [] as $textNode) {
+                        $parts[] = $textNode->textContent;
+                    }
+
+                    $cells[] = trim(implode('', $parts));
+                }
+
+                $record = $this->parseDocxRow($cells, $academicYear, $semester, $sourceFile);
+
+                if ($record !== null) {
+                    $records[] = $record;
+                }
+            }
+        }
+
+        if ($records === []) {
+            throw new \RuntimeException('DOCX 中未识别到团学干部考核数据，请确认表头和列顺序未被修改。');
+        }
+
+        return $records;
+    }
+
+    private function extractPdfText(UploadedFile $file): string
     {
         $extension = strtolower($file->getClientOriginalExtension());
 
         if ($extension !== 'pdf') {
-            throw new \RuntimeException('团学干部考核导入目前请上传 PDF 文件。');
+            throw new \RuntimeException('团学干部考核导入支持 PDF 或 DOCX 文件。');
         }
 
         $text = $this->extractTextWithPython($file->getRealPath());
@@ -102,6 +174,47 @@ class StudentCadreAssessmentImportService
         }
 
         return $text;
+    }
+
+    private function parseDocxRow(
+        array $cells,
+        string $academicYear,
+        ?string $semester,
+        ?string $sourceFile
+    ): ?array {
+        if (count($cells) < 11 || str_contains($cells[0] ?? '', '姓名')) {
+            return null;
+        }
+
+        $studentNumber = preg_replace('/\s+/u', '', (string) ($cells[1] ?? ''));
+        $grade = trim((string) ($cells[10] ?? ''));
+
+        if ($studentNumber === '' || ! preg_match('/^[A-Za-z0-9]+$/', $studentNumber) || ! in_array($grade, self::GRADES, true)) {
+            return null;
+        }
+
+        foreach ([5, 6, 7, 8, 9] as $scoreIndex) {
+            if (! $this->isNumericScore($cells[$scoreIndex] ?? null)) {
+                return null;
+            }
+        }
+
+        return [
+            'student_number' => $studentNumber,
+            'student_name' => $this->normalizeName((string) ($cells[0] ?? '')),
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'organization' => trim((string) ($cells[2] ?? '')) ?: null,
+            'department' => trim((string) ($cells[3] ?? '')) ?: null,
+            'position' => trim((string) ($cells[4] ?? '')),
+            'self_score' => (float) $cells[5],
+            'peer_score' => (float) $cells[6],
+            'advisor_score' => (float) $cells[7],
+            'department_score' => (float) $cells[8],
+            'total_score' => (float) $cells[9],
+            'grade' => $grade,
+            'source_file' => $sourceFile,
+        ];
     }
 
     private function extractTextWithPython(string $path): string
@@ -221,6 +334,19 @@ PY;
 
     private function matchStudent(array $record): array
     {
+        $studentNumber = trim((string) ($record['student_number'] ?? ''));
+
+        if ($studentNumber !== '') {
+            $student = Student::query()
+                ->where('rylx', '0')
+                ->where('xgh', $studentNumber)
+                ->first(['xgh', 'xm', 'dwmc', 'bjmc']);
+
+            if ($student instanceof Student) {
+                return ['student' => $student, 'candidates' => []];
+            }
+        }
+
         $name = $this->normalizeName($record['student_name']);
         $students = Student::query()
             ->where('rylx', '0')

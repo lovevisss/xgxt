@@ -4,6 +4,7 @@ use App\Models\Student;
 use App\Models\StudentCadreAssessment;
 use App\Services\StudentCadreAssessmentImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
@@ -26,6 +27,100 @@ it('parses cadre assessment rows from pdf text', function () {
         ->and($records[0]['total_score'])->toBe(87.65)
         ->and($records[0]['grade'])->toBe('良好')
         ->and($records[0]['semester'])->toBe('1');
+});
+
+it('imports cadre assessments from docx tables by student number', function () {
+    Student::query()->create([
+        'xgh' => '2420110227',
+        'xm' => '雷雨晴',
+        'xbm' => '2',
+        'rylx' => '0',
+        'dwmc' => '会计学院',
+        'dwbm' => 'KJ',
+        'bjmc' => '24会计2班',
+    ]);
+
+    $path = storage_path('app/test-cadre-assessment.docx');
+    $archive = new ZipArchive();
+    expect($archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
+
+    $archive->addFromString('[Content_Types].xml', <<<'XML'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>
+XML);
+    $archive->addFromString('_rels/.rels', <<<'XML'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>
+XML);
+    $archive->addFromString('word/document.xml', <<<'XML'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:tbl>
+    <w:tr>
+      <w:tc><w:p><w:r><w:t>姓名</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>学号</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>所在二级学院(团学机构)</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>班级（部门）</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>任职</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>自评10%</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>民主测评20%</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>指导老师测评30%</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>指导部门测评40%</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>总分</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>考核等级</w:t></w:r></w:p></w:tc>
+    </w:tr>
+    <w:tr>
+      <w:tc><w:p><w:r><w:t>雷雨晴</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>2420110227</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>会计学院学生会</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>办公室</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>负责人</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>10.00</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>18.00</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>29.00</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>38.00</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>95.00</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>优秀</w:t></w:r></w:p></w:tc>
+    </w:tr>
+  </w:tbl></w:body>
+</w:document>
+XML);
+    $archive->close();
+
+    $file = new UploadedFile(
+        $path,
+        '团学干部考核成绩汇总表.docx',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        null,
+        true
+    );
+
+    $this->postJson('/student-imports/cadre_assessment', [
+        'file' => $file,
+        'academic_year' => '2025-2026',
+        'semester' => '1',
+    ])
+        ->assertOk()
+        ->assertJsonPath('imported', 1)
+        ->assertJsonPath('pending', 0);
+
+    $this->assertDatabaseHas('student_cadre_assessments', [
+        'student_xgh' => '2420110227',
+        'student_name' => '雷雨晴',
+        'academic_year' => '2025-2026',
+        'semester' => '1',
+        'organization' => '会计学院学生会',
+        'department' => '办公室',
+        'position' => '负责人',
+        'total_score' => 95,
+        'grade' => '优秀',
+    ]);
 });
 
 it('shows cadre assessments on the student profile', function () {

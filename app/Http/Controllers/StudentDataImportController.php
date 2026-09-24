@@ -62,7 +62,7 @@ class StudentDataImportController extends Controller
             @ini_set('max_execution_time', '600');
 
             $request->validate([
-                'file' => ['required', 'file', 'mimes:pdf', 'max:51200'],
+                'file' => ['required', 'file', 'mimes:pdf,docx', 'max:51200'],
                 'academic_year' => ['required', 'string', 'max:16'],
                 'semester' => ['nullable', 'string', 'max:16'],
             ]);
@@ -1504,8 +1504,8 @@ class StudentDataImportController extends Controller
             ],
             'cadre_assessment' => [
                 '导入说明' => [
-                    ['请直接上传团学干部考核成绩汇总 PDF'],
-                    ['系统会按姓名自动匹配学生；同名无法区分的记录会进入待确认。'],
+                    ['请直接上传团学干部考核成绩汇总 PDF 或 DOCX'],
+                    ['DOCX 优先按学号匹配学生；PDF 按姓名匹配，同名无法区分的记录会进入待确认。'],
                 ],
             ],
         };

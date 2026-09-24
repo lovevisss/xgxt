@@ -116,11 +116,11 @@ const importTypes = [
         key: 'cadre_assessment',
         title: '团学干部任职考核',
         eyebrow: '任职与考核等级',
-        accept: '.pdf',
+        accept: '.pdf,.docx',
         endpoint: '/student-imports/cadre_assessment',
         template: '/student-imports/template/cadre_assessment',
-        fields: 'PDF 汇总表：姓名、团学机构、部门、任职、总分、考核等级',
-        note: '按学年导入 PDF。系统会按姓名自动匹配学生，同名无法区分的记录会进入待确认。',
+        fields: 'PDF / DOCX 汇总表：姓名、学号、团学机构、部门、任职、总分、考核等级',
+        note: '按学年导入 PDF 或 DOCX。DOCX 优先按学号匹配；PDF 同名无法区分的记录会进入待确认。',
         resultLabels: { imported: '已匹配', pending: '待确认', skipped: '跳过' },
     },
 ];
@@ -390,7 +390,9 @@ onBeforeUnmount(stopPolling);
 
                 <div class="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
                     <input :accept="selectedType.accept" type="file" class="block w-full text-sm text-slate-700 file:mr-4 file:rounded file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white" @change="chooseFile">
-                    <p class="mt-3 text-xs text-slate-500">支持 .xls / .xlsx。请保留模板表头，标题行可以存在。</p>
+                    <p class="mt-3 text-xs text-slate-500">
+                        {{ selectedKey === 'cadre_assessment' ? '支持 .pdf / .docx。DOCX 请保留原表格列结构。' : '支持 .xls / .xlsx。请保留模板表头，标题行可以存在。' }}
+                    </p>
                 </div>
 
                 <div v-if="notice.text" class="mt-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : notice.type === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-sky-200 bg-sky-50 text-sky-700'">
