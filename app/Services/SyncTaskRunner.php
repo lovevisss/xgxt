@@ -27,17 +27,18 @@ class SyncTaskRunner
             $lastFlush = microtime(true);
             $buffer = '';
 
-            $process->run(function (string $type, string $output) use ($task, &$lastFlush, &$buffer): void {
-                $buffer .= $this->cleanOutput($output);
-
-                if (microtime(true) - $lastFlush < 0.8 && strlen($buffer) < 2048) {
-                    return;
+            $process->start();
+            while ($process->isRunning()) {
+                $buffer .= $this->cleanOutput($process->getIncrementalOutput().$process->getIncrementalErrorOutput());
+                if (microtime(true) - $lastFlush >= 10 || strlen($buffer) >= 2048) {
+                    $this->flushLog($task, $buffer);
+                    $lastFlush = microtime(true);
+                    $buffer = '';
                 }
+                usleep(250000);
+            }
 
-                $this->flushLog($task, $buffer);
-                $lastFlush = microtime(true);
-                $buffer = '';
-            });
+            $buffer .= $this->cleanOutput($process->getIncrementalOutput().$process->getIncrementalErrorOutput());
 
             if ($buffer !== '') {
                 $this->flushLog($task, $buffer);

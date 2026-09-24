@@ -214,12 +214,24 @@ class SyncTaskController extends Controller
             return;
         }
 
-        $php = $this->shellArg($this->cliPhpPath());
+        $cliPhp = $this->cliPhpPath();
+        if ($cliPhp === null) {
+            $task->update([
+                'status' => SyncTask::STATUS_FAILED,
+                'error' => '找不到命令行 PHP。请配置 SYNC_PHP_BINARY 为服务器上的 php CLI 可执行文件路径。',
+                'finished_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $php = $this->shellArg($cliPhp);
         $artisan = $this->shellArg(base_path('artisan'));
         $taskId = (string) $task->id;
+        $logFile = $this->shellArg(storage_path('logs/sync-task-'.$taskId.'.log'));
         $command = PHP_OS_FAMILY === 'Windows'
-            ? 'cmd /C start /B "" '.$php.' '.$artisan.' sync-task:run '.$taskId.' > NUL 2>&1'
-            : $php.' '.$artisan.' sync-task:run '.$taskId.' > /dev/null 2>&1 &';
+            ? 'cmd /C start /B "" '.$php.' '.$artisan.' sync-task:run '.$taskId.' > '.$logFile.' 2>&1'
+            : 'nohup '.$php.' '.$artisan.' sync-task:run '.$taskId.' > '.$logFile.' 2>&1 < /dev/null &';
 
         $handle = @popen($command, 'r');
 
@@ -245,15 +257,22 @@ class SyncTaskController extends Controller
     {
         $now = now();
 
-        SyncTask::query()
+        $staleQueued = SyncTask::query()
             ->where('status', SyncTask::STATUS_QUEUED)
             ->where('created_at', '<', $now->copy()->subMinutes(2))
-            ->update([
+            ->get();
+
+        foreach ($staleQueued as $task) {
+            $path = storage_path('logs/sync-task-'.$task->id.'.log');
+            $detail = is_file($path) ? trim((string) file_get_contents($path)) : '';
+            $task->update([
                 'status' => SyncTask::STATUS_FAILED,
-                'error' => '后台同步进程未在 2 分钟内启动，请重新点击开始同步。',
+                'error' => $detail !== ''
+                    ? '后台进程启动失败：'.mb_substr($detail, -1200)
+                    : '后台同步进程未在 2 分钟内启动。请检查服务器 CLI PHP 与任务启动日志。',
                 'finished_at' => $now,
-                'updated_at' => $now,
             ]);
+        }
 
         SyncTask::query()
             ->where('status', SyncTask::STATUS_RUNNING)
@@ -270,27 +289,31 @@ class SyncTaskController extends Controller
                 'finished_at' => $now,
                 'updated_at' => $now,
             ]);
+
     }
 
-    private function cliPhpPath(): string
+    private function cliPhpPath(): ?string
     {
-        if (PHP_OS_FAMILY !== 'Windows') {
-            return PHP_BINARY;
+        $configured = config('sync.php_binary');
+        if (is_string($configured) && $configured !== '') {
+            return is_file($configured) && is_executable($configured) ? $configured : null;
         }
 
-        $candidates = [
-            dirname(PHP_BINARY).DIRECTORY_SEPARATOR.'php.exe',
-            PHP_BINDIR.DIRECTORY_SEPARATOR.'php.exe',
-            PHP_BINARY,
-        ];
+        $binary = PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php';
+        $candidates = array_unique([
+            dirname(PHP_BINARY).DIRECTORY_SEPARATOR.$binary,
+            PHP_BINDIR.DIRECTORY_SEPARATOR.$binary,
+            PHP_OS_FAMILY === 'Windows' ? PHP_BINARY : '/usr/bin/php',
+            PHP_OS_FAMILY === 'Windows' ? PHP_BINARY : '/usr/local/bin/php',
+        ]);
 
         foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
+            if (is_file($candidate) && is_executable($candidate)) {
                 return $candidate;
             }
         }
 
-        return PHP_BINARY;
+        return null;
     }
 
     private function elapsedSeconds(SyncTask $task): ?int
