@@ -201,44 +201,32 @@ async function upload() {
     uploading.value = true;
     notice.value = { text: `正在导入${selectedType.value.title}...`, type: 'info' };
 
-    const formData = new FormData();
-    formData.append('file', file.value);
-    if (selectedKey.value === 'family') {
-        formData.append('async', '1');
-    }
-    if (showAnnualYearOptions.value) {
-        formData.append('annual_year', annualYear.value);
-    }
-    if (showLoanOptions.value) {
-        formData.append('source', source.value);
-    }
-    if (showSupportOptions.value) {
-        formData.append('academic_year', academicYear.value);
-    }
-    if (showSemesterOptions.value) {
-        formData.append('semester', semester.value);
-    }
-
     let response;
     try {
-        response = await fetch(selectedType.value.endpoint, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': getCSRF(),
-                Accept: 'application/json',
-            },
-            body: formData,
-        });
+        if (selectedKey.value === 'cadre_assessment') {
+            response = await uploadCadreInChunks();
+        } else {
+            const formData = new FormData();
+            formData.append('file', file.value);
+            if (selectedKey.value === 'family') formData.append('async', '1');
+            if (showAnnualYearOptions.value) formData.append('annual_year', annualYear.value);
+            if (showLoanOptions.value) formData.append('source', source.value);
+            if (showSupportOptions.value) formData.append('academic_year', academicYear.value);
+            if (showSemesterOptions.value) formData.append('semester', semester.value);
+            response = await postImport(selectedType.value.endpoint, formData);
+        }
     } catch (error) {
         uploading.value = false;
-        notice.value = { text: '无法连接导入服务，请检查网络后重试。', type: 'error' };
+        notice.value = { text: error.message || '无法连接导入服务，请检查网络后重试。', type: 'error' };
         return;
     }
 
     uploading.value = false;
 
     if (!response.ok) {
-        let message = `导入请求失败（HTTP ${response.status}），请稍后重试。`;
+        let message = response.status === 413
+            ? '服务器限制了上传大小，请联系管理员检查请求大小限制。'
+            : `导入请求失败（HTTP ${response.status}），请稍后重试。`;
         try {
             const error = await response.json();
             message = error.errors?.file?.[0] || error.message || error.error || message;
@@ -264,6 +252,51 @@ async function upload() {
         text: hasErrors ? '导入完成，但有部分行未通过校验。' : '导入完成。',
         type: hasErrors ? 'warning' : 'success',
     };
+}
+
+function postImport(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': getCSRF(), Accept: 'application/json' },
+        body,
+    });
+}
+
+async function uploadCadreInChunks() {
+    const chunkSize = 512 * 1024;
+    const total = Math.ceil(file.value.size / chunkSize);
+    if (total === 0 || total > 100) {
+        throw new Error('文件大小必须在 0 到 50 MB 之间。');
+    }
+
+    const uploadId = crypto.randomUUID();
+    for (let index = 0; index < total; index++) {
+        notice.value = { text: `正在上传文件：${index + 1}/${total}`, type: 'info' };
+        const formData = new FormData();
+        formData.append('upload_id', uploadId);
+        formData.append('index', String(index));
+        formData.append('total', String(total));
+        formData.append('file', file.value.slice(index * chunkSize, (index + 1) * chunkSize), 'part.bin');
+        const response = await postImport('/student-imports/cadre-assessment/chunk', formData);
+        if (!response.ok) {
+            let message = `第 ${index + 1} 片上传失败（HTTP ${response.status}）。`;
+            try {
+                const error = await response.json();
+                message = error.errors?.file?.[0] || error.message || message;
+            } catch (e) {
+                // Reverse proxies may return an HTML error page.
+            }
+            throw new Error(message);
+        }
+    }
+
+    notice.value = { text: '文件上传完成，正在创建后台导入任务...', type: 'info' };
+    const formData = new FormData();
+    formData.append('upload_id', uploadId);
+    formData.append('total', String(total));
+    formData.append('file_name', file.value.name);
+    formData.append('academic_year', academicYear.value);
+    return postImport('/student-imports/cadre-assessment/complete', formData);
 }
 
 function stopPolling() {

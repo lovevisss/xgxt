@@ -7,6 +7,8 @@ use App\Jobs\ImportStudentCadreAssessments;
 use App\Services\StudentCadreAssessmentImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -152,6 +154,44 @@ XML);
         'total_score' => 95,
         'grade' => '优秀',
     ]);
+
+    $uploadId = (string) Str::uuid();
+    $contents = file_get_contents($path);
+    $parts = str_split($contents, (int) ceil(strlen($contents) / 3));
+
+    $this->postJson('/student-imports/cadre-assessment/complete', [
+        'upload_id' => $uploadId,
+        'total' => count($parts),
+        'file_name' => '团学干部考核成绩汇总表.docx',
+        'academic_year' => '2025-2026',
+    ])->assertUnprocessable();
+
+    foreach ($parts as $index => $part) {
+        $this->postJson('/student-imports/cadre-assessment/chunk', [
+            'upload_id' => $uploadId,
+            'index' => $index,
+            'total' => count($parts),
+            'file' => UploadedFile::fake()->createWithContent('part.bin', $part),
+        ])->assertOk()->assertJsonPath('received', $index);
+    }
+
+    $this->postJson('/student-imports/cadre-assessment/complete', [
+        'upload_id' => $uploadId,
+        'total' => count($parts),
+        'file_name' => '团学干部考核成绩汇总表.docx',
+        'academic_year' => '2025-2026',
+        'semester' => '1',
+    ])->assertStatus(202)->assertJsonPath('queued', true);
+
+    $chunkTask = StudentImportTask::query()->latest('id')->firstOrFail();
+    expect($chunkTask->original_name)->toBe('团学干部考核成绩汇总表.docx')
+        ->and(file_get_contents(Storage::disk('local')->path($chunkTask->path)))->toBe($contents);
+
+    app()->call([new ImportStudentCadreAssessments($chunkTask->id), 'handle']);
+    $this->getJson("/student-imports/status/{$chunkTask->id}")
+        ->assertOk()
+        ->assertJsonPath('status', StudentImportTask::STATUS_SUCCEEDED)
+        ->assertJsonPath('result.imported', 1);
 });
 
 it('shows cadre assessments on the student profile', function () {

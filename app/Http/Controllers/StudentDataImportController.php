@@ -24,8 +24,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StudentDataImportController extends Controller
 {
@@ -65,31 +67,12 @@ class StudentDataImportController extends Controller
             ]);
 
             $file = $request->file('file');
-            $task = StudentImportTask::query()->create([
-                'type' => 'cadre_assessment',
-                'status' => StudentImportTask::STATUS_QUEUED,
-                'original_name' => $file->getClientOriginalName(),
-                'path' => $file->store('student-imports'),
-                'result' => [
-                    'academic_year' => trim((string) $request->input('academic_year')),
-                    'semester' => $request->filled('semester') ? trim((string) $request->input('semester')) : null,
-                    'imported' => 0,
-                    'pending' => 0,
-                    'processed' => 0,
-                    'total' => 0,
-                    'errors' => [],
-                    'pending_records' => [],
-                ],
-            ]);
-
-            $this->launchCadreImport($task);
-
-            return response()->json([
-                'queued' => true,
-                'task_id' => $task->id,
-                'status' => $task->status,
-                'result' => $task->result,
-            ], 202);
+            return $this->queueCadreImport(
+                $file->store('student-imports'),
+                $file->getClientOriginalName(),
+                trim((string) $request->input('academic_year')),
+                $request->filled('semester') ? trim((string) $request->input('semester')) : null
+            );
         }
 
         $request->validate([
@@ -140,6 +123,143 @@ class StudentDataImportController extends Controller
             'moral_assessment' => response()->json($this->importMoralAssessments($sheets, $request)),
             'technology_competition_award' => response()->json($this->importTechnologyCompetitionAwards($sheets)),
         };
+    }
+
+    public function cadreChunk(Request $request)
+    {
+        $data = $request->validate([
+            'upload_id' => ['required', 'uuid'],
+            'index' => ['required', 'integer', 'min:0', 'max:99'],
+            'total' => ['required', 'integer', 'between:1,100'],
+            'file' => ['required', 'file', 'max:768'],
+        ]);
+
+        if ($data['index'] >= $data['total']) {
+            throw ValidationException::withMessages(['index' => '分片编号超出范围。']);
+        }
+
+        if ($this->cadreUploadCompleted($data['upload_id'])) {
+            throw ValidationException::withMessages(['upload_id' => '此文件已提交，请重新选择文件上传。']);
+        }
+
+        $directory = 'student-imports/chunks/'.$data['upload_id'];
+        $request->file('file')->storeAs($directory, $data['index'].'.part', 'local');
+
+        return response()->json(['received' => $data['index']]);
+    }
+
+    public function completeCadreUpload(Request $request)
+    {
+        $data = $request->validate([
+            'upload_id' => ['required', 'uuid'],
+            'total' => ['required', 'integer', 'between:1,100'],
+            'file_name' => ['required', 'string', 'max:255', 'regex:/\.(pdf|docx)$/i'],
+            'academic_year' => ['required', 'string', 'max:16'],
+            'semester' => ['nullable', 'string', 'max:16'],
+        ]);
+
+        $disk = Storage::disk('local');
+        $directory = 'student-imports/chunks/'.$data['upload_id'];
+        if ($this->cadreUploadCompleted($data['upload_id'])) {
+            throw ValidationException::withMessages(['upload_id' => '此文件已提交，请重新选择文件上传。']);
+        }
+        for ($index = 0; $index < $data['total']; $index++) {
+            if (! $disk->exists($directory.'/'.$index.'.part')) {
+                throw ValidationException::withMessages(['file' => '文件分片不完整，请重新上传。']);
+            }
+        }
+
+        $extension = strtolower(pathinfo($data['file_name'], PATHINFO_EXTENSION));
+        $path = 'student-imports/'.$data['upload_id'].'.'.$extension;
+        $target = fopen($disk->path($path), 'wb');
+        if ($target === false) {
+            abort(500, '无法保存上传文件。');
+        }
+
+        try {
+            for ($index = 0; $index < $data['total']; $index++) {
+                $source = fopen($disk->path($directory.'/'.$index.'.part'), 'rb');
+                if ($source === false) {
+                    throw ValidationException::withMessages(['file' => '文件分片无法读取，请重新上传。']);
+                }
+                stream_copy_to_stream($source, $target);
+                fclose($source);
+            }
+        } finally {
+            fclose($target);
+        }
+
+        $size = $disk->size($path);
+        if ($size === 0 || $size > 50 * 1024 * 1024) {
+            $disk->delete($path);
+            throw ValidationException::withMessages(['file' => '文件大小必须在 0 到 50 MB 之间。']);
+        }
+
+        $valid = $extension === 'pdf'
+            ? str_starts_with((string) file_get_contents($disk->path($path), false, null, 0, 5), '%PDF-')
+            : $this->isDocx($disk->path($path));
+        if (! $valid) {
+            $disk->delete($path);
+            throw ValidationException::withMessages(['file' => '文件内容不是有效的 PDF 或 DOCX。']);
+        }
+
+        $disk->deleteDirectory($directory);
+
+        return $this->queueCadreImport(
+            $path,
+            $data['file_name'],
+            trim($data['academic_year']),
+            isset($data['semester']) ? trim($data['semester']) : null
+        );
+    }
+
+    private function isDocx(string $path): bool
+    {
+        $archive = new \ZipArchive();
+        if ($archive->open($path) !== true) {
+            return false;
+        }
+
+        $valid = $archive->locateName('word/document.xml') !== false;
+        $archive->close();
+
+        return $valid;
+    }
+
+    private function cadreUploadCompleted(string $uploadId): bool
+    {
+        return StudentImportTask::query()
+            ->whereIn('path', ['student-imports/'.$uploadId.'.pdf', 'student-imports/'.$uploadId.'.docx'])
+            ->exists();
+    }
+
+    private function queueCadreImport(string $path, string $originalName, string $academicYear, ?string $semester)
+    {
+        $task = StudentImportTask::query()->create([
+            'type' => 'cadre_assessment',
+            'status' => StudentImportTask::STATUS_QUEUED,
+            'original_name' => $originalName,
+            'path' => $path,
+            'result' => [
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'imported' => 0,
+                'pending' => 0,
+                'processed' => 0,
+                'total' => 0,
+                'errors' => [],
+                'pending_records' => [],
+            ],
+        ]);
+
+        $this->launchCadreImport($task);
+
+        return response()->json([
+            'queued' => true,
+            'task_id' => $task->id,
+            'status' => $task->status,
+            'result' => $task->result,
+        ], 202);
     }
 
     public function resolveCadreAssessmentMatch(Request $request, StudentCadreAssessmentMatch $match)
