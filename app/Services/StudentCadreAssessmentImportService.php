@@ -13,7 +13,7 @@ class StudentCadreAssessmentImportService
 {
     private const GRADES = ['优秀', '良好', '中等', '合格', '不合格'];
 
-    public function import(UploadedFile $file, string $academicYear, ?string $semester = null): array
+    public function import(UploadedFile $file, string $academicYear, ?string $semester = null, ?callable $progress = null): array
     {
         $extension = strtolower($file->getClientOriginalExtension());
         $records = $extension === 'docx'
@@ -24,42 +24,54 @@ class StudentCadreAssessmentImportService
                 $semester,
                 $file->getClientOriginalName()
             );
-        $result = ['imported' => 0, 'pending' => 0, 'skipped' => 0, 'errors' => [], 'pending_records' => []];
+        $result = ['imported' => 0, 'pending' => 0, 'skipped' => 0, 'processed' => 0, 'total' => count($records), 'errors' => [], 'pending_records' => []];
 
-        DB::transaction(function () use ($records, &$result): void {
-            foreach ($records as $index => $record) {
-                $match = $this->matchStudent($record);
+        foreach (array_chunk($records, 50) as $chunk) {
+            DB::transaction(function () use ($chunk, &$result): void {
+                foreach ($chunk as $record) {
+                    $match = $this->matchStudent($record);
 
-                if ($match['student'] instanceof Student) {
-                    $this->storeAssessment($record, $match['student']);
-                    $result['imported']++;
-                    continue;
+                    if ($match['student'] instanceof Student) {
+                        $this->storeAssessment($record, $match['student']);
+                        $result['imported']++;
+                        $result['processed']++;
+                        continue;
+                    }
+
+                    // The DOCX student number is used for matching, not stored in the pending table.
+                    unset($record['student_number']);
+                    $pending = StudentCadreAssessmentMatch::query()->create([
+                        ...$record,
+                        'candidate_students' => $match['candidates'],
+                        'status' => StudentCadreAssessmentMatch::STATUS_PENDING,
+                    ]);
+
+                    $result['pending']++;
+                    $result['processed']++;
+                    if (count($result['pending_records']) < 50) {
+                        $result['pending_records'][] = [
+                            'id' => $pending->id,
+                            'student_name' => $pending->student_name,
+                            'organization' => $pending->organization,
+                            'department' => $pending->department,
+                            'position' => $pending->position,
+                            'grade' => $pending->grade,
+                            'candidates' => $match['candidates'],
+                        ];
+                    }
+
+                    if (count($result['errors']) < 50) {
+                        $result['errors'][] = $match['candidates'] === []
+                            ? '第'.$result['processed'].'条 '.$record['student_name'].' 未找到学生，请人工确认。'
+                            : '第'.$result['processed'].'条 '.$record['student_name'].' 匹配到多名学生，请人工确认。';
+                    }
                 }
+            });
 
-                $pending = StudentCadreAssessmentMatch::query()->create([
-                    ...$record,
-                    'candidate_students' => $match['candidates'],
-                    'status' => StudentCadreAssessmentMatch::STATUS_PENDING,
-                ]);
-
-                $result['pending']++;
-                $result['pending_records'][] = [
-                    'id' => $pending->id,
-                    'student_name' => $pending->student_name,
-                    'organization' => $pending->organization,
-                    'department' => $pending->department,
-                    'position' => $pending->position,
-                    'grade' => $pending->grade,
-                    'candidates' => $match['candidates'],
-                ];
-
-                if ($match['candidates'] === []) {
-                    $result['errors'][] = '第'.($index + 1).'条 '.$record['student_name'].' 未找到学生，请人工确认。';
-                } else {
-                    $result['errors'][] = '第'.($index + 1).'条 '.$record['student_name'].' 匹配到多名学生，请人工确认。';
-                }
+            if ($progress !== null) {
+                $progress($result);
             }
-        });
+        }
 
         return $result;
     }

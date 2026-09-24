@@ -137,6 +137,7 @@ const result = ref(null);
 const taskId = ref(null);
 const pollingTimer = ref(null);
 const resolvingMatchId = ref(null);
+const loadingMoreMatches = ref(false);
 
 const selectedType = computed(() => importTypes.find((type) => type.key === selectedKey.value) || importTypes[0]);
 const showLoanOptions = computed(() => selectedKey.value === 'loan');
@@ -162,7 +163,11 @@ function selectType(key) {
 function chooseFile(event) {
     file.value = event.target.files?.[0] || null;
     result.value = null;
-    if (file.value && /德育/.test(file.value.name) && selectedKey.value !== 'moral_assessment') {
+    if (file.value && (/\.docx$/i.test(file.value.name) || /团学干部|干部考核/.test(file.value.name)) && selectedKey.value !== 'cadre_assessment') {
+        selectedKey.value = 'cadre_assessment';
+        taskId.value = null;
+        stopPolling();
+    } else if (file.value && /德育/.test(file.value.name) && selectedKey.value !== 'moral_assessment') {
         selectedKey.value = 'moral_assessment';
         taskId.value = null;
         stopPolling();
@@ -182,7 +187,14 @@ function chooseFile(event) {
 
 async function upload() {
     if (!file.value || uploading.value) {
-        notice.value = { text: '请先选择 Excel 文件。', type: 'error' };
+        notice.value = { text: '请先选择文件。', type: 'error' };
+        return;
+    }
+
+    const extension = file.value.name.split('.').pop()?.toLowerCase();
+    const allowed = selectedType.value.accept.split(',').map((value) => value.trim().slice(1));
+    if (!allowed.includes(extension)) {
+        notice.value = { text: `${selectedType.value.title}支持 ${selectedType.value.accept.replaceAll(',', ' / ')} 文件。`, type: 'error' };
         return;
     }
 
@@ -207,26 +219,31 @@ async function upload() {
         formData.append('semester', semester.value);
     }
 
-    const response = await fetch(selectedType.value.endpoint, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': getCSRF(),
-            Accept: 'application/json',
-        },
-        body: formData,
-    });
+    let response;
+    try {
+        response = await fetch(selectedType.value.endpoint, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': getCSRF(),
+                Accept: 'application/json',
+            },
+            body: formData,
+        });
+    } catch (error) {
+        uploading.value = false;
+        notice.value = { text: '无法连接导入服务，请检查网络后重试。', type: 'error' };
+        return;
+    }
 
     uploading.value = false;
 
     if (!response.ok) {
-        let message = '导入失败，请确认文件格式和表头后重试。';
+        let message = `导入请求失败（HTTP ${response.status}），请稍后重试。`;
         try {
             const error = await response.json();
-            message = error.message || error.error || message;
+            message = error.errors?.file?.[0] || error.message || error.error || message;
         } catch (e) {
-            if (response.status >= 500) {
-                message = '导入失败，服务器处理时出错，请查看日志或稍后重试。';
-            }
+            // A proxy or PHP failure may return HTML instead of the API's JSON error.
         }
         notice.value = { text: message, type: 'error' };
         return;
@@ -280,9 +297,11 @@ async function fetchTaskStatus() {
     result.value = payload.result || result.value || { imported: 0, students: 0, skipped: 0, errors: [] };
 
     if (payload.status === 'queued') {
-        notice.value = { text: '导入任务排队中，请保持队列进程运行。', type: 'info' };
+        notice.value = { text: '导入任务已提交，正在启动后台处理...', type: 'info' };
     } else if (payload.status === 'running') {
-        notice.value = { text: `正在后台导入，已写入 ${result.value.imported || 0} 条联系人...`, type: 'info' };
+        notice.value = payload.type === 'cadre_assessment'
+            ? { text: `正在后台导入，已处理 ${result.value.processed || 0} / ${result.value.total || '?'} 条，已匹配 ${result.value.imported || 0} 条。`, type: 'info' }
+            : { text: `正在后台导入，已写入 ${result.value.imported || 0} 条联系人...`, type: 'info' };
     } else if (payload.status === 'succeeded') {
         stopPolling();
         const hasErrors = (result.value.errors || []).length > 0;
@@ -324,6 +343,31 @@ async function resolveCadreMatch(match, candidate) {
     result.value.pending = Math.max(0, (result.value.pending || 0) - 1);
     result.value.imported = (result.value.imported || 0) + 1;
     notice.value = { text: `已确认 ${match.student_name} -> ${candidate.xm || candidate.xgh}`, type: 'success' };
+}
+
+async function loadMoreCadreMatches() {
+    if (!taskId.value || loadingMoreMatches.value) {
+        return;
+    }
+
+    loadingMoreMatches.value = true;
+    const records = result.value?.pending_records || [];
+    const afterId = Math.max(0, ...records.map((record) => record.id));
+
+    try {
+        const response = await fetch(`/student-imports/status/${taskId.value}/matches?after_id=${afterId}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+            notice.value = { text: '加载待确认记录失败，请稍后重试。', type: 'error' };
+            return;
+        }
+
+        const payload = await response.json();
+        result.value.pending_records = [...records, ...(payload.records || [])];
+    } finally {
+        loadingMoreMatches.value = false;
+    }
 }
 
 onBeforeUnmount(stopPolling);
@@ -413,6 +457,16 @@ onBeforeUnmount(stopPolling);
                     <ul v-if="(result.errors || []).length" class="mt-4 space-y-1 text-sm text-rose-700">
                         <li v-for="error in result.errors" :key="error">{{ error }}</li>
                     </ul>
+                    <p v-if="selectedKey === 'cadre_assessment' && result.pending > (result.pending_records || []).length" class="mt-4 text-sm text-amber-700">
+                        当前显示前 {{ (result.pending_records || []).length }} 条待确认记录，共 {{ result.pending }} 条。
+                    </p>
+                    <button
+                        v-if="selectedKey === 'cadre_assessment' && taskId && result.pending > (result.pending_records || []).length"
+                        type="button"
+                        class="mt-3 rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-60"
+                        :disabled="loadingMoreMatches"
+                        @click="loadMoreCadreMatches"
+                    >{{ loadingMoreMatches ? '加载中...' : '加载更多待确认记录' }}</button>
                     <div v-if="(result.pending_records || []).length" class="mt-4 space-y-3">
                         <h3 class="text-sm font-semibold text-slate-900">待人工确认</h3>
                         <div v-for="match in result.pending_records" :key="match.id" class="rounded-lg border border-amber-200 bg-amber-50 p-3">

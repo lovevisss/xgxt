@@ -2,6 +2,8 @@
 
 use App\Models\Student;
 use App\Models\StudentCadreAssessment;
+use App\Models\StudentImportTask;
+use App\Jobs\ImportStudentCadreAssessments;
 use App\Services\StudentCadreAssessmentImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -88,6 +90,19 @@ XML);
       <w:tc><w:p><w:r><w:t>95.00</w:t></w:r></w:p></w:tc>
       <w:tc><w:p><w:r><w:t>优秀</w:t></w:r></w:p></w:tc>
     </w:tr>
+    <w:tr>
+      <w:tc><w:p><w:r><w:t>未匹配学生</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>9999999999</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>会计学院学生会</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>办公室</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>干事</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>10</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>18</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>25</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>30</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>83</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>良好</w:t></w:r></w:p></w:tc>
+    </w:tr>
   </w:tbl></w:body>
 </w:document>
 XML);
@@ -106,9 +121,25 @@ XML);
         'academic_year' => '2025-2026',
         'semester' => '1',
     ])
+        ->assertStatus(202)
+        ->assertJsonPath('queued', true)
+        ->assertJsonPath('status', StudentImportTask::STATUS_QUEUED);
+
+    $task = StudentImportTask::query()->firstOrFail();
+    app()->call([new ImportStudentCadreAssessments($task->id), 'handle']);
+
+    $this->getJson("/student-imports/status/{$task->id}")
         ->assertOk()
-        ->assertJsonPath('imported', 1)
-        ->assertJsonPath('pending', 0);
+        ->assertJsonPath('status', StudentImportTask::STATUS_SUCCEEDED)
+        ->assertJsonPath('result.imported', 1)
+        ->assertJsonPath('result.processed', 2)
+        ->assertJsonPath('result.total', 2)
+        ->assertJsonPath('result.pending', 1);
+
+    $this->getJson("/student-imports/status/{$task->id}/matches")
+        ->assertOk()
+        ->assertJsonCount(1, 'records')
+        ->assertJsonPath('records.0.student_name', '未匹配学生');
 
     $this->assertDatabaseHas('student_cadre_assessments', [
         'student_xgh' => '2420110227',

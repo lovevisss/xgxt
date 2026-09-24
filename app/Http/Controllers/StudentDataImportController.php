@@ -58,20 +58,38 @@ class StudentDataImportController extends Controller
         abort_unless(in_array($type, self::TYPES, true), 404);
 
         if ($type === 'cadre_assessment') {
-            @set_time_limit(600);
-            @ini_set('max_execution_time', '600');
-
             $request->validate([
                 'file' => ['required', 'file', 'mimes:pdf,docx', 'max:51200'],
                 'academic_year' => ['required', 'string', 'max:16'],
                 'semester' => ['nullable', 'string', 'max:16'],
             ]);
 
-            return response()->json($this->cadreAssessmentImport->import(
-                $request->file('file'),
-                trim((string) $request->input('academic_year')),
-                $request->filled('semester') ? trim((string) $request->input('semester')) : null,
-            ));
+            $file = $request->file('file');
+            $task = StudentImportTask::query()->create([
+                'type' => 'cadre_assessment',
+                'status' => StudentImportTask::STATUS_QUEUED,
+                'original_name' => $file->getClientOriginalName(),
+                'path' => $file->store('student-imports'),
+                'result' => [
+                    'academic_year' => trim((string) $request->input('academic_year')),
+                    'semester' => $request->filled('semester') ? trim((string) $request->input('semester')) : null,
+                    'imported' => 0,
+                    'pending' => 0,
+                    'processed' => 0,
+                    'total' => 0,
+                    'errors' => [],
+                    'pending_records' => [],
+                ],
+            ]);
+
+            $this->launchCadreImport($task);
+
+            return response()->json([
+                'queued' => true,
+                'task_id' => $task->id,
+                'status' => $task->status,
+                'result' => $task->result,
+            ], 202);
         }
 
         $request->validate([
@@ -145,6 +163,21 @@ class StudentDataImportController extends Controller
 
     public function status(StudentImportTask $task)
     {
+        if ($task->type === 'cadre_assessment') {
+            $inactiveSince = $task->updated_at ?? $task->created_at;
+            $stale = $task->status === StudentImportTask::STATUS_QUEUED
+                ? $inactiveSince->lt(now()->subMinutes(2))
+                : $task->status === StudentImportTask::STATUS_RUNNING && $inactiveSince->lt(now()->subMinutes(10));
+
+            if ($stale) {
+                $task->update([
+                    'status' => StudentImportTask::STATUS_FAILED,
+                    'error' => '导入任务长时间没有进度，请重新上传；如再次失败，请检查服务器日志。',
+                    'finished_at' => now(),
+                ]);
+            }
+        }
+
         return response()->json([
             'id' => $task->id,
             'type' => $task->type,
@@ -153,6 +186,64 @@ class StudentDataImportController extends Controller
             'error' => $task->error,
             'started_at' => optional($task->started_at)->toIso8601String(),
             'finished_at' => optional($task->finished_at)->toIso8601String(),
+        ]);
+    }
+
+    public function cadreMatches(Request $request, StudentImportTask $task)
+    {
+        abort_unless($task->type === 'cadre_assessment', 404);
+
+        $afterId = max(0, (int) $request->query('after_id', 0));
+        $matches = StudentCadreAssessmentMatch::query()
+            ->where('source_file', $task->original_name)
+            ->where('academic_year', $task->result['academic_year'] ?? '')
+            ->where('status', StudentCadreAssessmentMatch::STATUS_PENDING)
+            ->where('created_at', '>=', $task->created_at)
+            ->where('id', '>', $afterId)
+            ->orderBy('id')
+            ->limit(50)
+            ->get(['id', 'student_name', 'organization', 'department', 'position', 'grade', 'candidate_students']);
+
+        return response()->json(['records' => $matches->map(fn (StudentCadreAssessmentMatch $match) => [
+            'id' => $match->id,
+            'student_name' => $match->student_name,
+            'organization' => $match->organization,
+            'department' => $match->department,
+            'position' => $match->position,
+            'grade' => $match->grade,
+            'candidates' => $match->candidate_students ?? [],
+        ])->values()]);
+    }
+
+    private function launchCadreImport(StudentImportTask $task): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $php = PHP_BINARY;
+        if (PHP_OS_FAMILY === 'Windows') {
+            $cliPhp = dirname(PHP_BINARY).DIRECTORY_SEPARATOR.'php.exe';
+            if (is_file($cliPhp)) {
+                $php = $cliPhp;
+            }
+
+            $command = 'cmd /C start /B "" "'.$php.'" "'.base_path('artisan').'" student-import:run-cadre '.$task->id.' > NUL 2>&1';
+        } else {
+            $command = escapeshellarg($php).' '.escapeshellarg(base_path('artisan')).' student-import:run-cadre '.$task->id.' > /dev/null 2>&1 &';
+        }
+
+        $handle = function_exists('popen') ? @popen($command, 'r') : false;
+        if (is_resource($handle)) {
+            pclose($handle);
+
+            return;
+        }
+
+        $task->update([
+            'status' => StudentImportTask::STATUS_FAILED,
+            'error' => '无法启动后台导入进程，请检查服务器 PHP 命令行环境。',
+            'finished_at' => now(),
         ]);
     }
 

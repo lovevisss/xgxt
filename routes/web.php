@@ -46,6 +46,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
 
     Route::get('/student-imports', [StudentDataImportController::class, 'page'])->name('student-imports.page');
     Route::get('/student-imports/status/{task}', [StudentDataImportController::class, 'status'])->name('student-imports.status');
+    Route::get('/student-imports/status/{task}/matches', [StudentDataImportController::class, 'cadreMatches'])->name('student-imports.cadre-matches');
     Route::get('/student-imports/template/{type}', [StudentDataImportController::class, 'template'])->name('student-imports.template');
     Route::post('/student-imports/{type}', [StudentDataImportController::class, 'import'])->name('student-imports.import');
     Route::post('/student-imports/cadre-assessment-matches/{match}/resolve', [StudentDataImportController::class, 'resolveCadreAssessmentMatch'])->name('student-imports.cadre-assessment-matches.resolve');
