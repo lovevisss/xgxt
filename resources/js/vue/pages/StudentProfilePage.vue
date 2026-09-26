@@ -382,13 +382,13 @@ async function saveFamily() {
         <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <p class="text-sm text-slate-500">学生主页</p>
+                    <p class="text-sm text-slate-500">{{ props.student.student_category === 'graduated' ? '毕业生档案' : '学生主页' }}</p>
                     <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ props.student.xm }}（{{ props.student.xgh }}）</h1>
                     <p class="mt-1 text-sm text-slate-500">
                         分院：{{ props.student.dwmc || '-' }} / 班级：{{ props.student.bjmc || '-' }} / 联系电话：{{ props.student.yddh || '-' }}
                     </p>
                 </div>
-                <a href="/students" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回学生管理</a>
+                <a :href="props.student.student_category === 'graduated' ? '/graduates' : '/students'" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">{{ props.student.student_category === 'graduated' ? '返回毕业生' : '返回学生管理' }}</a>
             </div>
         </header>
 

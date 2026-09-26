@@ -96,6 +96,29 @@ it('allows student access permission users to view only authorized department st
     $this->withSession($session)->putJson('/students/data/20260001', ['xm' => 'Changed'])->assertForbidden();
 });
 
+it('applies department visibility to the graduate directory', function () {
+    config()->set('cas.enabled', true);
+
+    User::factory()->create(['cas_username' => '20060018', 'role' => User::ROLE_STAFF]);
+    StudentAccessPermission::query()->create([
+        'employee_no' => '20060018',
+        'teacher_name' => '测试老师',
+        'scope_name' => '金融与经贸学院',
+        'department_code' => '100301',
+        'scope_type' => StudentAccessPermission::SCOPE_COLLEGE,
+        'is_active' => true,
+    ]);
+
+    accessStudent(['xgh' => '20260011', 'dwbm' => '100301', 'student_category' => Student::CATEGORY_GRADUATED]);
+    accessStudent(['xgh' => '20260012', 'dwbm' => '100302', 'student_category' => Student::CATEGORY_GRADUATED]);
+
+    $this->withSession([config('cas.session_key') => ['user' => '20060018']])
+        ->getJson('/graduates/data')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.xgh', '20260011');
+});
+
 it('allows all-scope access permission users to view all students', function () {
     config()->set('cas.enabled', true);
 

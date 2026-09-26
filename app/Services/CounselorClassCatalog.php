@@ -24,7 +24,7 @@ class CounselorClassCatalog
 
     private function build(): Collection
     {
-        $students = Student::where('rylx', '0')->whereNotNull('bjmc')->where('bjmc', '!=', '')
+        $students = Student::where('rylx', '0')->where('student_category', Student::CATEGORY_CURRENT)->whereNotNull('bjmc')->where('bjmc', '!=', '')
             ->selectRaw('bjbm as class_code, bjmc as class_name, dwbm as college_code, MAX(dwmc) as college_name, COUNT(*) as student_count')
             ->groupBy('bjbm', 'bjmc', 'dwbm')->get()->map(fn ($row) => $row->toArray());
         $assignments = CounselorClassAssignment::query()

@@ -32,6 +32,8 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/snippets/{snippet}/fork', [SnippetController::class, 'create'])->name('snippets.fork');
 
     Route::view('/students', 'students')->name('students.page');
+    Route::view('/graduates', 'graduates')->name('graduates.page');
+    Route::get('/graduates/data', [StudentController::class, 'graduatesData'])->name('graduates.index');
     Route::get('/students/data', [StudentController::class, 'index'])->name('students.index');
     Route::get('/students/filters', [StudentController::class, 'filters'])->name('students.filters');
     Route::get('/students/dormitories/{ssh}', [StudentController::class, 'dormitory'])->name('students.dormitory');

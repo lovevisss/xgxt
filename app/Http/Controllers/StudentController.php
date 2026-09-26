@@ -34,7 +34,7 @@ class StudentController extends Controller
     // 分页查询学生
     public function index()
     {
-        $baseQuery = Student::where('rylx', '0');
+        $baseQuery = Student::where('rylx', '0')->where('student_category', Student::CATEGORY_CURRENT);
         $this->applyStudentVisibility($baseQuery);
         $query = clone $baseQuery;
         $now = now();
@@ -129,6 +129,26 @@ class StudentController extends Controller
         ]));
     }
 
+    public function graduatesData()
+    {
+        $query = Student::query()
+            ->where('rylx', '0')
+            ->where('student_category', Student::CATEGORY_GRADUATED);
+        $this->applyStudentVisibility($query);
+
+        $keyword = trim((string) request('q', ''));
+        if ($keyword !== '') {
+            $query->where(function ($search) use ($keyword) {
+                $search->where('xgh', 'like', "%{$keyword}%")
+                    ->orWhere('xm', 'like', "%{$keyword}%")
+                    ->orWhere('dwmc', 'like', "%{$keyword}%")
+                    ->orWhere('bjmc', 'like', "%{$keyword}%");
+            });
+        }
+
+        return response()->json($query->orderBy('xgh')->paginate(15));
+    }
+
     // 年级/班级筛选项，按失联人数降序
     public function filters()
     {
@@ -139,6 +159,7 @@ class StudentController extends Controller
         $gradeGroup = DB::raw($gradeExpr);
         $baseQuery = Student::query()
             ->where('rylx', '0')
+            ->where('student_category', Student::CATEGORY_CURRENT)
             ->whereNotNull('bjbm')
             ->where('bjbm', '!=', '');
         $this->applyStudentVisibility($baseQuery);
@@ -497,7 +518,7 @@ class StudentController extends Controller
             'averageGpa' => $averageGpa,
             'recentPasses' => $recentPasses,
             'companionInsights' => $companionInsights,
-            'canUpdateFamilies' => CurrentUser::canManageDepartment($student->dwbm),
+            'canUpdateFamilies' => $student->student_category === Student::CATEGORY_CURRENT && CurrentUser::canManageDepartment($student->dwbm),
         ]);
     }
 

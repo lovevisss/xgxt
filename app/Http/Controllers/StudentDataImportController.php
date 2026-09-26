@@ -60,6 +60,13 @@ class StudentDataImportController extends Controller
         abort_unless(in_array($type, self::TYPES, true), 404);
 
         if ($type === 'cadre_assessment') {
+            if ($request->input('upload_phase') === 'chunk') {
+                return $this->cadreChunk($request);
+            }
+            if ($request->input('upload_phase') === 'complete') {
+                return $this->completeCadreUpload($request);
+            }
+
             $request->validate([
                 'file' => ['required', 'file', 'mimes:pdf,docx', 'max:51200'],
                 'academic_year' => ['required', 'string', 'max:16'],

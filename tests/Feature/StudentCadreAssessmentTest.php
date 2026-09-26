@@ -159,7 +159,8 @@ XML);
     $contents = file_get_contents($path);
     $parts = str_split($contents, (int) ceil(strlen($contents) / 3));
 
-    $this->postJson('/student-imports/cadre-assessment/complete', [
+    $this->postJson('/student-imports/cadre_assessment', [
+        'upload_phase' => 'complete',
         'upload_id' => $uploadId,
         'total' => count($parts),
         'file_name' => '团学干部考核成绩汇总表.docx',
@@ -167,7 +168,8 @@ XML);
     ])->assertUnprocessable();
 
     foreach ($parts as $index => $part) {
-        $this->postJson('/student-imports/cadre-assessment/chunk', [
+        $this->postJson('/student-imports/cadre_assessment', [
+            'upload_phase' => 'chunk',
             'upload_id' => $uploadId,
             'index' => $index,
             'total' => count($parts),
@@ -175,7 +177,8 @@ XML);
         ])->assertOk()->assertJsonPath('received', $index);
     }
 
-    $this->postJson('/student-imports/cadre-assessment/complete', [
+    $this->postJson('/student-imports/cadre_assessment', [
+        'upload_phase' => 'complete',
         'upload_id' => $uploadId,
         'total' => count($parts),
         'file_name' => '团学干部考核成绩汇总表.docx',

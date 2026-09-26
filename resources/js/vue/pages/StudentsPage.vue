@@ -2,6 +2,9 @@
 import { onMounted, ref } from 'vue';
 import { formatDatePart, formatTimePart } from '../utils/dateTime';
 
+const props = defineProps({ mode: { type: String, default: 'current' } });
+const isGraduates = props.mode === 'graduates';
+
 const studentsData = ref([]);
 const paginationInfo = ref({});
 const currentPage = ref(1);
@@ -44,6 +47,19 @@ async function fetchFilters() {
 async function fetchStudents(page = 1) {
     showStatus('正在加载数据...');
     const q = encodeURIComponent(keyword.value);
+    if (isGraduates) {
+        const res = await fetch(`/graduates/data?page=${page}&q=${q}`);
+        if (!res.ok) {
+            showStatus('加载失败，请稍后重试。', 'error');
+            return;
+        }
+        const data = await res.json();
+        studentsData.value = data.data || [];
+        paginationInfo.value = data;
+        currentPage.value = data.current_page || page;
+        hideStatus();
+        return;
+    }
     const s = encodeURIComponent(status.value);
     const r = encodeURIComponent(risk.value);
     const g = encodeURIComponent(grade.value);
@@ -107,6 +123,10 @@ function pageRange() {
 
 async function resetFilter() {
     keyword.value = '';
+    if (isGraduates) {
+        await fetchStudents(1);
+        return;
+    }
     status.value = '';
     risk.value = '';
     grade.value = '';
@@ -116,7 +136,7 @@ async function resetFilter() {
 }
 
 onMounted(async () => {
-    await fetchFilters();
+    if (!isGraduates) await fetchFilters();
     await fetchStudents();
 });
 </script>
@@ -124,33 +144,35 @@ onMounted(async () => {
 <template>
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 class="text-3xl font-bold">学生信息管理</h1>
-                    <p class="mt-1 text-sm text-slate-500">Vue3 版本</p>
+                    <h1 class="text-3xl font-bold">{{ isGraduates ? '毕业生' : '学生信息管理' }}</h1>
                 </div>
-                <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
+                <div class="flex gap-2">
+                    <a :href="isGraduates ? '/students' : '/graduates'" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">{{ isGraduates ? '在校学生' : '毕业生' }}</a>
+                    <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
+                </div>
             </div>
         </header>
 
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div v-if="!isGraduates" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">学生总数</p><p class="text-xl font-bold">{{ summary.total || 0 }}</p></div>
                 <div class="rounded-xl border border-rose-200 bg-rose-50 p-3"><p class="text-xs text-rose-600">当前失联人数</p><p class="text-xl font-bold text-rose-700">{{ summary.lost_total || 0 }}</p></div>
                 <div class="rounded-xl border border-amber-200 bg-amber-50 p-3"><p class="text-xs text-amber-700">今日新增失联</p><p class="text-xl font-bold text-amber-700">{{ summary.lost_today || 0 }}</p></div>
             </div>
 
-            <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-6">
-                <input v-model="keyword" type="text" placeholder="按学号/姓名/班级搜索" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <select v-model="grade" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @change="fetchFilters(); fetchStudents(1)">
+            <div class="mb-4 grid grid-cols-1 gap-2" :class="isGraduates ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : 'sm:grid-cols-6'">
+                <input v-model="keyword" type="text" :placeholder="isGraduates ? '按学号、姓名、学院或班级搜索' : '按学号/姓名/班级搜索'" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @keyup.enter="fetchStudents(1)">
+                <select v-if="!isGraduates" v-model="grade" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @change="fetchFilters(); fetchStudents(1)">
                     <option value="">全部年级</option>
                     <option v-for="g in grades" :key="g.grade_code" :value="g.grade_code">{{ g.grade_code }}级（失联 {{ g.lost_count }} / {{ g.total_count }}）</option>
                 </select>
-                <select v-model="classCode" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" :disabled="!grade" @change="fetchStudents(1)">
+                <select v-if="!isGraduates" v-model="classCode" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" :disabled="!grade" @change="fetchStudents(1)">
                     <option value="">{{ grade ? '全部班级' : '请先选择年级' }}</option>
                     <option v-for="c in classes" :key="c.class_code" :value="c.class_code">{{ c.class_name || c.class_code }}</option>
                 </select>
-                <select v-model="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <select v-if="!isGraduates" v-model="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                     <option value="">全部状态</option>
                     <option value="normal">正常</option>
                     <option value="lost">失联</option>
@@ -159,7 +181,7 @@ onMounted(async () => {
                 <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @click="resetFilter">重置</button>
             </div>
 
-            <div class="mb-4 flex gap-2">
+            <div v-if="!isGraduates" class="mb-4 flex gap-2">
                 <button class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700" @click="risk = 'high'; fetchStudents(1)">一键只看高风险</button>
                 <button class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" @click="risk = ''; fetchStudents(1)">取消高风险</button>
             </div>
@@ -172,30 +194,32 @@ onMounted(async () => {
                         <tr>
                             <th class="px-3 py-2 text-left">学号</th>
                             <th class="px-3 py-2 text-left">姓名</th>
+                            <th v-if="isGraduates" class="px-3 py-2 text-left">学院</th>
                             <th class="px-3 py-2 text-left">班级</th>
                             <th class="px-3 py-2 text-left">电话</th>
-                            <th class="px-3 py-2 text-left">最近刷码</th>
-                            <th class="px-3 py-2 text-left">状态</th>
-                            <th class="px-3 py-2 text-left">操作</th>
+                            <th v-if="!isGraduates" class="px-3 py-2 text-left">最近刷码</th>
+                            <th v-if="!isGraduates" class="px-3 py-2 text-left">状态</th>
+                            <th v-if="!isGraduates" class="px-3 py-2 text-left">操作</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         <tr v-for="student in studentsData" :key="student.xgh">
                             <td class="px-3 py-2"><a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(student.xgh)}`">{{ student.xgh }}</a></td>
                             <td class="px-3 py-2"><a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(student.xgh)}`">{{ student.xm }}</a></td>
+                            <td v-if="isGraduates" class="px-3 py-2">{{ student.dwmc || '-' }}</td>
                             <td class="px-3 py-2">{{ student.bjmc || '-' }}</td>
                             <td class="px-3 py-2">{{ student.yddh || '-' }}</td>
-                            <td class="whitespace-nowrap px-3 py-2 tabular-nums">
+                            <td v-if="!isGraduates" class="whitespace-nowrap px-3 py-2 tabular-nums">
                                 <time v-if="student.last_smsj" :datetime="student.last_smsj">
                                     <span class="block font-medium text-slate-800">{{ formatDatePart(student.last_smsj) }}</span>
                                     <span class="block text-xs text-slate-500">{{ formatTimePart(student.last_smsj) }}</span>
                                 </time>
                                 <span v-else class="text-slate-400">-</span>
                             </td>
-                            <td class="px-3 py-2">{{ student.status === 'lost' ? '失联' : '正常' }}</td>
-                            <td class="px-3 py-2"><button class="rounded border border-slate-300 px-2 py-1 text-xs" @click="openEditModal(student)">编辑</button></td>
+                            <td v-if="!isGraduates" class="px-3 py-2">{{ student.status === 'lost' ? '失联' : '正常' }}</td>
+                            <td v-if="!isGraduates" class="px-3 py-2"><button class="rounded border border-slate-300 px-2 py-1 text-xs" @click="openEditModal(student)">编辑</button></td>
                         </tr>
-                        <tr v-if="!studentsData.length"><td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无数据</td></tr>
+                        <tr v-if="!studentsData.length"><td :colspan="isGraduates ? 5 : 7" class="px-3 py-6 text-center text-slate-500">暂无数据</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -210,7 +234,7 @@ onMounted(async () => {
             </div>
         </section>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="editing = null">
+        <div v-if="editing && !isGraduates" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="editing = null">
             <form class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" @submit.prevent="saveEdit">
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-xl font-bold">编辑学生信息</h2>

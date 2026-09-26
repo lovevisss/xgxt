@@ -50,6 +50,8 @@ class EnsureAdminAuthorized
         return $request->isMethod('GET')
             && (
                 $request->is('students')
+                || $request->is('graduates')
+                || $request->is('graduates/data')
                 || $request->is('students/data')
                 || $request->is('students/data/*')
                 || $request->is('students/filters')

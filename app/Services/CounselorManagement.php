@@ -37,7 +37,7 @@ class CounselorManagement
 
     public function colleges(): array
     {
-        return DB::table('students')->whereNotNull('dwbm')->where('dwbm', '!=', '')
+        return DB::table('students')->where('student_category', 'current')->whereNotNull('dwbm')->where('dwbm', '!=', '')
             ->selectRaw('dwbm as code, MAX(dwmc) as name')->groupBy('dwbm')->orderBy('dwbm')->get()->map(fn ($row) => (array) $row)->all();
     }
 

@@ -273,11 +273,12 @@ async function uploadCadreInChunks() {
     for (let index = 0; index < total; index++) {
         notice.value = { text: `正在上传文件：${index + 1}/${total}`, type: 'info' };
         const formData = new FormData();
+        formData.append('upload_phase', 'chunk');
         formData.append('upload_id', uploadId);
         formData.append('index', String(index));
         formData.append('total', String(total));
         formData.append('file', file.value.slice(index * chunkSize, (index + 1) * chunkSize), 'part.bin');
-        const response = await postImport('/student-imports/cadre-assessment/chunk', formData);
+        const response = await postImport('/student-imports/cadre_assessment', formData);
         if (!response.ok) {
             let message = `第 ${index + 1} 片上传失败（HTTP ${response.status}）。`;
             try {
@@ -292,11 +293,12 @@ async function uploadCadreInChunks() {
 
     notice.value = { text: '文件上传完成，正在创建后台导入任务...', type: 'info' };
     const formData = new FormData();
+    formData.append('upload_phase', 'complete');
     formData.append('upload_id', uploadId);
     formData.append('total', String(total));
     formData.append('file_name', file.value.name);
     formData.append('academic_year', academicYear.value);
-    return postImport('/student-imports/cadre-assessment/complete', formData);
+    return postImport('/student-imports/cadre_assessment', formData);
 }
 
 function stopPolling() {
