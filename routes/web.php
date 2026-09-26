@@ -68,6 +68,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/sync-tasks', [SyncTaskController::class, 'page'])->name('sync-tasks.page');
     Route::get('/sync-tasks/data', [SyncTaskController::class, 'index'])->name('sync-tasks.index');
     Route::post('/sync-tasks/data', [SyncTaskController::class, 'store'])->name('sync-tasks.store');
+    Route::get('/sync-tasks/data/{task}/changes', [SyncTaskController::class, 'accountChanges'])->name('sync-tasks.account-changes');
     Route::get('/sync-tasks/data/{task}', [SyncTaskController::class, 'show'])->name('sync-tasks.show');
 
     Route::get('/counselors', [CounselorAssignmentController::class, 'page'])->name('counselors.page');

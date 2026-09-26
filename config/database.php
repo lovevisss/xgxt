@@ -30,6 +30,21 @@ return [
     */
 
     'connections' => [
+        'status' => [
+            'driver' => 'mysql',
+            'host' => env('STATUS_DB_HOST', '127.0.0.1'),
+            'port' => env('STATUS_DB_PORT', '3306'),
+            'database' => env('STATUS_DB_DATABASE', 'user'),
+            'username' => env('STATUS_DB_USERNAME', ''),
+            'password' => env('STATUS_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
         'middata' => [
             'driver' => 'mysql',
             'host' => env('MIDDATA_DB_HOST', '127.0.0.1'),

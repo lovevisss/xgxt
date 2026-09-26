@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SyncAccountChange;
 use App\Models\SyncTask;
+use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -10,6 +12,12 @@ use Illuminate\Validation\Rule;
 class SyncTaskController extends Controller
 {
     private const DEFINITIONS = [
+        'delayed_student_accounts' => [
+            'title' => '延毕生账号延期',
+            'command' => 'sync:extend-delayed-student-accounts',
+            'description' => '核对仍在校的超期年级学生，延长信息门户账号有效期并解除 FREEZE；仅总管理员可执行。',
+            'options' => [],
+        ],
         'staff' => [
             'title' => '在职教职工',
             'command' => 'sync:staff-from-middata',
@@ -112,6 +120,9 @@ class SyncTaskController extends Controller
         ]);
 
         $definition = self::DEFINITIONS[$data['key']];
+        if ($data['key'] === 'delayed_student_accounts') {
+            abort_unless(CurrentUser::get()?->isSuperAdmin(), 403);
+        }
         $options = $this->sanitizeOptions($definition, $data['options'] ?? []);
 
         $task = SyncTask::query()->create([
@@ -130,12 +141,33 @@ class SyncTaskController extends Controller
 
     public function show(SyncTask $task)
     {
+        $this->authorizeTaskVisibility($task);
+
         return response()->json($this->taskPayload($task));
+    }
+
+    public function accountChanges(SyncTask $task)
+    {
+        abort_unless($task->key === 'delayed_student_accounts', 404);
+        $this->authorizeTaskVisibility($task);
+
+        return response()->json(SyncAccountChange::query()
+            ->where('sync_task_id', $task->id)
+            ->orderBy('id')
+            ->paginate(50));
+    }
+
+    private function authorizeTaskVisibility(SyncTask $task): void
+    {
+        if ($task->key === 'delayed_student_accounts') {
+            abort_unless(CurrentUser::get()?->isSuperAdmin(), 403);
+        }
     }
 
     private function definitions(): array
     {
         return collect(self::DEFINITIONS)
+            ->when(! CurrentUser::get()?->isSuperAdmin(), fn ($items) => $items->except('delayed_student_accounts'))
             ->map(fn (array $definition, string $key) => [
                 'key' => $key,
                 'title' => $definition['title'],
@@ -150,6 +182,7 @@ class SyncTaskController extends Controller
     private function recentTasks(): array
     {
         return SyncTask::query()
+            ->when(! CurrentUser::get()?->isSuperAdmin(), fn ($query) => $query->where('key', '!=', 'delayed_student_accounts'))
             ->latest()
             ->limit(20)
             ->get()

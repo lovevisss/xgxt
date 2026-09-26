@@ -72,6 +72,10 @@ class SyncTaskRunner
     {
         $arguments = [PHP_BINARY, base_path('artisan'), $task->command, '--no-ansi', '--no-interaction'];
 
+        if ($task->key === 'delayed_student_accounts') {
+            $arguments[] = '--task-id='.$task->id;
+        }
+
         foreach ($task->options ?? [] as $name => $value) {
             if ($value === null || $value === '' || $value === false) {
                 continue;

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     definitions: { type: Array, default: () => [] },
@@ -13,6 +13,8 @@ const optionValues = ref({});
 const starting = ref(false);
 const notice = ref({ text: '', type: 'info' });
 const selectedTaskId = ref(tasks.value[0]?.id || null);
+const accountChanges = ref({ data: [], current_page: 1, last_page: 1, total: 0 });
+const loadingChanges = ref(false);
 let pollingTimer = null;
 
 const selectedDefinition = computed(() => definitions.value.find((item) => item.key === selectedKey.value) || definitions.value[0] || null);
@@ -93,6 +95,24 @@ async function refreshTask(id) {
     }
 
     mergeTask(await response.json());
+}
+
+async function fetchAccountChanges(page = 1) {
+    const task = selectedTask.value;
+    if (!task || task.key !== 'delayed_student_accounts') {
+        accountChanges.value = { data: [], current_page: 1, last_page: 1, total: 0 };
+        return;
+    }
+
+    loadingChanges.value = true;
+    try {
+        const response = await fetch(`/sync-tasks/data/${task.id}/changes?page=${page}`);
+        if (response.ok && selectedTask.value?.id === task.id) {
+            accountChanges.value = await response.json();
+        }
+    } finally {
+        loadingChanges.value = false;
+    }
 }
 
 async function startTask() {
@@ -185,6 +205,14 @@ onMounted(() => {
     selectDefinition(selectedKey.value);
     startPolling();
 });
+
+watch([selectedTaskId, () => selectedTask.value?.status], ([taskId], previous) => {
+    const previousTaskId = previous?.[0];
+    if (taskId !== previousTaskId) {
+        accountChanges.value = { data: [], current_page: 1, last_page: 1, total: 0 };
+    }
+    fetchAccountChanges();
+}, { immediate: true });
 
 onBeforeUnmount(stopPolling);
 </script>
@@ -315,6 +343,43 @@ onBeforeUnmount(stopPolling);
 
                     <div v-else class="mt-4 rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
                         暂无同步任务。
+                    </div>
+                </div>
+
+                <div v-if="selectedTask?.key === 'delayed_student_accounts'" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h2 class="text-base font-semibold text-slate-950">逐人变更日志</h2>
+                        <span class="text-sm text-slate-500">共 {{ accountChanges.total || 0 }} 人</span>
+                    </div>
+                    <div class="mt-3 overflow-x-auto border border-slate-200">
+                        <table class="min-w-[850px] w-full text-sm">
+                            <thead class="bg-slate-50 text-left text-slate-600">
+                                <tr>
+                                    <th class="px-3 py-2">学号 / 姓名</th>
+                                    <th class="px-3 py-2">学院</th>
+                                    <th class="px-3 py-2">原失效日期</th>
+                                    <th class="px-3 py-2">新失效日期</th>
+                                    <th class="px-3 py-2">状态变更</th>
+                                    <th class="px-3 py-2">修改时间</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="change in accountChanges.data" :key="change.id">
+                                    <td class="px-3 py-2"><span class="block font-medium">{{ change.student_name }}</span><span class="text-xs text-slate-500">{{ change.student_xgh }}</span></td>
+                                    <td class="px-3 py-2">{{ change.college_name || '-' }}</td>
+                                    <td class="px-3 py-2">{{ change.previous_expiry_date || '未设置' }}</td>
+                                    <td class="px-3 py-2">{{ change.new_expiry_date || '未设置' }}</td>
+                                    <td class="px-3 py-2">{{ change.previous_state }} → {{ change.new_state }}</td>
+                                    <td class="px-3 py-2">{{ change.changed_at }}</td>
+                                </tr>
+                                <tr v-if="!accountChanges.data?.length"><td colspan="6" class="px-3 py-6 text-center text-slate-500">{{ loadingChanges ? '正在加载...' : '暂无字段变更' }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 flex items-center justify-end gap-2 text-sm">
+                        <span class="text-slate-500">第 {{ accountChanges.current_page || 1 }} / {{ accountChanges.last_page || 1 }} 页</span>
+                        <button class="rounded border border-slate-300 px-2 py-1 disabled:opacity-40" :disabled="loadingChanges || accountChanges.current_page <= 1" @click="fetchAccountChanges(accountChanges.current_page - 1)">上一页</button>
+                        <button class="rounded border border-slate-300 px-2 py-1 disabled:opacity-40" :disabled="loadingChanges || accountChanges.current_page >= accountChanges.last_page" @click="fetchAccountChanges(accountChanges.current_page + 1)">下一页</button>
                     </div>
                 </div>
 
