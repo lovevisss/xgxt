@@ -16,6 +16,7 @@ use App\Models\StudentImportTask;
 use App\Models\StudentSupportRecipient;
 use App\Models\StudentTechnologyCompetitionAward;
 use App\Jobs\ImportStudentFamilyContacts;
+use App\Jobs\ImportStudentCadreAssessments;
 use App\Services\StudentCadreAssessmentImportService;
 use App\Services\StudentFamilyManualImportService;
 use App\Services\StudentImportWorkbook;
@@ -344,34 +345,7 @@ class StudentDataImportController extends Controller
 
     private function launchCadreImport(StudentImportTask $task): void
     {
-        if (app()->runningUnitTests()) {
-            return;
-        }
-
-        $php = PHP_BINARY;
-        if (PHP_OS_FAMILY === 'Windows') {
-            $cliPhp = dirname(PHP_BINARY).DIRECTORY_SEPARATOR.'php.exe';
-            if (is_file($cliPhp)) {
-                $php = $cliPhp;
-            }
-
-            $command = 'cmd /C start /B "" "'.$php.'" "'.base_path('artisan').'" student-import:run-cadre '.$task->id.' > NUL 2>&1';
-        } else {
-            $command = escapeshellarg($php).' '.escapeshellarg(base_path('artisan')).' student-import:run-cadre '.$task->id.' > /dev/null 2>&1 &';
-        }
-
-        $handle = function_exists('popen') ? @popen($command, 'r') : false;
-        if (is_resource($handle)) {
-            pclose($handle);
-
-            return;
-        }
-
-        $task->update([
-            'status' => StudentImportTask::STATUS_FAILED,
-            'error' => '无法启动后台导入进程，请检查服务器 PHP 命令行环境。',
-            'finished_at' => now(),
-        ]);
+        ImportStudentCadreAssessments::dispatchAfterResponse($task->id);
     }
 
     public function redirectTemplate(string $type)

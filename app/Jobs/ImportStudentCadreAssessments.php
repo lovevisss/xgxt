@@ -37,6 +37,7 @@ class ImportStudentCadreAssessments implements ShouldQueue
         ]);
 
         try {
+            set_time_limit(0);
             $path = Storage::disk('local')->path($task->path);
             $file = new UploadedFile($path, $task->original_name ?: basename($path), null, null, true);
             $result = $importer->import(

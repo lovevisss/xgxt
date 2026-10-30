@@ -8,6 +8,7 @@ use App\Services\StudentCadreAssessmentImportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
@@ -34,6 +35,7 @@ it('parses cadre assessment rows from pdf text', function () {
 });
 
 it('imports cadre assessments from docx tables by student number', function () {
+    Bus::fake([ImportStudentCadreAssessments::class]);
     Student::query()->create([
         'xgh' => '2420110227',
         'xm' => '雷雨晴',
@@ -128,6 +130,7 @@ XML);
         ->assertJsonPath('status', StudentImportTask::STATUS_QUEUED);
 
     $task = StudentImportTask::query()->firstOrFail();
+    Bus::assertDispatchedAfterResponse(ImportStudentCadreAssessments::class, fn ($job) => $job->taskId === $task->id);
     app()->call([new ImportStudentCadreAssessments($task->id), 'handle']);
 
     $this->getJson("/student-imports/status/{$task->id}")
@@ -187,6 +190,7 @@ XML);
     ])->assertStatus(202)->assertJsonPath('queued', true);
 
     $chunkTask = StudentImportTask::query()->latest('id')->firstOrFail();
+    Bus::assertDispatchedAfterResponseTimes(ImportStudentCadreAssessments::class, 2);
     expect($chunkTask->original_name)->toBe('团学干部考核成绩汇总表.docx')
         ->and(file_get_contents(Storage::disk('local')->path($chunkTask->path)))->toBe($contents);
 
