@@ -70,6 +70,52 @@ it('imports student awards and punishments from xlsx', function () {
     ]);
 });
 
+it('imports a standalone disposition workbook with native headers', function () {
+    Student::query()->create([
+        'xgh' => '2420500113',
+        'xm' => '江赛男',
+        'xbm' => '2',
+        'rylx' => '0',
+        'dwmc' => '金融与经贸学院',
+        'dwbm' => 'JR',
+    ]);
+
+    $path = storage_path('app/test-native-punishments.xlsx');
+    app(StudentImportWorkbook::class)->write($path, [
+        'Sheet2' => [
+            ['学年', '学号', '姓名', '性别', '年级', '二级学院', '班级', '时间', '事由', '处分', '文件号/发文时间', '', '期限', '解除时间', '是否解除'],
+            ['2025-2026-1', '2420500113', '表内姓名', '女', '2024级', '金融与经贸学院', '24金融1', '2025-2026第二学期', '夹带小抄', '记过', '浙财大东〔2026〕50号', '46099', '10个月', '', '否'],
+        ],
+    ]);
+
+    $file = fn () => new UploadedFile($path, '新增处分信息.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    $this->postJson('/student-imports/award_punishment', ['file' => $file()])
+        ->assertOk()
+        ->assertJsonPath('reward_imported', 0)
+        ->assertJsonPath('punishment_imported', 1);
+    $this->postJson('/student-imports/award_punishment', ['file' => $file()])
+        ->assertOk()
+        ->assertJsonPath('punishment_imported', 1);
+
+    expect(StudentPunishment::query()->count())->toBe(1);
+    $this->assertDatabaseHas('student_punishments', [
+        'student_xgh' => '2420500113',
+        'student_name' => '江赛男',
+        'reason' => '记过：夹带小抄',
+        'punished_at' => '2026-03-18 00:00:00',
+        'annual_year' => 2026,
+    ]);
+});
+
+it('reports an unrecognized award and punishment workbook', function () {
+    $path = storage_path('app/test-unrecognized-punishments.xlsx');
+    app(StudentImportWorkbook::class)->write($path, ['Sheet1' => [['学号', '姓名'], ['20260001', '张三']]]);
+
+    $this->postJson('/student-imports/award_punishment', [
+        'file' => new UploadedFile($path, 'unknown.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+    ])->assertUnprocessable()->assertJsonValidationErrors('file');
+});
+
 it('shows awards and punishments on the student profile', function () {
     Student::query()->create([
         'xgh' => '20260013',

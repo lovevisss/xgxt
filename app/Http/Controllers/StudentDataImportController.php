@@ -357,6 +357,17 @@ class StudentDataImportController extends Controller
     {
         $rewardRows = $this->sheetRows($sheets, '奖励') ?? [];
         $punishmentRows = $this->sheetRows($sheets, '惩罚') ?? [];
+        if ($punishmentRows === []) {
+            foreach ($sheets as $rows) {
+                if ($this->headerIndex($rows, ['学号', '事由', '处分']) !== null) {
+                    $punishmentRows = $rows;
+                    break;
+                }
+            }
+        }
+        if ($rewardRows === [] && $punishmentRows === []) {
+            throw ValidationException::withMessages(['file' => '未找到奖励或处分数据表，请检查工作表和表头。']);
+        }
         $result = ['reward_imported' => 0, 'punishment_imported' => 0, 'errors' => []];
 
         DB::transaction(function () use ($rewardRows, $punishmentRows, &$result): void {
@@ -398,15 +409,25 @@ class StudentDataImportController extends Controller
                     continue;
                 }
 
-                StudentPunishment::query()->updateOrCreate(
-                    [
-                        'student_xgh' => $record['student_xgh'],
-                        'reason' => $record['reason'],
-                        'punished_at' => $record['punished_at'],
-                        'annual_year' => $record['annual_year'],
-                    ],
-                    ['student_name' => $this->studentName($record['student_xgh'], $record['student_name']), 'imported_at' => now()]
-                );
+                $existing = StudentPunishment::query()
+                    ->where('student_xgh', $record['student_xgh'])
+                    ->where('reason', $record['reason'])
+                    ->where('annual_year', $record['annual_year'])
+                    ->when(
+                        $record['punished_at'] !== null,
+                        fn ($query) => $query->whereDate('punished_at', $record['punished_at']),
+                        fn ($query) => $query->whereNull('punished_at')
+                    )
+                    ->first();
+                $punishment = $existing ?? new StudentPunishment();
+                $punishment->fill([
+                    'student_xgh' => $record['student_xgh'],
+                    'student_name' => $this->studentName($record['student_xgh'], $record['student_name']),
+                    'reason' => $record['reason'],
+                    'punished_at' => $record['punished_at'],
+                    'annual_year' => $record['annual_year'],
+                    'imported_at' => now(),
+                ])->save();
                 $result['punishment_imported']++;
             }
         });
@@ -1153,8 +1174,27 @@ class StudentDataImportController extends Controller
     private function punishmentRecords(array $rows): array
     {
         $records = [];
-        foreach (array_slice($rows, 1) as $row) {
+        $nativeHeaderIndex = $this->headerIndex($rows, ['学号', '事由', '处分']);
+        $headers = $nativeHeaderIndex !== null ? $rows[$nativeHeaderIndex] : [];
+        $documentColumn = array_search('文件号/发文时间', array_map($this->normalizeHeader(...), $headers), true);
+
+        foreach (array_slice($rows, ($nativeHeaderIndex ?? 0) + 1) as $row) {
             if ($this->isBlankRow($row)) {
+                continue;
+            }
+            if ($nativeHeaderIndex !== null) {
+                $reason = $this->cellByHeader($row, $headers, ['事由']);
+                $type = $this->cellByHeader($row, $headers, ['处分']);
+                $issuedAt = $documentColumn !== false ? $this->date($this->cell($row, $documentColumn + 1)) : null;
+                $schoolYear = $this->cellByHeader($row, $headers, ['学年']);
+                preg_match_all('/(?:19|20)\d{2}/', $schoolYear, $years);
+                $records[] = [
+                    'student_xgh' => $this->cellByHeader($row, $headers, ['学号']),
+                    'student_name' => $this->cellByHeader($row, $headers, ['姓名']),
+                    'reason' => $reason !== '' && $type !== '' ? $type.'：'.$reason : '',
+                    'punished_at' => $issuedAt,
+                    'annual_year' => $this->year($issuedAt ?? '') ?? (int) (end($years[0]) ?: 0),
+                ];
                 continue;
             }
             $records[] = [

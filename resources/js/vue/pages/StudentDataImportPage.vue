@@ -10,7 +10,7 @@ const importTypes = [
         endpoint: '/student-imports/award_punishment',
         template: '/student-imports/template/award_punishment',
         fields: '奖励：学号、姓名、奖励名称、年度、等级；惩罚：学号、姓名、惩罚原因、惩罚时间、发生年度',
-        note: '使用两个工作表：奖励、惩罚。',
+        note: '支持奖励、惩罚双工作表，也支持含“学号、事由、处分”的单张处分信息表。',
         resultLabels: { reward_imported: '奖励', punishment_imported: '惩罚' },
     },
     {
@@ -180,6 +180,10 @@ function chooseFile(event) {
         stopPolling();
     } else if (file.value && /科技竞赛|竞赛类获奖/.test(file.value.name) && selectedKey.value !== 'technology_competition_award') {
         selectedKey.value = 'technology_competition_award';
+        taskId.value = null;
+        stopPolling();
+    } else if (file.value && /处分|奖惩/.test(file.value.name) && selectedKey.value !== 'award_punishment') {
+        selectedKey.value = 'award_punishment';
         taskId.value = null;
         stopPolling();
     }
