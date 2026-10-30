@@ -131,6 +131,7 @@ const uploading = ref(false);
 const annualYear = ref(String(new Date().getFullYear()));
 const academicYear = ref('2025-2026');
 const semester = ref('1');
+const cadreSemester = ref('');
 const source = ref('国开行');
 const notice = ref({ text: '', type: 'info' });
 const result = ref(null);
@@ -153,6 +154,7 @@ function getCSRF() {
 
 function selectType(key) {
     selectedKey.value = key;
+    if (key === 'cadre_assessment') cadreSemester.value = '';
     file.value = null;
     result.value = null;
     taskId.value = null;
@@ -165,6 +167,7 @@ function chooseFile(event) {
     result.value = null;
     if (file.value && (/\.docx$/i.test(file.value.name) || /团学干部|干部考核/.test(file.value.name)) && selectedKey.value !== 'cadre_assessment') {
         selectedKey.value = 'cadre_assessment';
+        cadreSemester.value = '';
         taskId.value = null;
         stopPolling();
     } else if (file.value && /德育/.test(file.value.name) && selectedKey.value !== 'moral_assessment') {
@@ -195,6 +198,11 @@ async function upload() {
     const allowed = selectedType.value.accept.split(',').map((value) => value.trim().slice(1));
     if (!allowed.includes(extension)) {
         notice.value = { text: `${selectedType.value.title}支持 ${selectedType.value.accept.replaceAll(',', ' / ')} 文件。`, type: 'error' };
+        return;
+    }
+
+    if (selectedKey.value === 'cadre_assessment' && !cadreSemester.value) {
+        notice.value = { text: '请选择团学干部考核所属学期。', type: 'error' };
         return;
     }
 
@@ -298,6 +306,7 @@ async function uploadCadreInChunks() {
     formData.append('total', String(total));
     formData.append('file_name', file.value.name);
     formData.append('academic_year', academicYear.value);
+    formData.append('semester', cadreSemester.value);
     return postImport('/student-imports/cadre_assessment', formData);
 }
 
@@ -465,6 +474,15 @@ onBeforeUnmount(stopPolling);
                 <label v-if="showSemesterOptions" class="mt-3 block text-sm text-slate-600">
                     学期
                     <input v-model="semester" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text" placeholder="1">
+                </label>
+
+                <label v-if="selectedKey === 'cadre_assessment'" class="mt-3 block text-sm text-slate-600">
+                    学期
+                    <select v-model="cadreSemester" required class="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950">
+                        <option value="" disabled>请选择学期</option>
+                        <option value="1">第一学期</option>
+                        <option value="2">第二学期</option>
+                    </select>
                 </label>
 
                 <div class="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">

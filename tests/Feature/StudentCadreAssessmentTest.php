@@ -158,6 +158,12 @@ XML);
         'grade' => '优秀',
     ]);
 
+    $legacy = StudentCadreAssessment::query()->where('student_xgh', '2420110227')->firstOrFail();
+    $legacy->update([
+        'semester' => null,
+        'sync_key' => sha1('2420110227|2025-2026||会计学院学生会|办公室|负责人'),
+    ]);
+
     $uploadId = (string) Str::uuid();
     $contents = file_get_contents($path);
     $parts = str_split($contents, (int) ceil(strlen($contents) / 3));
@@ -186,7 +192,7 @@ XML);
         'total' => count($parts),
         'file_name' => '团学干部考核成绩汇总表.docx',
         'academic_year' => '2025-2026',
-        'semester' => '1',
+        'semester' => '2',
     ])->assertStatus(202)->assertJsonPath('queued', true);
 
     $chunkTask = StudentImportTask::query()->latest('id')->firstOrFail();
@@ -198,7 +204,13 @@ XML);
     $this->getJson("/student-imports/status/{$chunkTask->id}")
         ->assertOk()
         ->assertJsonPath('status', StudentImportTask::STATUS_SUCCEEDED)
-        ->assertJsonPath('result.imported', 1);
+        ->assertJsonPath('result.imported', 1)
+        ->assertJsonPath('result.semester', '2');
+    expect(StudentCadreAssessment::query()->where('student_xgh', '2420110227')->count())->toBe(1);
+    $this->assertDatabaseHas('student_cadre_assessments', [
+        'student_xgh' => '2420110227',
+        'semester' => '2',
+    ]);
 });
 
 it('shows cadre assessments on the student profile', function () {

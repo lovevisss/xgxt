@@ -410,8 +410,29 @@ PY;
 
     private function storeAssessment(array $record, Student $student): StudentCadreAssessment
     {
+        $syncKey = $this->syncKey($record, $student);
+        if (($record['semester'] ?? null) !== null && ($record['source_file'] ?? null) !== null) {
+            $legacy = StudentCadreAssessment::query()
+                ->where('student_xgh', $student->xgh)
+                ->where('academic_year', $record['academic_year'])
+                ->whereNull('semester')
+                ->where('organization', $record['organization'] ?? null)
+                ->where('department', $record['department'] ?? null)
+                ->where('position', $record['position'])
+                ->where('source_file', $record['source_file'])
+                ->first();
+
+            if ($legacy) {
+                if (StudentCadreAssessment::query()->where('sync_key', $syncKey)->exists()) {
+                    $legacy->delete();
+                } else {
+                    $legacy->update(['sync_key' => $syncKey]);
+                }
+            }
+        }
+
         return StudentCadreAssessment::query()->updateOrCreate(
-            ['sync_key' => $this->syncKey($record, $student)],
+            ['sync_key' => $syncKey],
             [
                 'student_xgh' => $student->xgh,
                 'student_name' => $student->xm ?: $record['student_name'],

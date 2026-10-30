@@ -1238,7 +1238,7 @@ async function saveFamily() {
                     <tbody class="divide-y divide-slate-100">
                         <tr v-for="item in props.cadreAssessments" :key="item.id">
                             <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
-                            <td class="px-3 py-2">{{ item.semester ? `第${item.semester}学期` : '-' }}</td>
+                            <td class="px-3 py-2">{{ item.semester === '1' ? '第一学期' : item.semester === '2' ? '第二学期' : '-' }}</td>
                             <td class="px-3 py-2">{{ item.organization || '-' }}</td>
                             <td class="px-3 py-2">{{ item.department || '-' }}</td>
                             <td class="px-3 py-2">{{ item.position || '-' }}</td>

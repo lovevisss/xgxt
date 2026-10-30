@@ -71,7 +71,7 @@ class StudentDataImportController extends Controller
             $request->validate([
                 'file' => ['required', 'file', 'mimes:pdf,docx', 'max:51200'],
                 'academic_year' => ['required', 'string', 'max:16'],
-                'semester' => ['nullable', 'string', 'max:16'],
+                'semester' => ['nullable', 'in:1,2'],
             ]);
 
             $file = $request->file('file');
@@ -163,7 +163,7 @@ class StudentDataImportController extends Controller
             'total' => ['required', 'integer', 'between:1,100'],
             'file_name' => ['required', 'string', 'max:255', 'regex:/\.(pdf|docx)$/i'],
             'academic_year' => ['required', 'string', 'max:16'],
-            'semester' => ['nullable', 'string', 'max:16'],
+            'semester' => ['nullable', 'in:1,2'],
         ]);
 
         $disk = Storage::disk('local');
