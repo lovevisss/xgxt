@@ -47,10 +47,10 @@ onBeforeUnmount(() => {
 
 <template>
     <aside class="profile-navigation lg:sticky lg:top-6 lg:self-start" :class="{ 'is-open': open }">
-        <button ref="trigger" type="button" class="profile-navigation-trigger" aria-controls="profile-navigation-panel" :aria-expanded="open" @click="open = true">档案分区菜单</button>
+        <button ref="trigger" type="button" class="profile-navigation-trigger ui-button" aria-controls="profile-navigation-panel" :aria-expanded="open" @click="open = true">档案分区菜单</button>
         <div v-if="open" class="profile-navigation-backdrop" @click="close" aria-hidden="true"></div>
         <div id="profile-navigation-panel" ref="panel" class="profile-navigation-panel" :role="open ? 'dialog' : undefined" :aria-modal="open ? 'true' : undefined" aria-label="档案分区导航">
-            <button type="button" class="profile-navigation-close" @click="close">关闭菜单</button>
+            <button type="button" class="profile-navigation-close ui-button" @click="close">关闭菜单</button>
             <div @click="event => { if (event.target.closest('nav button')) close(); }"><slot /></div>
         </div>
     </aside>
@@ -58,14 +58,4 @@ onBeforeUnmount(() => {
 
 <style>
 .profile-navigation-trigger,.profile-navigation-close,.profile-navigation-backdrop{display:none}
-@media(max-width:767px){
-    #app .profile-navigation-trigger,#app .profile-navigation-close{display:block;min-height:44px;padding:10px 16px;border:1px solid #cbd5e1;border-radius:8px;background:white;font-size:16px}
-    #app .profile-navigation-panel{display:none}
-    #app .profile-navigation.is-open .profile-navigation-panel{display:block;position:fixed;z-index:60;left:0;top:var(--mobile-viewport-top,0px);height:var(--mobile-viewport-height,100vh);width: min(320px,88vw);overflow-y:auto;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px));background:#fff;box-shadow:8px 0 30px #0f172a30}
-    #app .profile-navigation-backdrop{display:block;position:fixed;inset:0;background:#0f172a66;z-index:59}
-    #app .profile-navigation-close{margin-bottom:12px;width:100%}
-    #app .profile-navigation nav{overflow:visible}
-    #app .profile-navigation nav > div{flex-direction:column;min-width:0}
-    #app .profile-navigation nav span{white-space:normal}
-}
 </style>

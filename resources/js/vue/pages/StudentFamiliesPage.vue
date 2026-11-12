@@ -84,34 +84,34 @@ onMounted(async () => {
 </script>
 
 <template>
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 ui-page">
+        <header class="mb-6 rounded-2xl border border-line bg-surface p-6 shadow-sm ui-card">
             <div class="flex items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h1 class="text-3xl font-bold">学生家庭基本信息</h1>
-                    <p class="mt-1 text-sm text-slate-500">按学生维度查看和维护家庭联系人。</p>
+                    <p class="mt-1 text-sm text-muted">按学生维度查看和维护家庭联系人。</p>
                 </div>
-                <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
+                <a href="/" class="rounded-lg border border-line px-4 py-2 text-sm ui-button">返回首页</a>
             </div>
         </header>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section class="rounded-2xl border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-5 mobile-stack">
-                <input v-model="keyword" type="text" placeholder="按学号/学生姓名/手机/工作单位检索" class="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2">
-                <select v-model="emergency" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <input v-model="keyword" type="text" placeholder="按学号/学生姓名/手机/工作单位检索" class="rounded-lg border border-line px-3 py-2 text-sm sm:col-span-2 ui-control">
+                <select v-model="emergency" class="rounded-lg border border-line px-3 py-2 text-sm ui-control">
                     <option value="">全部联系人</option>
                     <option value="1">仅紧急联系人</option>
                     <option value="0">非紧急联系人</option>
                 </select>
-                <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white" @click="fetchRecords(1)">查询</button>
-                <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @click="keyword=''; emergency=''; fetchRecords(1)">重置</button>
+                <button class="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-on-accent ui-button ui-button-primary" @click="fetchRecords(1)">查询</button>
+                <button class="rounded-lg border border-line px-3 py-2 text-sm ui-button" @click="keyword=''; emergency=''; fetchRecords(1)">重置</button>
             </div>
 
-            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-sky-200 bg-sky-50 text-sky-700'">{{ notice.text }}</div>
+            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-danger-line bg-danger-surface text-danger' : notice.type === 'success' ? 'border-success-line bg-success-surface text-success' : 'border-info-line bg-info-surface text-info'">{{ notice.text }}</div>
 
-            <div class="overflow-x-auto rounded-xl border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-xl border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">学号</th>
                             <th class="px-3 py-2 text-left">学生姓名</th>
@@ -124,7 +124,7 @@ onMounted(async () => {
                             <th class="px-3 py-2 text-left">操作</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="row in records" :key="row.id">
                             <td class="px-3 py-2">{{ row.stu_no }}</td>
                             <td class="px-3 py-2">{{ row.student_name || '-' }}</td>
@@ -134,38 +134,38 @@ onMounted(async () => {
                             <td class="px-3 py-2">{{ row.position || '-' }}</td>
                             <td class="px-3 py-2">{{ row.phone || '-' }}</td>
                             <td class="px-3 py-2">{{ row.is_emergency_contact ? '是' : '否' }}</td>
-                            <td class="px-3 py-2"><button class="rounded border border-slate-300 px-2 py-1 text-xs" @click="openEdit(row)">编辑</button></td>
+                            <td class="px-3 py-2"><button class="rounded border border-line px-2 py-1 text-xs ui-button" @click="openEdit(row)">编辑</button></td>
                         </tr>
-                        <tr v-if="!records.length"><td colspan="9" class="px-3 py-6 text-center text-slate-500">暂无数据</td></tr>
+                        <tr v-if="!records.length"><td colspan="9" class="px-3 py-6 text-center text-muted">暂无数据</td></tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="mt-4 flex items-center justify-between mobile-wrap">
-                <p class="text-xs text-slate-500">当前显示 {{ pagination.from || 0 }}-{{ pagination.to || 0 }} 条，共 {{ pagination.total || 0 }} 条</p>
+                <p class="text-xs text-muted">当前显示 {{ pagination.from || 0 }}-{{ pagination.to || 0 }} 条，共 {{ pagination.total || 0 }} 条</p>
                 <div class="flex gap-2 mobile-wrap">
-                    <button class="rounded border px-2 py-1 text-sm" :disabled="(pagination.current_page || 1) <= 1" @click="fetchRecords((pagination.current_page || 1) - 1)">上一页</button>
-                    <button v-for="p in pageRange()" :key="p" class="rounded border px-2 py-1 text-sm" :class="p === (pagination.current_page || 1) ? 'bg-slate-900 text-white' : 'bg-white'" @click="fetchRecords(p)">{{ p }}</button>
-                    <button class="rounded border px-2 py-1 text-sm" :disabled="(pagination.current_page || 1) >= (pagination.last_page || 1)" @click="fetchRecords((pagination.current_page || 1) + 1)">下一页</button>
+                    <button class="rounded border px-2 py-1 text-sm ui-button" :disabled="(pagination.current_page || 1) <= 1" @click="fetchRecords((pagination.current_page || 1) - 1)">上一页</button>
+                    <button v-for="p in pageRange()" :key="p" class="rounded border px-2 py-1 text-sm ui-button" :class="p === (pagination.current_page || 1) ? 'bg-accent text-on-accent' : 'bg-surface'" @click="fetchRecords(p)">{{ p }}</button>
+                    <button class="rounded border px-2 py-1 text-sm ui-button" :disabled="(pagination.current_page || 1) >= (pagination.last_page || 1)" @click="fetchRecords((pagination.current_page || 1) + 1)">下一页</button>
                 </div>
             </div>
         </section>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 mobile-modal" @click.self="editing = null">
-            <form class="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl" @submit.prevent="saveEdit">
+        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 mobile-modal" @click.self="editing = null">
+            <form class="w-full max-w-2xl rounded-xl bg-surface p-5 shadow-xl ui-card" @submit.prevent="saveEdit">
                 <h2 class="mb-3 text-xl font-bold">编辑家庭联系人</h2>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
-                    <input v-model="form.name" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="姓名">
-                    <input v-model="form.relationship" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="关系">
-                    <input v-model="form.specific_relationship" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="具体关系">
-                    <input v-model="form.work_unit" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="工作单位">
-                    <input v-model="form.position" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="职位">
-                    <input v-model="form.phone" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="手机">
-                    <select v-model="form.is_emergency_contact" class="rounded border border-slate-300 px-3 py-2 text-sm sm:col-span-2"><option value="0">否</option><option value="1">是</option></select>
+                    <input v-model="form.name" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="姓名">
+                    <input v-model="form.relationship" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="关系">
+                    <input v-model="form.specific_relationship" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="具体关系">
+                    <input v-model="form.work_unit" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="工作单位">
+                    <input v-model="form.position" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="职位">
+                    <input v-model="form.phone" class="rounded border border-line px-3 py-2 text-sm ui-control" placeholder="手机">
+                    <select v-model="form.is_emergency_contact" class="rounded border border-line px-3 py-2 text-sm sm:col-span-2 ui-control"><option value="0">否</option><option value="1">是</option></select>
                 </div>
                 <div class="mt-4 flex justify-end gap-2 mobile-wrap">
-                    <button type="button" class="rounded border border-slate-300 px-3 py-2 text-sm" @click="editing = null">取消</button>
-                    <button class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white">保存</button>
+                    <button type="button" class="rounded border border-line px-3 py-2 text-sm ui-button" @click="editing = null">取消</button>
+                    <button class="rounded bg-accent px-3 py-2 text-sm font-semibold text-on-accent ui-button ui-button-primary">保存</button>
                 </div>
             </form>
         </div>

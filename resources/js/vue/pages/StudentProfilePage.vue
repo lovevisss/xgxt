@@ -162,19 +162,19 @@ const strongestCompanion = computed(() => props.companionInsights?.[0] || null);
 
 function directionTone(direction) {
     if (direction === 'in') {
-        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        return 'border-success-line bg-success-surface text-success';
     }
     if (direction === 'out') {
-        return 'border-orange-200 bg-orange-50 text-orange-700';
+        return 'border-warning-line bg-warning-surface text-warning';
     }
 
-    return 'border-slate-200 bg-slate-50 text-slate-600';
+    return 'border-line bg-surface-raised text-muted';
 }
 
 function companionTone(item) {
     return item?.is_possible_friend
-        ? 'border-amber-200 bg-amber-50 text-amber-800'
-        : 'border-slate-200 bg-slate-50 text-slate-600';
+        ? 'border-warning-line bg-warning-surface text-warning'
+        : 'border-line bg-surface-raised text-muted';
 }
 
 function studentStatusText(status) {
@@ -379,52 +379,52 @@ async function saveFamily() {
 </script>
 
 <template>
-    <main class="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-8">
-        <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <main class="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-8 ui-page">
+        <header class="mb-6 rounded-lg border border-line bg-surface p-6 shadow-sm ui-card">
             <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
-                    <p class="text-sm text-slate-500">{{ props.student.student_category === 'graduated' ? '毕业生档案' : '学生主页' }}</p>
-                    <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ props.student.xm }}（{{ props.student.xgh }}）</h1>
-                    <p class="mt-1 text-sm text-slate-500">
+                    <p class="text-sm text-muted">{{ props.student.student_category === 'graduated' ? '毕业生档案' : '学生主页' }}</p>
+                    <h1 class="mt-1 text-2xl font-bold text-main">{{ props.student.xm }}（{{ props.student.xgh }}）</h1>
+                    <p class="mt-1 text-sm text-muted">
                         分院：{{ props.student.dwmc || '-' }} / 班级：{{ props.student.bjmc || '-' }} / 联系电话：{{ props.student.yddh || '-' }}
                     </p>
                 </div>
-                <a :href="props.student.student_category === 'graduated' ? '/graduates' : '/students'" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">{{ props.student.student_category === 'graduated' ? '返回毕业生' : '返回学生管理' }}</a>
+                <a :href="props.student.student_category === 'graduated' ? '/graduates' : '/students'" class="rounded-lg border border-line px-4 py-2 text-sm text-muted hover:bg-surface-raised ui-button">{{ props.student.student_category === 'graduated' ? '返回毕业生' : '返回学生管理' }}</a>
             </div>
         </header>
 
         <div class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] mobile-stack">
             <MobileProfileNavigation :active-section="activeProfileSection">
-                <nav class="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:overflow-visible">
+                <nav class="overflow-x-auto rounded-lg border border-line bg-surface p-2 shadow-sm lg:overflow-visible">
                     <div class="flex min-w-max gap-2 lg:min-w-0 lg:flex-col mobile-wrap">
                         <button
                             v-for="section in profileSections"
                             :key="section.key"
                             type="button"
-                            class="w-full rounded-md border px-4 py-3 text-left transition"
-                            :class="activeProfileSection === section.key ? 'border-slate-900 bg-slate-50 text-slate-950 shadow-sm' : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950'"
+                            class="w-full rounded-md border px-4 py-3 text-left transition ui-button"
+                            :class="activeProfileSection === section.key ? 'border-accent bg-selected text-main shadow-sm' : 'border-transparent bg-surface text-muted hover:border-line hover:bg-surface-raised hover:text-main'"
                             @click="selectProfileSection(section.key)"
                         >
                             <span class="block text-sm font-semibold">{{ section.label }}</span>
-                            <span class="mt-1 block whitespace-nowrap text-xs text-slate-500 lg:whitespace-normal">{{ section.description }}</span>
+                            <span class="mt-1 block whitespace-nowrap text-xs text-muted lg:whitespace-normal">{{ section.description }}</span>
                         </button>
                     </div>
                 </nav>
             </MobileProfileNavigation>
 
             <div class="min-w-0">
-        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
-                    <h2 class="text-lg font-semibold text-slate-950">学习排名</h2>
-                    <p class="mt-1 text-sm text-slate-500">
+                    <h2 class="text-lg font-semibold text-main">学习排名</h2>
+                    <p class="mt-1 text-sm text-muted">
                         {{ latestAcademicYearAverage?.academic_year || '暂无学年排名数据' }}
                     </p>
                 </div>
                 <button
                     v-if="latestAcademicYearAverage"
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button"
                     @click="toggleAverageDetail(latestAcademicYearAverage)"
                 >
                     {{ isAverageDetailVisible(latestAcademicYearAverage) ? '收起计算过程' : '查看计算过程' }}
@@ -433,34 +433,34 @@ async function saveFamily() {
 
             <div v-if="latestAcademicYearAverage" class="space-y-3">
                 <div class="grid gap-3 md:grid-cols-3 mobile-stack">
-                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm text-slate-500">学习平均成绩</p>
-                        <p class="mt-2 text-2xl font-semibold text-slate-950">{{ scoreText(latestAcademicYearAverage.average_score) }}</p>
-                        <p class="mt-1 text-xs text-slate-500">
+                    <article class="rounded-lg border border-line bg-surface-raised p-4">
+                        <p class="text-sm text-muted">学习平均成绩</p>
+                        <p class="mt-2 text-2xl font-semibold text-main">{{ scoreText(latestAcademicYearAverage.average_score) }}</p>
+                        <p class="mt-1 text-xs text-muted">
                             计入 {{ latestAcademicYearAverage.course_count || 0 }} 门 / {{ scoreText(latestAcademicYearAverage.total_credits) }} 学分
                         </p>
                     </article>
-                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm text-slate-500">班级排名</p>
-                        <p class="mt-2 text-2xl font-semibold text-slate-950">
+                    <article class="rounded-lg border border-line bg-surface-raised p-4">
+                        <p class="text-sm text-muted">班级排名</p>
+                        <p class="mt-2 text-2xl font-semibold text-main">
                             {{ latestAcademicYearAverage.class_rank || '-' }}
-                            <span class="text-base font-medium text-slate-500">/ {{ latestAcademicYearAverage.class_size || '-' }}</span>
+                            <span class="text-base font-medium text-muted">/ {{ latestAcademicYearAverage.class_size || '-' }}</span>
                         </p>
-                        <p class="mt-1 text-xs text-slate-500">{{ latestAcademicYearAverage.class_name || props.student.bjmc || '-' }}</p>
+                        <p class="mt-1 text-xs text-muted">{{ latestAcademicYearAverage.class_name || props.student.bjmc || '-' }}</p>
                     </article>
-                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm text-slate-500">专业排名</p>
-                        <p class="mt-2 text-2xl font-semibold text-slate-950">
+                    <article class="rounded-lg border border-line bg-surface-raised p-4">
+                        <p class="text-sm text-muted">专业排名</p>
+                        <p class="mt-2 text-2xl font-semibold text-main">
                             {{ latestAcademicYearAverage.major_rank || '-' }}
-                            <span class="text-base font-medium text-slate-500">/ {{ latestAcademicYearAverage.major_size || '-' }}</span>
+                            <span class="text-base font-medium text-muted">/ {{ latestAcademicYearAverage.major_size || '-' }}</span>
                         </p>
-                        <p class="mt-1 text-xs text-slate-500">{{ latestAcademicYearAverage.major_code || '-' }}</p>
+                        <p class="mt-1 text-xs text-muted">{{ latestAcademicYearAverage.major_code || '-' }}</p>
                     </article>
                 </div>
 
-                <div v-if="isAverageDetailVisible(latestAcademicYearAverage)" class="overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div v-if="isAverageDetailVisible(latestAcademicYearAverage)" class="overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">学期</th>
                                 <th class="px-3 py-2 text-left">课程</th>
@@ -471,37 +471,37 @@ async function saveFamily() {
                                 <th class="px-3 py-2 text-left">说明</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <tr v-for="course in latestAcademicYearAverage.calculation_courses || []" :key="`${course.semester}-${course.course_code}`">
                                 <td class="px-3 py-2">{{ course.semester || '-' }}</td>
                                 <td class="px-3 py-2">{{ course.course_name || course.course_code || '-' }}</td>
                                 <td class="px-3 py-2">{{ course.original_score ?? '-' }}</td>
-                                <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(course.score) }}</td>
+                                <td class="px-3 py-2 font-semibold text-main">{{ toFixedText(course.score) }}</td>
                                 <td class="px-3 py-2">{{ toFixedText(course.credits) }}</td>
                                 <td class="px-3 py-2">{{ toFixedText(course.weighted_score) }}</td>
-                                <td class="px-3 py-2 text-slate-600">{{ course.calculation_note || '-' }}</td>
+                                <td class="px-3 py-2 text-muted">{{ course.calculation_note || '-' }}</td>
                             </tr>
                             <tr v-if="!(latestAcademicYearAverage.calculation_courses || []).length">
-                                <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无可展示的计算明细</td>
+                                <td colspan="7" class="px-3 py-6 text-center text-muted">暂无可展示的计算明细</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-            <div v-else class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+            <div v-else class="rounded-lg border border-dashed border-line bg-surface-raised px-4 py-5 text-sm text-muted">
                 暂无学习平均成绩和排名数据。
             </div>
         </section>
 
         <section v-if="activeProfileSection === 'academic'" class="mb-6 grid gap-6 xl:grid-cols-2 mobile-stack">
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                    <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
-                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <h2 class="text-lg font-semibold text-main">综测成绩</h2>
+                    <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
                 </div>
-                <div class="overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div class="overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">学年</th>
                                 <th class="px-3 py-2 text-left">名次</th>
@@ -513,12 +513,12 @@ async function saveFamily() {
                                 <th class="px-3 py-2 text-left">劳育</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <tr v-for="item in props.comprehensiveAssessments" :key="item.id">
                                 <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
                                 <td class="px-3 py-2">{{ item.rank || '-' }}</td>
                                 <td class="px-3 py-2">
-                                    <span class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ scoreText(item.total_score) }}</span>
+                                    <span class="rounded bg-success-surface px-2 py-1 text-xs font-semibold text-success">{{ scoreText(item.total_score) }}</span>
                                 </td>
                                 <td class="px-3 py-2">{{ scoreText(item.moral_score) }}</td>
                                 <td class="px-3 py-2">{{ scoreText(item.intellectual_score) }}</td>
@@ -527,24 +527,24 @@ async function saveFamily() {
                                 <td class="px-3 py-2">{{ scoreText(item.labor_score) }}</td>
                             </tr>
                             <tr v-if="!props.comprehensiveAssessments.length">
-                                <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无综测成绩</td>
+                                <td colspan="8" class="px-3 py-6 text-center text-muted">暂无综测成绩</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                     <div>
-                        <h2 class="text-lg font-semibold text-slate-950">学期德育分</h2>
-                        <p class="mt-1 text-sm text-slate-500">按学年学期展示德育量化考核。</p>
+                        <h2 class="text-lg font-semibold text-main">学期德育分</h2>
+                        <p class="mt-1 text-sm text-muted">按学年学期展示德育量化考核。</p>
                     </div>
-                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
                 </div>
-                <div class="overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div class="overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">学年学期</th>
                                 <th class="px-3 py-2 text-left">名次</th>
@@ -556,15 +556,15 @@ async function saveFamily() {
                                 <th class="px-3 py-2 text-left">备注</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <tr v-for="item in props.moralAssessments" :key="item.id">
                                 <td class="px-3 py-2">
-                                    <div class="font-semibold text-slate-950">{{ item.academic_year || '-' }}</div>
-                                    <div class="mt-0.5 text-xs text-slate-500">{{ semesterText(item.semester) }}</div>
+                                    <div class="font-semibold text-main">{{ item.academic_year || '-' }}</div>
+                                    <div class="mt-0.5 text-xs text-muted">{{ semesterText(item.semester) }}</div>
                                 </td>
                                 <td class="px-3 py-2">{{ item.rank || '-' }}</td>
                                 <td class="px-3 py-2">
-                                    <span class="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{{ scoreText(item.total_score) }}</span>
+                                    <span class="rounded bg-warning-surface px-2 py-1 text-xs font-semibold text-warning">{{ scoreText(item.total_score) }}</span>
                                 </td>
                                 <td class="px-3 py-2">{{ scoreText(item.base_score) }}</td>
                                 <td class="px-3 py-2">{{ scoreText(item.bonus_score) }}</td>
@@ -573,7 +573,7 @@ async function saveFamily() {
                                 <td class="px-3 py-2">{{ item.remark || '-' }}</td>
                             </tr>
                             <tr v-if="!props.moralAssessments.length">
-                                <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无学期德育分</td>
+                                <td colspan="8" class="px-3 py-6 text-center text-muted">暂无学期德育分</td>
                             </tr>
                         </tbody>
                     </table>
@@ -581,34 +581,34 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'academic'" id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" id="schedule-panel" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                     <div>
-                        <h2 class="text-lg font-semibold text-slate-950">课表信息</h2>
-                        <p class="mt-1 text-sm text-slate-500">{{ props.semesterLabel || '暂无学期' }} / {{ props.weekLabel || `第${props.selectedWeek || 1}周` }}</p>
+                        <h2 class="text-lg font-semibold text-main">课表信息</h2>
+                        <p class="mt-1 text-sm text-muted">{{ props.semesterLabel || '暂无学期' }} / {{ props.weekLabel || `第${props.selectedWeek || 1}周` }}</p>
                     </div>
                     <div class="flex items-center gap-2 mobile-wrap">
-                        <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="scheduleVisible = !scheduleVisible">
+                        <button type="button" class="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="scheduleVisible = !scheduleVisible">
                             {{ scheduleVisible ? '收起课表' : '展开课表' }}
                         </button>
                         <template v-if="scheduleVisible">
-                            <a v-if="props.prevWeekUrl" :href="props.prevWeekUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="rememberScrollPosition">上周</a>
-                            <button v-else type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-400" disabled>上周</button>
-                            <a v-if="props.nextWeekUrl" :href="props.nextWeekUrl" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="rememberScrollPosition">下周</a>
-                            <button v-else type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-400" disabled>下周</button>
+                            <a v-if="props.prevWeekUrl" :href="props.prevWeekUrl" class="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="rememberScrollPosition">上周</a>
+                            <button v-else type="button" class="rounded-lg border border-line px-3 py-2 text-sm text-muted ui-button" disabled>上周</button>
+                            <a v-if="props.nextWeekUrl" :href="props.nextWeekUrl" class="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="rememberScrollPosition">下周</a>
+                            <button v-else type="button" class="rounded-lg border border-line px-3 py-2 text-sm text-muted ui-button" disabled>下周</button>
                         </template>
                     </div>
                 </div>
 
-                <div v-if="scheduleVisible" class="mobile-calendar overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div v-if="scheduleVisible" class="mobile-calendar overflow-x-auto rounded-xl border border-line bg-surface-raised p-3">
                     <div class="mb-2 grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
-                        <div class="text-xs font-semibold text-slate-500">节次 / 时间</div>
-                        <div v-for="day in weeklyCalendar" :key="`header-${day.value}`" class="text-sm font-semibold text-slate-900 text-center">{{ day.label }}</div>
+                        <div class="text-xs font-semibold text-muted">节次 / 时间</div>
+                        <div v-for="day in weeklyCalendar" :key="`header-${day.value}`" class="text-sm font-semibold text-main text-center">{{ day.label }}</div>
                     </div>
 
                     <div class="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
                         <div class="grid gap-1 mobile-stack" style="grid-template-rows: repeat(12, 88px);">
-                            <div v-for="period in 12" :key="`time-${period}`" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600">
+                            <div v-for="period in 12" :key="`time-${period}`" class="rounded-md border border-line bg-surface px-2 py-1 text-[11px] text-muted">
                                 <p>第{{ period }}节</p>
                                 <p>{{ periodTimeText(period) }}</p>
                             </div>
@@ -618,18 +618,18 @@ async function saveFamily() {
                             <template v-for="slot in day.slots" :key="`${day.value}-${slot.period}`">
                                 <article
                                     v-if="slot.type === 'course' && slot.isStart"
-                                    class="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 shadow-sm"
+                                    class="rounded-md border border-info-line bg-info-surface px-2 py-1.5 shadow-sm"
                                     :style="{ gridRow: `${slot.period} / span ${slot.primary._span}` }"
                                 >
-                                    <h4 class="text-xs font-semibold text-slate-900">{{ slot.primary.course_name || '-' }}</h4>
-                                    <p class="mt-0.5 text-[11px] text-slate-600">{{ slot.primary.period_label || '-' }} / {{ weekRangeText(slot.primary) }}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-600">教师：{{ slot.primary.teacher_name || '-' }}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-600">地点：{{ slot.primary.location || '-' }}</p>
-                                    <p v-if="slot.extras > 0" class="mt-0.5 text-[11px] text-amber-700">同节次另有 {{ slot.extras }} 门课</p>
+                                    <h4 class="text-xs font-semibold text-main">{{ slot.primary.course_name || '-' }}</h4>
+                                    <p class="mt-0.5 text-[11px] text-muted">{{ slot.primary.period_label || '-' }} / {{ weekRangeText(slot.primary) }}</p>
+                                    <p class="mt-0.5 text-[11px] text-muted">教师：{{ slot.primary.teacher_name || '-' }}</p>
+                                    <p class="mt-0.5 text-[11px] text-muted">地点：{{ slot.primary.location || '-' }}</p>
+                                    <p v-if="slot.extras > 0" class="mt-0.5 text-[11px] text-warning">同节次另有 {{ slot.extras }} 门课</p>
                                 </article>
                                 <div
                                     v-else-if="slot.type === 'empty'"
-                                    class="rounded-md border border-dashed border-slate-300 bg-white"
+                                    class="rounded-md border border-dashed border-line bg-surface"
                                     :style="{ gridRow: `${slot.period} / span 1` }"
                                 />
                             </template>
@@ -638,31 +638,31 @@ async function saveFamily() {
                 </div>
             </section>
 
-            <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                     <div>
-                        <h2 class="text-lg font-semibold text-slate-950">成绩信息</h2>
-                        <p class="mt-1 text-sm text-slate-500">学业统计</p>
+                        <h2 class="text-lg font-semibold text-main">成绩信息</h2>
+                        <p class="mt-1 text-sm text-muted">学业统计</p>
                     </div>
-                    <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="gradeVisible = !gradeVisible">
+                    <button type="button" class="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="gradeVisible = !gradeVisible">
                         {{ gradeVisible ? '收起成绩' : '展开成绩' }}
                     </button>
                 </div>
 
                 <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p class="text-xs text-slate-500">已获得学分</p>
-                        <p class="text-xl font-bold text-slate-950">{{ toFixedText(props.earnedCreditsTotal) }}</p>
+                    <div class="rounded-xl border border-line bg-surface-raised p-3">
+                        <p class="text-xs text-muted">已获得学分</p>
+                        <p class="text-xl font-bold text-main">{{ toFixedText(props.earnedCreditsTotal) }}</p>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p class="text-xs text-slate-500">平均绩点（GPA）</p>
-                        <p class="text-xl font-bold text-slate-950">{{ gpaText(props.averageGpa) }}</p>
+                    <div class="rounded-xl border border-line bg-surface-raised p-3">
+                        <p class="text-xs text-muted">平均绩点（GPA）</p>
+                        <p class="text-xl font-bold text-main">{{ gpaText(props.averageGpa) }}</p>
                     </div>
                 </div>
 
-                <div class="mb-4 overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div class="mb-4 overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">学年</th>
                                 <th class="px-3 py-2 text-left">学习平均成绩</th>
@@ -673,26 +673,26 @@ async function saveFamily() {
                                 <th class="px-3 py-2 text-left">操作</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <template v-for="item in props.academicYearAverages" :key="item.id">
                                 <tr>
                                     <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
-                                    <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(item.average_score) }}</td>
+                                    <td class="px-3 py-2 font-semibold text-main">{{ toFixedText(item.average_score) }}</td>
                                     <td class="px-3 py-2">{{ toFixedText(item.total_credits) }}</td>
                                     <td class="px-3 py-2">{{ item.course_count || 0 }}</td>
                                     <td class="px-3 py-2">{{ item.class_rank ? `${item.class_rank}/${item.class_size || '-'}` : '-' }}</td>
                                     <td class="px-3 py-2">{{ item.major_rank ? `${item.major_rank}/${item.major_size || '-'}` : '-' }}</td>
                                     <td class="px-3 py-2">
-                                        <button type="button" class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50" @click="toggleAverageDetail(item)">
+                                        <button type="button" class="rounded border border-line px-2 py-1 text-xs text-muted hover:bg-surface-raised ui-button" @click="toggleAverageDetail(item)">
                                             {{ isAverageDetailVisible(item) ? '收起' : '查看计算过程' }}
                                         </button>
                                     </td>
                                 </tr>
                                 <tr v-if="isAverageDetailVisible(item)">
-                                    <td colspan="7" class="bg-slate-50 p-0">
+                                    <td colspan="7" class="bg-surface-raised p-0">
                                         <div class="overflow-x-auto">
-                                            <table class="min-w-full text-xs">
-                                                <thead class="bg-slate-100 text-slate-600">
+                                            <table class="min-w-full text-xs ui-table">
+                                                <thead class="bg-surface-raised text-muted">
                                                     <tr>
                                                         <th class="px-3 py-2 text-left">学期</th>
                                                         <th class="px-3 py-2 text-left">课程</th>
@@ -704,19 +704,19 @@ async function saveFamily() {
                                                         <th class="px-3 py-2 text-left">说明</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="divide-y divide-slate-200 bg-white">
+                                                <tbody class="divide-y divide-line bg-surface">
                                                     <tr v-for="course in item.calculation_courses || []" :key="`${item.id}-${course.semester}-${course.course_code}`">
                                                         <td class="px-3 py-2">{{ course.semester || '-' }}</td>
                                                         <td class="px-3 py-2">{{ course.course_name || course.course_code || '-' }}</td>
                                                         <td class="px-3 py-2">{{ course.original_score ?? '-' }}</td>
-                                                        <td class="px-3 py-2 font-semibold text-slate-900">{{ toFixedText(course.score) }}</td>
+                                                        <td class="px-3 py-2 font-semibold text-main">{{ toFixedText(course.score) }}</td>
                                                         <td class="px-3 py-2">{{ toFixedText(course.credits) }}</td>
                                                         <td class="px-3 py-2">{{ toFixedText(course.weighted_score) }}</td>
                                                         <td class="px-3 py-2">{{ course.exam_type || '-' }}</td>
-                                                        <td class="px-3 py-2 text-slate-600">{{ course.calculation_note || '-' }}</td>
+                                                        <td class="px-3 py-2 text-muted">{{ course.calculation_note || '-' }}</td>
                                                     </tr>
                                                     <tr v-if="!(item.calculation_courses || []).length">
-                                                        <td colspan="8" class="px-3 py-5 text-center text-slate-500">暂无可展示的计算明细</td>
+                                                        <td colspan="8" class="px-3 py-5 text-center text-muted">暂无可展示的计算明细</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -725,20 +725,20 @@ async function saveFamily() {
                                 </tr>
                             </template>
                             <tr v-if="!props.academicYearAverages.length">
-                                <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无学年学习平均成绩</td>
+                                <td colspan="7" class="px-3 py-6 text-center text-muted">暂无学年学习平均成绩</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <div v-if="gradeVisible" class="space-y-3">
-                    <details v-for="semester in props.gradesBySemester" :key="semester.semester" class="rounded-lg border border-slate-200 bg-slate-50" open>
-                        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-800">
+                    <details v-for="semester in props.gradesBySemester" :key="semester.semester" class="rounded-lg border border-line bg-surface-raised" open>
+                        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-main">
                             {{ semester.semester_label }}（总绩点：{{ toFixedText(semester.total_grade_points) }} / 总学分：{{ toFixedText(semester.total_credits) }} / 已获学分：{{ toFixedText(semester.earned_credits) }}）
                         </summary>
-                        <div class="overflow-x-auto border-t border-slate-200 bg-white">
-                            <table class="min-w-full text-sm">
-                                <thead class="bg-slate-50 text-slate-600">
+                        <div class="overflow-x-auto border-t border-line bg-surface">
+                            <table class="min-w-full text-sm ui-table">
+                                <thead class="bg-surface-raised text-muted">
                                     <tr>
                                         <th class="px-3 py-2 text-left">课程代码</th>
                                         <th class="px-3 py-2 text-left">课程名称</th>
@@ -748,7 +748,7 @@ async function saveFamily() {
                                         <th class="px-3 py-2 text-left">考试性质</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100">
+                                <tbody class="divide-y divide-line">
                                     <tr v-for="grade in semester.items" :key="grade.id">
                                         <td class="px-3 py-2">{{ grade.kcbm || '-' }}</td>
                                         <td class="px-3 py-2">{{ grade.kcmc || '-' }}</td>
@@ -758,14 +758,14 @@ async function saveFamily() {
                                         <td class="px-3 py-2">{{ grade.ksxz || '-' }}</td>
                                     </tr>
                                     <tr v-if="!semester.items.length">
-                                        <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无成绩记录</td>
+                                        <td colspan="6" class="px-3 py-6 text-center text-muted">暂无成绩记录</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     </details>
 
-                    <div v-if="!props.gradesBySemester.length" class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+                    <div v-if="!props.gradesBySemester.length" class="rounded-lg border border-dashed border-line bg-surface-raised px-3 py-6 text-center text-sm text-muted">
                         暂无成绩数据
                     </div>
                 </div>
@@ -773,30 +773,30 @@ async function saveFamily() {
 
             <div class="space-y-6">
 
-        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="mb-3 text-lg font-semibold text-slate-950">基础信息</h2>
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
+            <h2 class="mb-3 text-lg font-semibold text-main">基础信息</h2>
             <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3 mobile-stack">
-                <div><span class="text-slate-500">学号：</span>{{ props.student.xgh || '-' }}</div>
-                <div><span class="text-slate-500">姓名：</span>{{ props.student.xm || '-' }}</div>
-                <div><span class="text-slate-500">分院：</span>{{ props.student.dwmc || '-' }}</div>
-                <div><span class="text-slate-500">班级：</span>{{ props.student.bjmc || '-' }}</div>
-                <div><span class="text-slate-500">联系电话：</span>{{ props.student.yddh || '-' }}</div>
-                <div><span class="text-slate-500">最近刷码：</span><time class="font-medium tabular-nums text-slate-800" :datetime="props.student.last_smsj || undefined">{{ dateTimeText(props.student.last_smsj) }}</time></div>
-                <div><span class="text-slate-500">状态：</span>{{ props.student.status || '-' }}</div>
+                <div><span class="text-muted">学号：</span>{{ props.student.xgh || '-' }}</div>
+                <div><span class="text-muted">姓名：</span>{{ props.student.xm || '-' }}</div>
+                <div><span class="text-muted">分院：</span>{{ props.student.dwmc || '-' }}</div>
+                <div><span class="text-muted">班级：</span>{{ props.student.bjmc || '-' }}</div>
+                <div><span class="text-muted">联系电话：</span>{{ props.student.yddh || '-' }}</div>
+                <div><span class="text-muted">最近刷码：</span><time class="font-medium tabular-nums text-main" :datetime="props.student.last_smsj || undefined">{{ dateTimeText(props.student.last_smsj) }}</time></div>
+                <div><span class="text-muted">状态：</span>{{ props.student.status || '-' }}</div>
                 <div>
-                    <span class="text-slate-500">{{ props.currentYear }}年度医保：</span>
+                    <span class="text-muted">{{ props.currentYear }}年度医保：</span>
                     <span
                         class="rounded px-2 py-1 text-xs font-semibold"
-                        :class="medicalCovered(props.currentMedicalInsurance) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'"
+                        :class="medicalCovered(props.currentMedicalInsurance) ? 'bg-success-surface text-success' : 'bg-surface-raised text-muted'"
                     >
                         {{ medicalStatusText(props.currentMedicalInsurance) }}
                     </span>
                 </div>
                 <div>
-                    <span class="text-slate-500">{{ props.currentYear }}年度学平险：</span>
+                    <span class="text-muted">{{ props.currentYear }}年度学平险：</span>
                     <span
                         class="rounded px-2 py-1 text-xs font-semibold"
-                        :class="safetyCovered(props.currentSafetyInsurance) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'"
+                        :class="safetyCovered(props.currentSafetyInsurance) ? 'bg-success-surface text-success' : 'bg-surface-raised text-muted'"
                     >
                         {{ safetyStatusText(props.currentSafetyInsurance) }}
                     </span>
@@ -804,11 +804,11 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="mb-3 text-lg font-semibold text-slate-950">大学前教育经历</h2>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
+            <h2 class="mb-3 text-lg font-semibold text-main">大学前教育经历</h2>
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">阶段</th>
                             <th class="px-3 py-2 text-left">开始时间</th>
@@ -816,7 +816,7 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">学校</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.educationHistories" :key="item.id">
                             <td class="px-3 py-2">{{ item.qualifications || '-' }}</td>
                             <td class="px-3 py-2">{{ item.start_year || '-' }}</td>
@@ -824,47 +824,47 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.school_name || '-' }}</td>
                         </tr>
                         <tr v-if="!props.educationHistories.length">
-                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无教育经历</td>
+                            <td colspan="4" class="px-3 py-6 text-center text-muted">暂无教育经历</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 class="mb-3 text-lg font-semibold text-slate-950">住宿信息</h2>
+        <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
+            <h2 class="mb-3 text-lg font-semibold text-main">住宿信息</h2>
             <div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3 mobile-stack">
                 <div>
-                    <span class="text-slate-500">宿舍号：</span>
-                    <a v-if="props.dormitory?.ssh" class="text-sky-700 hover:underline" :href="`/students/dormitories/${encodeURIComponent(props.dormitory.ssh)}`">{{ props.dormitory.ssh }}</a>
+                    <span class="text-muted">宿舍号：</span>
+                    <a v-if="props.dormitory?.ssh" class="text-info hover:underline" :href="`/students/dormitories/${encodeURIComponent(props.dormitory.ssh)}`">{{ props.dormitory.ssh }}</a>
                     <span v-else>-</span>
                 </div>
-                <div><span class="text-slate-500">床位号：</span>{{ props.dormitory?.ch || '-' }}</div>
-                <div><span class="text-slate-500">寝室类型：</span>{{ props.dormitory?.qslx || '-' }}</div>
+                <div><span class="text-muted">床位号：</span>{{ props.dormitory?.ch || '-' }}</div>
+                <div><span class="text-muted">寝室类型：</span>{{ props.dormitory?.qslx || '-' }}</div>
             </div>
 
             <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4 mobile-stack">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <p class="text-xs text-slate-500">同宿舍人数</p>
-                    <p class="text-xl font-bold text-slate-950">{{ props.dormitorySummary.roommate_total || 0 }}</p>
+                <div class="rounded-xl border border-line bg-surface-raised p-3">
+                    <p class="text-xs text-muted">同宿舍人数</p>
+                    <p class="text-xl font-bold text-main">{{ props.dormitorySummary.roommate_total || 0 }}</p>
                 </div>
-                <div class="rounded-xl border border-rose-200 bg-rose-50 p-3">
-                    <p class="text-xs text-rose-600">同宿舍失联人数</p>
-                    <p class="text-xl font-bold text-rose-700">{{ props.dormitorySummary.lost_roommate_count || 0 }}</p>
+                <div class="rounded-xl border border-danger-line bg-danger-surface p-3">
+                    <p class="text-xs text-danger">同宿舍失联人数</p>
+                    <p class="text-xl font-bold text-danger">{{ props.dormitorySummary.lost_roommate_count || 0 }}</p>
                 </div>
-                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                    <p class="text-xs text-amber-700">同宿舍高风险人数</p>
-                    <p class="text-xl font-bold text-amber-700">{{ props.dormitorySummary.high_risk_roommate_count || 0 }}</p>
+                <div class="rounded-xl border border-warning-line bg-warning-surface p-3">
+                    <p class="text-xs text-warning">同宿舍高风险人数</p>
+                    <p class="text-xl font-bold text-warning">{{ props.dormitorySummary.high_risk_roommate_count || 0 }}</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-white p-3">
-                    <p class="text-xs text-slate-500">宿舍总人数</p>
-                    <p class="text-xl font-bold text-slate-950">{{ props.dormitorySummary.resident_total || 0 }}</p>
+                <div class="rounded-xl border border-line bg-surface p-3">
+                    <p class="text-xs text-muted">宿舍总人数</p>
+                    <p class="text-xl font-bold text-main">{{ props.dormitorySummary.resident_total || 0 }}</p>
                 </div>
             </div>
 
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">学号</th>
                             <th class="px-3 py-2 text-left">姓名</th>
@@ -876,13 +876,13 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">状态</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="mate in props.roommates" :key="mate.xh">
                             <td class="px-3 py-2">
-                                <a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xh }}</a>
+                                <a class="text-info hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xh }}</a>
                             </td>
                             <td class="px-3 py-2">
-                                <a class="text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xm || '-' }}</a>
+                                <a class="text-info hover:underline" :href="`/students/profile/${encodeURIComponent(mate.xh)}`">{{ mate.xm || '-' }}</a>
                             </td>
                             <td class="px-3 py-2">{{ mate.xy || '-' }}</td>
                             <td class="px-3 py-2">{{ mate.zy || '-' }}</td>
@@ -890,64 +890,64 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ mate.ch || '-' }}</td>
                             <td class="whitespace-nowrap px-3 py-2 tabular-nums">
                                 <time v-if="mate.last_smsj" :datetime="mate.last_smsj">
-                                    <span class="block font-medium text-slate-800">{{ passDatePart(mate.last_smsj) }}</span>
-                                    <span class="block text-xs text-slate-500">{{ passTimePart(mate.last_smsj) }}</span>
+                                    <span class="block font-medium text-main">{{ passDatePart(mate.last_smsj) }}</span>
+                                    <span class="block text-xs text-muted">{{ passTimePart(mate.last_smsj) }}</span>
                                 </time>
-                                <span v-else class="text-slate-400">-</span>
+                                <span v-else class="text-muted">-</span>
                             </td>
                             <td class="px-3 py-2">
-                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="mate.status === 'lost' ? 'bg-rose-100 text-rose-700' : mate.is_high_risk ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="mate.status === 'lost' ? 'bg-danger-surface text-danger' : mate.is_high_risk ? 'bg-warning-surface text-warning' : 'bg-success-surface text-success'">
                                     {{ studentStatusText(mate.status) }}
                                 </span>
                             </td>
                         </tr>
                         <tr v-if="!props.roommates.length">
-                            <td colspan="8" class="px-3 py-6 text-center text-slate-500">暂无舍友信息</td>
+                            <td colspan="8" class="px-3 py-6 text-center text-muted">暂无舍友信息</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <div class="flex flex-wrap items-center gap-3 mobile-wrap">
-                    <h2 class="text-lg font-semibold text-slate-950">保险参保记录</h2>
-                    <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                    <h2 class="text-lg font-semibold text-main">保险参保记录</h2>
+                    <div class="inline-flex rounded-lg border border-line bg-surface-raised p-1">
                         <button
                             type="button"
-                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition"
-                            :class="activeInsuranceTab === 'medical' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition ui-button"
+                            :class="activeInsuranceTab === 'medical' ? 'bg-surface text-main shadow-sm' : 'text-muted hover:text-main'"
                             @click="activeInsuranceTab = 'medical'"
                         >
                             医保
                         </button>
                         <button
                             type="button"
-                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition"
-                            :class="activeInsuranceTab === 'safety' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                            class="min-w-24 rounded-md px-3 py-1.5 text-sm font-semibold transition ui-button"
+                            :class="activeInsuranceTab === 'safety' ? 'bg-surface text-main shadow-sm' : 'text-muted hover:text-main'"
                             @click="activeInsuranceTab = 'safety'"
                         >
                             学平险
                         </button>
                     </div>
                 </div>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
 
-            <div v-if="activeInsuranceTab === 'medical'" class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="medicalCovered(props.currentMedicalInsurance) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-600'">
+            <div v-if="activeInsuranceTab === 'medical'" class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="medicalCovered(props.currentMedicalInsurance) ? 'border-success-line bg-success-surface text-success' : 'border-line bg-surface-raised text-muted'">
                 {{ props.currentYear }}年度：{{ medicalStatusText(props.currentMedicalInsurance) }}
                 <span v-if="props.currentMedicalInsurance">
                     ，参保状态：{{ props.currentMedicalInsurance.insurance_status || '-' }}，年度是否缴费：{{ props.currentMedicalInsurance.has_paid ? '是' : '否' }}
                 </span>
             </div>
-            <div v-else class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="safetyCovered(props.currentSafetyInsurance) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-600'">
+            <div v-else class="mb-4 rounded-lg border px-4 py-3 text-sm" :class="safetyCovered(props.currentSafetyInsurance) ? 'border-success-line bg-success-surface text-success' : 'border-line bg-surface-raised text-muted'">
                 {{ props.currentYear }}年度：{{ safetyStatusText(props.currentSafetyInsurance) }}
             </div>
 
-            <div v-if="activeInsuranceTab === 'medical'" class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div v-if="activeInsuranceTab === 'medical'" class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">年度</th>
                             <th class="px-3 py-2 text-left">是否参保</th>
@@ -958,11 +958,11 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">缴费类型</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.medicalInsurances" :key="item.id">
                             <td class="px-3 py-2">{{ item.annual_year || '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="medicalCovered(item) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="medicalCovered(item) ? 'bg-success-surface text-success' : 'bg-surface-raised text-muted'">
                                     {{ medicalStatusText(item) }}
                                 </span>
                             </td>
@@ -973,14 +973,14 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.payment_type || '-' }}</td>
                         </tr>
                         <tr v-if="!props.medicalInsurances.length">
-                            <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无医保参保记录</td>
+                            <td colspan="7" class="px-3 py-6 text-center text-muted">暂无医保参保记录</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div v-else class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div v-else class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">年度</th>
                             <th class="px-3 py-2 text-left">是否参保</th>
@@ -990,11 +990,11 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">班级</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.safetyInsurances" :key="item.id">
                             <td class="px-3 py-2">{{ item.annual_year || '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="safetyCovered(item) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                                <span class="rounded px-2 py-1 text-xs font-semibold" :class="safetyCovered(item) ? 'bg-success-surface text-success' : 'bg-surface-raised text-muted'">
                                     {{ safetyStatusText(item) }}
                                 </span>
                             </td>
@@ -1004,105 +1004,105 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.class_name || '-' }}</td>
                         </tr>
                         <tr v-if="!props.safetyInsurances.length">
-                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无学平险参保记录</td>
+                            <td colspan="6" class="px-3 py-6 text-center text-muted">暂无学平险参保记录</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Campus activity</p>
-                    <h2 class="mt-1 text-lg font-semibold text-slate-950">刷码动态</h2>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-muted">Campus activity</p>
+                    <h2 class="mt-1 text-lg font-semibold text-main">刷码动态</h2>
                 </div>
                 <div class="grid gap-2 sm:grid-cols-3 lg:w-[620px] mobile-stack">
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div class="text-xs text-slate-500">最近一次</div>
-                        <div class="mt-1 font-semibold text-slate-950">{{ dateTimeText(latestPass?.smsj) }}</div>
+                    <div class="rounded-lg border border-line bg-surface-raised px-3 py-2">
+                        <div class="text-xs text-muted">最近一次</div>
+                        <div class="mt-1 font-semibold text-main">{{ dateTimeText(latestPass?.smsj) }}</div>
                     </div>
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div class="text-xs text-slate-500">最近地点</div>
-                        <div class="mt-1 truncate font-semibold text-slate-950">{{ latestPass?.smdd || '-' }}</div>
+                    <div class="rounded-lg border border-line bg-surface-raised px-3 py-2">
+                        <div class="text-xs text-muted">最近地点</div>
+                        <div class="mt-1 truncate font-semibold text-main">{{ latestPass?.smdd || '-' }}</div>
                     </div>
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div class="text-xs text-slate-500">同行提示</div>
-                        <div class="mt-1 font-semibold" :class="possibleFriendCount ? 'text-amber-700' : 'text-slate-950'">
+                    <div class="rounded-lg border border-line bg-surface-raised px-3 py-2">
+                        <div class="text-xs text-muted">同行提示</div>
+                        <div class="mt-1 font-semibold" :class="possibleFriendCount ? 'text-warning' : 'text-main'">
                             {{ possibleFriendCount ? `${possibleFriendCount} 人可能为朋友` : '暂无高频同行' }}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div v-if="props.recentPasses.length" class="overflow-hidden rounded-lg border border-slate-200">
-                <div class="grid grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden mobile-stack">
+            <div v-if="props.recentPasses.length" class="overflow-hidden rounded-lg border border-line">
+                <div class="grid grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] bg-surface-raised px-3 py-2 text-xs font-semibold text-muted max-lg:hidden mobile-stack">
                     <span>时间</span>
                     <span>地点</span>
                     <span>方向</span>
                     <span>设备</span>
                 </div>
-                <div class="divide-y divide-slate-100">
+                <div class="divide-y divide-line">
                     <div
                         v-for="item in props.recentPasses"
                         :key="`${item.gh}-${item.smsj}-${item.device || 'none'}`"
-                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] lg:items-center mobile-stack"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-surface-raised lg:grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] lg:items-center mobile-stack"
                     >
                         <div>
-                            <div class="font-semibold text-slate-950">{{ passTimePart(item.smsj) }}</div>
-                            <div class="mt-0.5 text-xs text-slate-500">{{ passDatePart(item.smsj) }}</div>
+                            <div class="font-semibold text-main">{{ passTimePart(item.smsj) }}</div>
+                            <div class="mt-0.5 text-xs text-muted">{{ passDatePart(item.smsj) }}</div>
                         </div>
-                        <div class="font-medium text-slate-900">{{ item.smdd || '-' }}</div>
+                        <div class="font-medium text-main">{{ item.smdd || '-' }}</div>
                         <div>
                             <span class="inline-flex min-w-14 justify-center rounded-full border px-2.5 py-1 text-xs font-semibold" :class="directionTone(item.crlx)">
                                 {{ directionText(item.crlx) }}
                             </span>
                         </div>
-                        <div class="break-all font-mono text-xs text-slate-600">{{ item.device || '-' }}</div>
+                        <div class="break-all font-mono text-xs text-muted">{{ item.device || '-' }}</div>
                     </div>
                 </div>
             </div>
-            <div v-else class="rounded-lg border border-dashed border-slate-300 px-3 py-8 text-center text-sm text-slate-500">暂无刷码记录</div>
+            <div v-else class="rounded-lg border border-dashed border-line px-3 py-8 text-center text-sm text-muted">暂无刷码记录</div>
         </section>
 
-        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between mobile-wrap">
                 <div>
-                    <h2 class="text-lg font-semibold text-slate-950">10秒内同向随行人员</h2>
-                    <p class="mt-1 text-sm text-slate-500">同地点、同进出方向累计超过 2 次时标记为可能为朋友。</p>
+                    <h2 class="text-lg font-semibold text-main">10秒内同向随行人员</h2>
+                    <p class="mt-1 text-sm text-muted">同地点、同进出方向累计超过 2 次时标记为可能为朋友。</p>
                 </div>
-                <div v-if="strongestCompanion" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <div v-if="strongestCompanion" class="rounded-lg border border-warning-line bg-warning-surface px-3 py-2 text-sm text-warning">
                     最高频：{{ strongestCompanion.xm || strongestCompanion.xgh || '-' }}，{{ strongestCompanion.companion_count }} 次
                 </div>
             </div>
-            <div v-if="props.companionInsights.length" class="overflow-hidden rounded-lg border border-slate-200">
-                <div class="grid grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden mobile-stack">
+            <div v-if="props.companionInsights.length" class="overflow-hidden rounded-lg border border-line">
+                <div class="grid grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] bg-surface-raised px-3 py-2 text-xs font-semibold text-muted max-lg:hidden mobile-stack">
                     <span>人员</span>
                     <span>同行次数</span>
                     <span>最近出现</span>
                     <span>地点 / 方向</span>
                     <span>标记</span>
                 </div>
-                <div class="divide-y divide-slate-100">
+                <div class="divide-y divide-line">
                     <div
                         v-for="item in props.companionInsights"
                         :key="item.xgh"
-                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] lg:items-center mobile-stack"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-surface-raised lg:grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] lg:items-center mobile-stack"
                     >
                         <div>
-                            <a v-if="item.xgh" class="font-semibold text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
-                            <span v-else class="font-semibold text-slate-900">{{ item.xm || '-' }}</span>
-                            <div class="mt-0.5 font-mono text-xs text-slate-500">{{ item.xgh || '-' }}</div>
+                            <a v-if="item.xgh" class="font-semibold text-info hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
+                            <span v-else class="font-semibold text-main">{{ item.xm || '-' }}</span>
+                            <div class="mt-0.5 font-mono text-xs text-muted">{{ item.xgh || '-' }}</div>
                         </div>
                         <div>
-                            <span class="inline-flex min-w-12 justify-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">{{ item.companion_count }}</span>
+                            <span class="inline-flex min-w-12 justify-center rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-on-accent">{{ item.companion_count }}</span>
                         </div>
                         <div>
-                            <div class="font-semibold text-slate-950">{{ passTimePart(item.last_met_at) }}</div>
-                            <div class="mt-0.5 text-xs text-slate-500">{{ passDatePart(item.last_met_at) }}</div>
+                            <div class="font-semibold text-main">{{ passTimePart(item.last_met_at) }}</div>
+                            <div class="mt-0.5 text-xs text-muted">{{ passDatePart(item.last_met_at) }}</div>
                         </div>
-                        <div class="text-slate-700">
-                            <span class="font-medium text-slate-900">{{ item.last_smdd || '-' }}</span>
+                        <div class="text-muted">
+                            <span class="font-medium text-main">{{ item.last_smdd || '-' }}</span>
                             <span class="ml-2 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold" :class="directionTone(item.last_crlx)">{{ directionText(item.last_crlx) }}</span>
                         </div>
                         <div>
@@ -1113,17 +1113,17 @@ async function saveFamily() {
                     </div>
                 </div>
             </div>
-            <div v-else class="rounded-lg border border-dashed border-slate-300 px-3 py-8 text-center text-sm text-slate-500">暂无随行人员记录</div>
+            <div v-else class="rounded-lg border border-dashed border-line px-3 py-8 text-center text-sm text-muted">暂无随行人员记录</div>
         </section>
 
-        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                <h2 class="text-lg font-semibold text-slate-950">体测成绩</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <h2 class="text-lg font-semibold text-main">体测成绩</h2>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">学年</th>
                             <th class="px-3 py-2 text-left">总分</th>
@@ -1133,11 +1133,11 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">备注</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.physicalTests" :key="item.id">
                             <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">{{ scoreText(item.score) }}</span>
+                                <span class="rounded bg-info-surface px-2 py-1 text-xs font-semibold text-info">{{ scoreText(item.score) }}</span>
                             </td>
                             <td class="px-3 py-2">{{ item.gender || '-' }}</td>
                             <td class="px-3 py-2">{{ item.college || '-' }}</td>
@@ -1145,21 +1145,21 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.remark || '-' }}</td>
                         </tr>
                         <tr v-if="!props.physicalTests.length">
-                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无体测成绩</td>
+                            <td colspan="6" class="px-3 py-6 text-center text-muted">暂无体测成绩</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <h2 class="text-lg font-semibold text-main">资助对象记录</h2>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">学年</th>
                             <th class="px-3 py-2 text-left">资助等级</th>
@@ -1167,31 +1167,31 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">专业</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.supportRecipients" :key="item.id">
                             <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
                             <td class="px-3 py-2">
-                                <span class="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{{ item.support_level || '-' }}</span>
+                                <span class="rounded bg-warning-surface px-2 py-1 text-xs font-semibold text-warning">{{ item.support_level || '-' }}</span>
                             </td>
                             <td class="px-3 py-2">{{ item.college || '-' }}</td>
                             <td class="px-3 py-2">{{ item.major || '-' }}</td>
                         </tr>
                         <tr v-if="!props.supportRecipients.length">
-                            <td colspan="4" class="px-3 py-6 text-center text-slate-500">暂无资助对象记录</td>
+                            <td colspan="4" class="px-3 py-6 text-center text-muted">暂无资助对象记录</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                <h2 class="text-lg font-semibold text-slate-950">助学贷款记录</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <h2 class="text-lg font-semibold text-main">助学贷款记录</h2>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">年度</th>
                             <th class="px-3 py-2 text-left">来源</th>
@@ -1201,7 +1201,7 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">备注</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="loan in props.loans" :key="loan.id">
                             <td class="px-3 py-2">{{ loan.annual_year || '-' }}</td>
                             <td class="px-3 py-2">{{ loan.source || '-' }}</td>
@@ -1211,21 +1211,21 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ loan.remark || '-' }}</td>
                         </tr>
                         <tr v-if="!props.loans.length">
-                            <td colspan="6" class="px-3 py-6 text-center text-slate-500">暂无助学贷款记录</td>
+                            <td colspan="6" class="px-3 py-6 text-center text-muted">暂无助学贷款记录</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                <h2 class="text-lg font-semibold text-slate-950">团学干部任职考核</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <h2 class="text-lg font-semibold text-main">团学干部任职考核</h2>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">学年</th>
                             <th class="px-3 py-2 text-left">学期</th>
@@ -1236,7 +1236,7 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">等级</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.cadreAssessments" :key="item.id">
                             <td class="px-3 py-2">{{ item.academic_year || '-' }}</td>
                             <td class="px-3 py-2">{{ item.semester === '1' ? '第一学期' : item.semester === '2' ? '第二学期' : '-' }}</td>
@@ -1247,21 +1247,21 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.grade || '-' }}</td>
                         </tr>
                         <tr v-if="!props.cadreAssessments.length">
-                            <td colspan="7" class="px-3 py-6 text-center text-slate-500">暂无团学干部任职考核记录</td>
+                            <td colspan="7" class="px-3 py-6 text-center text-muted">暂无团学干部任职考核记录</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                <h2 class="text-lg font-semibold text-slate-950">科技竞赛获奖</h2>
-                <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                <h2 class="text-lg font-semibold text-main">科技竞赛获奖</h2>
+                <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
             </div>
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">时间</th>
                             <th class="px-3 py-2 text-left">荣誉名称</th>
@@ -1270,7 +1270,7 @@ async function saveFamily() {
                             <th class="px-3 py-2 text-left">班级</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="item in props.technologyCompetitionAwards" :key="item.id">
                             <td class="px-3 py-2">{{ dateText(item.awarded_at) }}</td>
                             <td class="px-3 py-2">{{ item.award_name || '-' }}</td>
@@ -1279,7 +1279,7 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ item.class_name || '-' }}</td>
                         </tr>
                         <tr v-if="!props.technologyCompetitionAwards.length">
-                            <td colspan="5" class="px-3 py-6 text-center text-slate-500">暂无科技竞赛获奖记录</td>
+                            <td colspan="5" class="px-3 py-6 text-center text-muted">暂无科技竞赛获奖记录</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1287,56 +1287,56 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'honor'" class="mb-6 grid gap-6 lg:grid-cols-2 mobile-stack">
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                    <h2 class="text-lg font-semibold text-slate-950">奖励记录</h2>
-                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <h2 class="text-lg font-semibold text-main">奖励记录</h2>
+                    <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
                 </div>
-                <div class="overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div class="overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">年度</th>
                                 <th class="px-3 py-2 text-left">奖励名称</th>
                                 <th class="px-3 py-2 text-left">等级</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <tr v-for="award in props.awards" :key="award.id">
                                 <td class="px-3 py-2">{{ award.annual_year || '-' }}</td>
                                 <td class="px-3 py-2">{{ award.award_name || '-' }}</td>
                                 <td class="px-3 py-2">{{ award.level || '-' }}</td>
                             </tr>
                             <tr v-if="!props.awards.length">
-                                <td colspan="3" class="px-3 py-6 text-center text-slate-500">暂无奖励记录</td>
+                                <td colspan="3" class="px-3 py-6 text-center text-muted">暂无奖励记录</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
-                    <h2 class="text-lg font-semibold text-slate-950">惩罚记录</h2>
-                    <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
+                    <h2 class="text-lg font-semibold text-main">惩罚记录</h2>
+                    <a href="/student-imports" class="text-sm text-info hover:underline">导入</a>
                 </div>
-                <div class="overflow-x-auto rounded-lg border border-slate-200">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-600">
+                <div class="overflow-x-auto rounded-lg border border-line">
+                    <table class="min-w-full text-sm ui-table">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="px-3 py-2 text-left">发生年度</th>
                                 <th class="px-3 py-2 text-left">惩罚时间</th>
                                 <th class="px-3 py-2 text-left">惩罚原因</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-line">
                             <tr v-for="punishment in props.punishments" :key="punishment.id">
                                 <td class="px-3 py-2">{{ punishment.annual_year || '-' }}</td>
                                 <td class="px-3 py-2">{{ punishment.punished_at || '-' }}</td>
                                 <td class="px-3 py-2">{{ punishment.reason || '-' }}</td>
                             </tr>
                             <tr v-if="!props.punishments.length">
-                                <td colspan="3" class="px-3 py-6 text-center text-slate-500">暂无惩罚记录</td>
+                                <td colspan="3" class="px-3 py-6 text-center text-muted">暂无惩罚记录</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1344,21 +1344,21 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'family'" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section v-if="activeProfileSection === 'family'" class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2 mobile-wrap">
                 <div>
-                    <h2 class="text-lg font-semibold text-slate-950">家长信息</h2>
-                    <p v-if="!props.canUpdateFamilies" class="mt-1 text-xs text-slate-500">仅该学生当前分院的辅导员或超管可修改。</p>
+                    <h2 class="text-lg font-semibold text-main">家长信息</h2>
+                    <p v-if="!props.canUpdateFamilies" class="mt-1 text-xs text-muted">仅该学生当前分院的辅导员或超管可修改。</p>
                 </div>
             </div>
 
-            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'">
+            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-danger-line bg-danger-surface text-danger' : 'border-success-line bg-success-surface text-success'">
                 {{ notice.text }}
             </div>
 
-            <div class="overflow-x-auto rounded-lg border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">姓名</th>
                             <th class="px-3 py-2 text-left">关系</th>
@@ -1369,7 +1369,7 @@ async function saveFamily() {
                             <th v-if="props.canUpdateFamilies" class="px-3 py-2 text-left">操作</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="family in familyRows" :key="family.id" class="align-top">
                             <td class="px-3 py-2">{{ family.name || '-' }}</td>
                             <td class="px-3 py-2">{{ family.relationship || family.specific_relationship || '-' }}</td>
@@ -1378,11 +1378,11 @@ async function saveFamily() {
                             <td class="px-3 py-2">{{ family.phone || '-' }}</td>
                             <td class="px-3 py-2">{{ family.is_emergency_contact ? '是' : '否' }}</td>
                             <td v-if="props.canUpdateFamilies" class="px-3 py-2">
-                                <button type="button" class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50" @click="openEdit(family)">编辑</button>
+                                <button type="button" class="rounded border border-line px-2 py-1 text-xs text-muted hover:bg-surface-raised ui-button" @click="openEdit(family)">编辑</button>
                             </td>
                         </tr>
                         <tr v-if="!familyRows.length">
-                            <td :colspan="props.canUpdateFamilies ? 7 : 6" class="px-3 py-6 text-center text-slate-500">暂无家长信息</td>
+                            <td :colspan="props.canUpdateFamilies ? 7 : 6" class="px-3 py-6 text-center text-muted">暂无家长信息</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1392,45 +1392,45 @@ async function saveFamily() {
             </div>
         </div>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 mobile-modal" @click.self="closeEdit">
-            <form class="w-full max-w-2xl rounded-lg bg-white p-5 shadow-xl" @submit.prevent="saveFamily">
-                <h2 class="mb-4 text-xl font-bold text-slate-950">编辑家长信息</h2>
+        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 mobile-modal" @click.self="closeEdit">
+            <form class="w-full max-w-2xl rounded-lg bg-surface p-5 shadow-xl ui-card" @submit.prevent="saveFamily">
+                <h2 class="mb-4 text-xl font-bold text-main">编辑家长信息</h2>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         姓名
-                        <input v-model="form.name" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.name" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         关系
-                        <input v-model="form.relationship" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.relationship" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         具体关系
-                        <input v-model="form.specific_relationship" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.specific_relationship" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         工作单位
-                        <input v-model="form.work_unit" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.work_unit" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         职务
-                        <input v-model="form.position" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.position" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         手机
-                        <input v-model="form.phone" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="form.phone" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
-                    <label class="text-sm text-slate-600 sm:col-span-2">
+                    <label class="text-sm text-muted sm:col-span-2">
                         紧急联系人
-                        <select v-model="form.is_emergency_contact" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950">
+                        <select v-model="form.is_emergency_contact" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control">
                             <option value="0">否</option>
                             <option value="1">是</option>
                         </select>
                     </label>
                 </div>
                 <div class="mt-5 flex justify-end gap-2 mobile-wrap">
-                    <button type="button" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="closeEdit">取消</button>
-                    <button class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
+                    <button type="button" class="rounded border border-line px-3 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="closeEdit">取消</button>
+                    <button class="rounded bg-accent px-3 py-2 text-sm font-semibold text-on-accent disabled:opacity-60 ui-button ui-button-primary" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
                 </div>
             </form>
         </div>

@@ -422,14 +422,14 @@ onBeforeUnmount(stopPolling);
 </script>
 
 <template>
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 ui-page">
+        <header class="mb-6 rounded-lg border border-line bg-surface p-6 shadow-sm ui-card">
             <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
-                    <p class="mt-1 text-sm text-slate-500">集中导入奖惩、科技竞赛获奖、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
+                    <h1 class="text-2xl font-bold text-main">学生数据导入</h1>
+                    <p class="mt-1 text-sm text-muted">集中导入奖惩、科技竞赛获奖、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
                 </div>
-                <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
+                <a href="/" class="rounded-lg border border-line px-4 py-2 text-sm text-muted hover:bg-surface-raised ui-button">返回首页</a>
             </div>
         </header>
 
@@ -439,112 +439,112 @@ onBeforeUnmount(stopPolling);
                     v-for="type in importTypes"
                     :key="type.key"
                     type="button"
-                    class="w-full rounded-lg border bg-white p-4 text-left shadow-sm transition hover:border-slate-400"
-                    :class="selectedKey === type.key ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'"
+                    class="w-full rounded-lg border bg-surface p-4 text-left shadow-sm transition hover:border-line ui-button"
+                    :class="selectedKey === type.key ? 'border-accent ring-1 ring-accent' : 'border-line'"
                     @click="selectType(type.key)"
                 >
-                    <p class="text-xs font-semibold text-slate-500">{{ type.eyebrow }}</p>
-                    <p class="mt-1 text-lg font-bold text-slate-950">{{ type.title }}</p>
-                    <p class="mt-2 text-xs leading-5 text-slate-500">{{ type.note }}</p>
+                    <p class="text-xs font-semibold text-muted">{{ type.eyebrow }}</p>
+                    <p class="mt-1 text-lg font-bold text-main">{{ type.title }}</p>
+                    <p class="mt-2 text-xs leading-5 text-muted">{{ type.note }}</p>
                 </button>
             </aside>
 
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-lg border border-line bg-surface p-5 shadow-sm ui-card">
                 <div class="flex flex-wrap items-start justify-between gap-3 mobile-wrap">
                     <div>
-                        <p class="text-xs font-semibold text-slate-500">{{ selectedType.eyebrow }}</p>
-                        <h2 class="mt-1 text-xl font-bold text-slate-950">{{ selectedType.title }}</h2>
-                        <p class="mt-2 text-sm text-slate-600">{{ selectedType.fields }}</p>
+                        <p class="text-xs font-semibold text-muted">{{ selectedType.eyebrow }}</p>
+                        <h2 class="mt-1 text-xl font-bold text-main">{{ selectedType.title }}</h2>
+                        <p class="mt-2 text-sm text-muted">{{ selectedType.fields }}</p>
                     </div>
-                    <a :href="selectedType.template" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">下载示例模板</a>
+                    <a :href="selectedType.template" class="rounded border border-line px-4 py-2 text-sm font-semibold text-muted hover:bg-surface-raised ui-button">下载示例模板</a>
                 </div>
 
                 <div v-if="showAnnualYearOptions" class="mt-5 grid gap-3 sm:grid-cols-2 mobile-stack">
-                    <label class="text-sm text-slate-600">
+                    <label class="text-sm text-muted">
                         {{ ['medical_insurance', 'safety_insurance'].includes(selectedKey) ? '参保年度' : '发生年度' }}
-                        <input v-model="annualYear" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="number" min="1900" max="2100">
+                        <input v-model="annualYear" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="number" min="1900" max="2100">
                     </label>
-                    <label v-if="showLoanOptions" class="text-sm text-slate-600">
+                    <label v-if="showLoanOptions" class="text-sm text-muted">
                         贷款来源
-                        <input v-model="source" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
+                        <input v-model="source" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text">
                     </label>
                 </div>
 
-                <label v-if="showSupportOptions" class="mt-5 block text-sm text-slate-600">
+                <label v-if="showSupportOptions" class="mt-5 block text-sm text-muted">
                     学年
-                    <input v-model="academicYear" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text" placeholder="2025-2026">
+                    <input v-model="academicYear" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text" placeholder="2025-2026">
                 </label>
 
-                <label v-if="showSemesterOptions" class="mt-3 block text-sm text-slate-600">
+                <label v-if="showSemesterOptions" class="mt-3 block text-sm text-muted">
                     学期
-                    <input v-model="semester" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text" placeholder="1">
+                    <input v-model="semester" class="mt-1 w-full rounded border border-line px-3 py-2 text-sm text-main ui-control" type="text" placeholder="1">
                 </label>
 
-                <label v-if="selectedKey === 'cadre_assessment'" class="mt-3 block text-sm text-slate-600">
+                <label v-if="selectedKey === 'cadre_assessment'" class="mt-3 block text-sm text-muted">
                     学期
-                    <select v-model="cadreSemester" required class="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950">
+                    <select v-model="cadreSemester" required class="mt-1 w-full rounded border border-line bg-surface px-3 py-2 text-sm text-main ui-control">
                         <option value="" disabled>请选择学期</option>
                         <option value="1">第一学期</option>
                         <option value="2">第二学期</option>
                     </select>
                 </label>
 
-                <div class="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
-                    <input :accept="selectedType.accept" type="file" class="block w-full text-sm text-slate-700 file:mr-4 file:rounded file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white" @change="chooseFile">
-                    <p class="mt-3 text-xs text-slate-500">
+                <div class="mt-5 rounded-lg border border-dashed border-line bg-surface-raised p-6">
+                    <input :accept="selectedType.accept" type="file" class="block w-full text-sm text-muted file:mr-4 file:rounded file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-on-accent ui-control" @change="chooseFile">
+                    <p class="mt-3 text-xs text-muted">
                         {{ selectedKey === 'cadre_assessment' ? '支持 .pdf / .docx。DOCX 请保留原表格列结构。' : '支持 .xls / .xlsx。请保留模板表头，标题行可以存在。' }}
                     </p>
                 </div>
 
-                <div v-if="notice.text" class="mt-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : notice.type === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-sky-200 bg-sky-50 text-sky-700'">
+                <div v-if="notice.text" class="mt-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-danger-line bg-danger-surface text-danger' : notice.type === 'success' ? 'border-success-line bg-success-surface text-success' : notice.type === 'warning' ? 'border-warning-line bg-warning-surface text-warning' : 'border-info-line bg-info-surface text-info'">
                     {{ notice.text }}
                 </div>
 
                 <div class="mt-5 flex flex-wrap gap-2 mobile-wrap">
-                    <button class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="uploading" @click="upload">{{ uploading ? '导入中...' : '开始导入' }}</button>
+                    <button class="rounded bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60 ui-button ui-button-primary" :disabled="uploading" @click="upload">{{ uploading ? '导入中...' : '开始导入' }}</button>
                 </div>
 
-                <div v-if="result" class="mt-6 rounded-lg border border-slate-200 p-4">
+                <div v-if="result" class="mt-6 rounded-lg border border-line p-4">
                     <div class="grid gap-3 sm:grid-cols-3 mobile-stack">
-                        <div v-for="(label, key) in selectedType.resultLabels" :key="key" class="rounded bg-emerald-50 p-3">
-                            <p class="text-xs text-emerald-700">{{ label }}</p>
-                            <p class="mt-1 text-2xl font-bold text-emerald-800">{{ result[key] || 0 }}</p>
+                        <div v-for="(label, key) in selectedType.resultLabels" :key="key" class="rounded bg-success-surface p-3">
+                            <p class="text-xs text-success">{{ label }}</p>
+                            <p class="mt-1 text-2xl font-bold text-success">{{ result[key] || 0 }}</p>
                         </div>
                     </div>
-                    <ul v-if="(result.errors || []).length" class="mt-4 space-y-1 text-sm text-rose-700">
+                    <ul v-if="(result.errors || []).length" class="mt-4 space-y-1 text-sm text-danger">
                         <li v-for="error in result.errors" :key="error">{{ error }}</li>
                     </ul>
-                    <p v-if="selectedKey === 'cadre_assessment' && result.pending > (result.pending_records || []).length" class="mt-4 text-sm text-amber-700">
+                    <p v-if="selectedKey === 'cadre_assessment' && result.pending > (result.pending_records || []).length" class="mt-4 text-sm text-warning">
                         当前显示前 {{ (result.pending_records || []).length }} 条待确认记录，共 {{ result.pending }} 条。
                     </p>
                     <button
                         v-if="selectedKey === 'cadre_assessment' && taskId && result.pending > (result.pending_records || []).length"
                         type="button"
-                        class="mt-3 rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-60"
+                        class="mt-3 rounded border border-line px-3 py-2 text-sm text-muted disabled:opacity-60 ui-button"
                         :disabled="loadingMoreMatches"
                         @click="loadMoreCadreMatches"
                     >{{ loadingMoreMatches ? '加载中...' : '加载更多待确认记录' }}</button>
                     <div v-if="(result.pending_records || []).length" class="mt-4 space-y-3">
-                        <h3 class="text-sm font-semibold text-slate-900">待人工确认</h3>
-                        <div v-for="match in result.pending_records" :key="match.id" class="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                            <div class="text-sm text-slate-800">
+                        <h3 class="text-sm font-semibold text-main">待人工确认</h3>
+                        <div v-for="match in result.pending_records" :key="match.id" class="rounded-lg border border-warning-line bg-warning-surface p-3">
+                            <div class="text-sm text-main">
                                 <span class="font-semibold">{{ match.student_name }}</span>
                                 <span class="ml-2">{{ match.organization || '-' }} / {{ match.department || '-' }} / {{ match.position || '-' }}</span>
-                                <span class="ml-2 text-slate-500">{{ match.grade || '-' }}</span>
+                                <span class="ml-2 text-muted">{{ match.grade || '-' }}</span>
                             </div>
                             <div v-if="(match.candidates || []).length" class="mt-2 flex flex-wrap gap-2 mobile-wrap">
                                 <button
                                     v-for="candidate in match.candidates"
                                     :key="candidate.xgh"
                                     type="button"
-                                    class="rounded border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                    class="rounded border border-line bg-surface px-3 py-1 text-xs text-muted hover:bg-surface-raised disabled:opacity-60 ui-button"
                                     :disabled="resolvingMatchId === match.id"
                                     @click="resolveCadreMatch(match, candidate)"
                                 >
                                     {{ candidate.xm || '-' }} {{ candidate.xgh }} {{ candidate.dwmc || '' }} {{ candidate.bjmc || '' }}
                                 </button>
                             </div>
-                            <p v-else class="mt-2 text-xs text-amber-700">没有找到候选学生，请先核对学生基础信息后重新导入或补充匹配。</p>
+                            <p v-else class="mt-2 text-xs text-warning">没有找到候选学生，请先核对学生基础信息后重新导入或补充匹配。</p>
                         </div>
                     </div>
                 </div>

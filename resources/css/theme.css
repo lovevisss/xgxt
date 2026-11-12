@@ -1,0 +1,91 @@
+/* Shared presentation tokens. Business states remain separate from selection. */
+@theme {
+    --color-canvas: #151a18;
+    --color-surface: #222a26;
+    --color-surface-raised: #2c3530;
+    --color-surface-hover: #354038;
+    --color-line: #3d4841;
+    --color-main: #f3f6f1;
+    --color-muted: #b4bfb6;
+    --color-accent: #c5f564;
+    --color-accent-hover: #d4ff84;
+    --color-on-accent: #192211;
+    --color-selected: #333f25;
+    --color-danger: #ffa7b4;
+    --color-danger-surface: #3e252c;
+    --color-danger-line: #7d4652;
+    --color-warning: #f4d180;
+    --color-warning-surface: #393222;
+    --color-warning-line: #76633c;
+    --color-success: #93ddba;
+    --color-success-surface: #223b30;
+    --color-success-line: #416d57;
+    --color-info: #a2cfe9;
+    --color-info-surface: #233540;
+    --color-info-line: #446478;
+}
+
+@layer base {
+    :root { color-scheme: dark; }
+    body { background: var(--color-canvas); color: var(--color-main); }
+    ::selection { background: var(--color-accent); color: var(--color-on-accent); }
+    input, select, textarea { accent-color: var(--color-accent); }
+    input::placeholder, textarea::placeholder { color: var(--color-muted); opacity: .8; }
+    option { background: var(--color-surface); color: var(--color-main); }
+    :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+}
+
+@layer components {
+    .ui-page { padding: 24px; line-height: 1.55; }
+    .ui-page h1 { font-size: 26px; font-weight: 700; letter-spacing: -.025em; }
+    .ui-page h2 { letter-spacing: -.015em; }
+    .ui-card { padding: 20px; border: 1px solid var(--color-line); border-radius: 16px; background: var(--color-surface); box-shadow: 0 6px 20px #00000012; }
+    .ui-page > header { margin-bottom: 16px; }
+    .ui-control { min-height: 40px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface-raised); color: var(--color-main); }
+    .ui-control:disabled { opacity: .5; cursor: not-allowed; }
+    .ui-button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 14px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface-raised); color: var(--color-main); font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color .15s, border-color .15s; }
+    .ui-button:hover:not(:disabled) { background: var(--color-surface-hover); border-color: var(--color-muted); }
+    .ui-button-primary { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+    .ui-button-primary:hover:not(:disabled) { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+    .ui-button:disabled { opacity: .45; cursor: not-allowed; }
+    .ui-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .ui-table th { background: var(--color-surface-raised); color: var(--color-muted); font-weight: 600; text-align: left; }
+    .ui-table th, .ui-table td { padding: 12px; min-width: 88px; border-bottom: 1px solid var(--color-line); overflow-wrap: anywhere; }
+    .ui-table tbody tr:nth-child(even) { background: var(--color-surface-raised); }
+    .ui-table tbody tr:hover { background: var(--color-surface-hover); }
+    .ui-table td a { color: var(--color-accent); }
+    .ui-table td a:hover { text-decoration: underline; }
+    .ui-table tbody tr:last-child td { border-bottom: 0; }
+    .ui-code { background: var(--color-canvas); color: var(--color-main); }
+}
+
+/* Override legacy table rules without changing column order or data rendering. */
+.ui-page { padding: 24px; }
+.ui-page h1 { font-size: 26px; }
+.ui-page > header { margin-bottom: 16px; }
+.ui-card { padding: 20px; border-radius: 16px; }
+.profile-navigation, .profile-navigation-panel { min-width: 0; }
+.ui-page .ui-table th, .ui-page .ui-table td { overflow-wrap: anywhere; }
+.ui-students-table { table-layout: fixed; min-width: 860px; }
+.ui-students-table th:nth-child(1) { width: 150px; }
+.ui-students-table th:nth-child(2) { width: 100px; }
+.ui-students-table th:nth-child(3) { width: 190px; }
+.ui-students-table th:nth-child(4) { width: 140px; }
+.ui-students-table th:nth-child(5) { width: 130px; }
+.ui-students-table th:nth-child(6) { width: 80px; }
+.ui-students-table th:nth-child(7) { width: 90px; }
+
+/* Legacy workspaces keep their layout selectors, sharing the same control states. */
+.permission-workspace .save-button:hover:not(:disabled),
+.counselor-workspace .primary:hover:not(:disabled) { background: var(--color-accent-hover); }
+.permission-workspace .quiet-button:hover, .permission-workspace .icon-button:hover:not(:disabled),
+.permission-workspace .pager button:hover:not(:disabled) { background: var(--color-surface-hover); }
+.permission-workspace .permission-notice, .counselor-workspace .notice { border-radius: 8px; }
+.permission-workspace input, .permission-workspace select,
+.counselor-workspace input, .counselor-workspace select { color: var(--color-main); }
+.ui-page .ui-button-primary { color: var(--color-on-accent); }
+.ui-page .ui-button:hover:not(:disabled) { background: var(--color-surface-hover); border-color: var(--color-muted); }
+.ui-page .ui-button-primary:hover:not(:disabled),
+.ui-page .ui-button.bg-accent:hover:not(:disabled) { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.ui-page .ui-table tbody tr:hover { background: var(--color-surface-hover); }
+.ui-page .ui-control::file-selector-button { background: var(--color-surface-hover); color: var(--color-main); border: 1px solid var(--color-line); border-radius: 6px; padding: 6px 10px; margin-right: 10px; }

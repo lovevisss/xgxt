@@ -116,7 +116,7 @@ onMounted(() => load());
 </script>
 
 <template>
-    <main class="permission-workspace">
+    <main class="permission-workspace ui-page">
         <header class="permission-header">
             <div>
                 <a href="/" class="back-link"><ArrowLeft :size="15" /> 首页</a>
@@ -124,8 +124,8 @@ onMounted(() => load());
                 <p>从在职教职工目录选择人员，统一配置系统角色和带班管理范围。</p>
             </div>
             <div class="header-actions">
-                <a href="/sync-tasks" class="quiet-button"><RefreshCw :size="16" /> 同步中心</a>
-                <a href="/admin/login-logs" class="quiet-button">登录日志</a>
+                <a href="/sync-tasks" class="quiet-button ui-button"><RefreshCw :size="16" /> 同步中心</a>
+                <a href="/admin/login-logs" class="quiet-button ui-button">登录日志</a>
             </div>
         </header>
 
@@ -139,22 +139,22 @@ onMounted(() => load());
         </section>
 
         <section class="directory-filters">
-            <label class="search-field"><Search :size="16" /><input v-model.trim="query" placeholder="姓名 / 工号" aria-label="搜索姓名或工号" @keyup.enter="load(1)"></label>
-            <select v-model="unit" aria-label="筛选单位" @change="load(1)">
+            <label class="search-field"><Search :size="16" /><input v-model.trim="query" placeholder="姓名 / 工号" aria-label="搜索姓名或工号" @keyup.enter="load(1)" class="ui-control"></label>
+            <select v-model="unit" aria-label="筛选单位" @change="load(1)" class="ui-control">
                 <option value="">全部单位</option>
                 <option v-for="item in units" :key="item.code" :value="item.code">{{ item.name }}（{{ item.total }}）</option>
             </select>
-            <select v-model="status" aria-label="筛选在职状态" @change="load(1)">
+            <select v-model="status" aria-label="筛选在职状态" @change="load(1)" class="ui-control">
                 <option value="active">在职</option>
                 <option value="inactive">非在职</option>
                 <option value="all">全部状态</option>
             </select>
-            <select v-model="role" aria-label="筛选角色" @change="load(1)">
+            <select v-model="role" aria-label="筛选角色" @change="load(1)" class="ui-control">
                 <option value="">全部角色</option>
                 <option value="unassigned">未开通</option>
                 <option v-for="item in roles" :key="item" :value="item">{{ roleLabel(item) }}</option>
             </select>
-            <button type="button" class="icon-button" title="执行搜索" @click="load(1)"><Search :size="17" /></button>
+            <button type="button" class="icon-button ui-button" title="执行搜索" @click="load(1)"><Search :size="17" /></button>
         </section>
 
         <div class="permission-layout">
@@ -167,7 +167,7 @@ onMounted(() => load());
                     v-for="member in staff"
                     :key="member.id"
                     type="button"
-                    class="staff-row"
+                    class="staff-row ui-button"
                     :class="{ selected: selected?.id === member.id, inactive: !member.is_active }"
                     @click="selectStaff(member)"
                 >
@@ -182,8 +182,8 @@ onMounted(() => load());
                 </button>
                 <p v-if="!staff.length" class="empty-state">{{ loading ? '正在加载…' : '没有符合条件的人员' }}</p>
                 <div class="pager">
-                    <button title="上一页" :disabled="loading || meta.current_page <= 1" @click="load(meta.current_page - 1)"><ChevronLeft :size="17" /></button>
-                    <button title="下一页" :disabled="loading || meta.current_page >= meta.last_page" @click="load(meta.current_page + 1)"><ChevronRight :size="17" /></button>
+                    <button title="上一页" :disabled="loading || meta.current_page <= 1" @click="load(meta.current_page - 1)" class="ui-button"><ChevronLeft :size="17" /></button>
+                    <button title="下一页" :disabled="loading || meta.current_page >= meta.last_page" @click="load(meta.current_page + 1)" class="ui-button"><ChevronRight :size="17" /></button>
                 </div>
             </aside>
 
@@ -231,7 +231,7 @@ onMounted(() => load());
                             </template>
                         </fieldset>
 
-                        <button class="save-button" :disabled="!selected.is_active || saving">
+                        <button class="save-button ui-button ui-button-primary" :disabled="!selected.is_active || saving">
                             <Save :size="17" /> {{ saving ? '保存中…' : '保存人员权限' }}
                         </button>
                         <p v-if="!selected.is_active" class="inactive-note"><UserX :size="15" /> 非在职人员不能新增或恢复权限。</p>
@@ -258,27 +258,27 @@ onMounted(() => load());
 </template>
 
 <style>
-.permission-workspace{--ink:#1f2d31;--muted:#68797f;--line:#dce4e5;--soft:#f1f6f4;--accent:#15705a;max-width:1440px;margin:auto;padding:28px 24px 48px;color:var(--ink);letter-spacing:0}
+.permission-workspace{--ink:var(--color-main);--muted:var(--color-muted);--line:var(--color-line);--soft:var(--color-surface-raised);--accent:var(--color-accent);max-width:1440px;margin:auto;padding:24px;color:var(--ink);letter-spacing:0}
 .permission-header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--line)}
 .permission-header h1{margin:8px 0 4px;font-size:26px;font-weight:750}.permission-header p,.detail-heading p{margin:0;color:var(--muted);font-size:13px}
-.back-link,.header-actions,.quiet-button{display:flex;align-items:center;gap:7px}.back-link{color:#53666c;font-size:13px}.header-actions{flex-wrap:wrap}
-.quiet-button,.icon-button,.pager button{border:1px solid #cbd6d8;background:#fff;border-radius:5px;padding:8px 11px;font-size:13px;min-height:36px}
-.permission-notice{margin:16px 0 0;padding:11px 14px;font-size:13px}.permission-notice.is-error{background:#fff0ef;color:#9f3733}.permission-notice.is-success{background:#e7f5ee;color:#17654f}
-.permission-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}.permission-stats>div{display:flex;align-items:center;gap:10px;padding:18px;border-right:1px solid var(--line);color:#517068}.permission-stats>div:last-child{border:0}.permission-stats span{display:flex;align-items:baseline;gap:6px;color:var(--muted);font-size:12px}.permission-stats strong{font-size:23px;color:var(--ink)}
-.directory-filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:15px 0}.directory-filters select,.directory-filters input{border:1px solid #cad5d7;border-radius:5px;background:#fff;padding:8px 10px;font-size:13px;min-height:37px}.directory-filters select{max-width:280px}.search-field{display:flex;align-items:center;gap:7px}.search-field input{width:210px}
-.permission-layout{display:grid;grid-template-columns:390px minmax(0,1fr);border-block:1px solid var(--line);min-height:640px;background:#fff}
+.back-link,.header-actions,.quiet-button{display:flex;align-items:center;gap:7px}.back-link{color:var(--color-muted);font-size:13px}.header-actions{flex-wrap:wrap}
+.quiet-button,.icon-button,.pager button{border:1px solid var(--color-line);background:var(--color-surface);border-radius:8px;padding:8px 11px;font-size:13px;min-height:40px}
+.permission-notice{margin:16px 0 0;padding:11px 14px;font-size:13px}.permission-notice.is-error{background:var(--color-danger-surface);color:var(--color-danger)}.permission-notice.is-success{background:var(--color-success-surface);color:var(--color-success)}
+.permission-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}.permission-stats>div{display:flex;align-items:center;gap:10px;padding:18px;border-right:1px solid var(--line);color:var(--color-muted)}.permission-stats>div:last-child{border:0}.permission-stats span{display:flex;align-items:baseline;gap:6px;color:var(--muted);font-size:12px}.permission-stats strong{font-size:23px;color:var(--ink)}
+.directory-filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:15px 0}.directory-filters select,.directory-filters input{border:1px solid var(--color-line);border-radius:8px;background:var(--color-surface);padding:8px 10px;font-size:13px;min-height:40px}.directory-filters select{max-width:280px}.search-field{display:flex;align-items:center;gap:7px}.search-field input{width:210px}
+.permission-layout{display:grid;grid-template-columns:390px minmax(0,1fr);border-block:1px solid var(--line);min-height:640px;background:var(--color-surface)}
 .staff-directory{border-right:1px solid var(--line);min-width:0}.directory-caption{display:flex;justify-content:space-between;padding:10px 14px;background:var(--soft);color:var(--muted);font-size:12px}
-.staff-row{display:flex;width:100%;justify-content:space-between;align-items:center;gap:14px;border:0;border-bottom:1px solid #edf1f2;background:#fff;padding:12px 14px;text-align:left;cursor:pointer}.staff-row:hover{background:#f6faf8}.staff-row.selected{background:#e6f4ee;box-shadow:inset 3px 0 var(--accent)}.staff-row.inactive{opacity:.62}
+.staff-row{display:flex;width:100%;justify-content:space-between;align-items:center;gap:14px;border:0;border-bottom:1px solid var(--color-line);background:var(--color-surface);padding:12px 14px;text-align:left;cursor:pointer}.staff-row:hover{background:var(--color-surface-hover)}.staff-row.selected{background:var(--color-selected);box-shadow:inset 3px 0 var(--accent)}.staff-row.inactive{opacity:.62}
 .staff-identity,.staff-access{min-width:0}.staff-identity strong,.staff-identity small,.staff-access small{display:block}.staff-identity strong{font-size:14px}.staff-identity small{margin-top:3px;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.staff-access{text-align:right;flex-shrink:0}.staff-access em{font-style:normal;font-size:12px}.staff-access small{color:var(--muted);font-size:11px;margin-top:3px}
 .pager{display:flex;justify-content:flex-end;gap:6px;padding:11px 14px}.pager button{padding:6px 9px}.pager button:disabled{opacity:.4}.empty-state{text-align:center;color:var(--muted);padding:48px 18px;font-size:13px}
-.permission-detail{padding:26px 30px;min-width:0}.detail-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-bottom:20px;border-bottom:1px solid var(--line)}.detail-heading h2{font-size:22px;margin:7px 0 3px}.status-mark,.account-state{display:inline-flex;padding:4px 7px;border-radius:3px;background:#f0f2f2;color:#6a797e;font-size:11px}.status-mark.active{background:#dff2e9;color:#14614c}.account-state{margin-top:4px}
+.permission-detail{padding:20px;min-width:0}.detail-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-bottom:20px;border-bottom:1px solid var(--line)}.detail-heading h2{font-size:22px;margin:7px 0 3px}.status-mark,.account-state{display:inline-flex;padding:4px 7px;border-radius:3px;background:var(--color-surface-raised);color:var(--color-muted);font-size:11px}.status-mark.active{background:var(--color-success-surface);color:var(--color-success)}.account-state{margin-top:4px}
 .staff-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:18px 0;border-bottom:1px solid var(--line)}.staff-facts dt{color:var(--muted);font-size:11px}.staff-facts dd{margin:5px 0 0;font-size:13px;overflow-wrap:anywhere}
-.permission-form fieldset{border:0;margin:0;padding:24px 0;border-bottom:1px solid var(--line)}.permission-form legend{font-size:15px;font-weight:700}.role-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:13px}.role-options label{display:flex;gap:9px;padding:12px;border:1px solid #d4dddf;border-radius:5px;cursor:pointer}.role-options label.checked{border-color:var(--accent);background:#edf7f3}.role-options input{margin-top:2px;accent-color:var(--accent)}.role-options strong,.role-options small{display:block}.role-options strong{font-size:13px}.role-options small{margin-top:4px;color:var(--muted);font-size:11px}
-.fieldset-heading{display:flex;justify-content:space-between;align-items:center;gap:18px}.fieldset-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}.switch input{position:absolute;opacity:0}.switch span{display:block;width:40px;height:22px;border-radius:12px;background:#bdc8ca;padding:3px;cursor:pointer}.switch span:after{content:'';display:block;width:16px;height:16px;border-radius:50%;background:white;transition:transform .15s}.switch input:checked+span{background:var(--accent)}.switch input:checked+span:after{transform:translateX(18px)}
+.permission-form fieldset{border:0;margin:0;padding:24px 0;border-bottom:1px solid var(--line)}.permission-form legend{font-size:15px;font-weight:700}.role-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:13px}.role-options label{display:flex;gap:9px;padding:12px;border:1px solid var(--color-line);border-radius:8px;cursor:pointer}.role-options label.checked{border-color:var(--accent);background:var(--color-selected)}.role-options input{margin-top:2px;accent-color:var(--accent)}.role-options strong,.role-options small{display:block}.role-options strong{font-size:13px}.role-options small{margin-top:4px;color:var(--muted);font-size:11px}
+.fieldset-heading{display:flex;justify-content:space-between;align-items:center;gap:18px}.fieldset-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}.switch input{position:absolute;opacity:0}.switch span{display:block;width:40px;height:22px;border-radius:12px;background:var(--color-line);padding:3px;cursor:pointer}.switch span:after{content:'';display:block;width:16px;height:16px;border-radius:50%;background:var(--color-main);transition:transform .15s}.switch input:checked+span{background:var(--accent)}.switch input:checked+span:after{transform:translateX(18px)}
 .all-colleges{display:inline-flex;gap:8px;margin-top:16px;font-size:13px}.college-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px;margin-top:14px}.college-grid label{display:flex;gap:8px;align-items:flex-start;font-size:13px}.college-grid input,.all-colleges input{accent-color:var(--accent);margin-top:2px}
-.save-button{display:inline-flex;align-items:center;gap:8px;margin-top:22px;border:1px solid var(--accent);border-radius:5px;background:var(--accent);color:white;padding:10px 15px;font-size:13px;font-weight:650}.save-button:disabled{opacity:.45}.inactive-note{display:inline-flex;align-items:center;gap:6px;margin-left:12px;color:#9d504a;font-size:12px}
-.detail-placeholder{display:flex;min-height:520px;align-items:center;justify-content:center;flex-direction:column;color:#819095;text-align:center}.detail-placeholder h2{margin:12px 0 4px;font-size:17px}.detail-placeholder p{margin:0;font-size:13px}
-.unmatched-users{margin-top:18px;border-top:1px solid var(--line);padding-top:15px}.unmatched-users summary{cursor:pointer;font-size:13px;font-weight:650}.unmatched-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.unmatched-grid div{padding:10px;background:#f5f7f7}.unmatched-grid strong,.unmatched-grid span{display:block;font-size:12px}.unmatched-grid span{margin-top:3px;color:var(--muted)}
+.save-button{display:inline-flex;align-items:center;gap:8px;margin-top:22px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:var(--color-on-accent);padding:10px 15px;font-size:13px;font-weight:650}.save-button:disabled{opacity:.45}.inactive-note{display:inline-flex;align-items:center;gap:6px;margin-left:12px;color:var(--color-danger);font-size:12px}
+.detail-placeholder{display:flex;min-height:520px;align-items:center;justify-content:center;flex-direction:column;color:var(--color-muted);text-align:center}.detail-placeholder h2{margin:12px 0 4px;font-size:17px}.detail-placeholder p{margin:0;font-size:13px}
+.unmatched-users{margin-top:18px;border-top:1px solid var(--line);padding-top:15px}.unmatched-users summary{cursor:pointer;font-size:13px;font-weight:650}.unmatched-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.unmatched-grid div{padding:10px;background:var(--color-surface-raised)}.unmatched-grid strong,.unmatched-grid span{display:block;font-size:12px}.unmatched-grid span{margin-top:3px;color:var(--muted)}
 @media(max-width:900px){.permission-stats{grid-template-columns:repeat(2,1fr)}.permission-stats>div:nth-child(2){border-right:0}.permission-layout{grid-template-columns:330px minmax(0,1fr)}.role-options{grid-template-columns:repeat(2,1fr)}.staff-facts{grid-template-columns:1fr}.unmatched-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.permission-workspace{padding:17px 12px 36px}.permission-header{align-items:flex-start;flex-direction:column}.permission-header h1{font-size:22px}.permission-stats>div{padding:13px 9px}.permission-stats strong{font-size:19px}.directory-filters>*{width:100%;max-width:none!important}.search-field input{width:100%}.icon-button{width:auto}.permission-layout{grid-template-columns:1fr}.staff-directory{border-right:0;border-bottom:1px solid var(--line);max-height:430px;overflow:auto}.permission-detail{padding:20px 12px}.detail-heading{flex-direction:column}.role-options,.college-grid{grid-template-columns:1fr 1fr}.inactive-note{display:flex;margin:10px 0}.unmatched-grid{grid-template-columns:1fr}}
 </style>

@@ -2,6 +2,10 @@
 @media (max-width: 767px) {
     #app main { min-width: 0; padding: 16px 12px 32px; overflow-wrap: anywhere; }
     #app main > header { padding: 20px 16px; }
+    #app .ui-card { padding: 16px; }
+    body > .ui-page { padding: 16px 12px; }
+    body > .ui-page .ui-card { padding: 20px 16px; }
+    body > .ui-page .ui-button { min-height: 44px; }
     #app h1 { font-size: 24px; }
     #app .mobile-stack { grid-template-columns: minmax(0, 1fr); }
     #app .mobile-stack > * { min-width: 0; grid-column: auto; }
@@ -23,7 +27,7 @@
     #app .mobile-modal { top: var(--mobile-viewport-top, 0px); bottom: auto; height: var(--mobile-viewport-height, 100vh); height: var(--mobile-viewport-height, 100dvh); overflow-y: auto; align-items: flex-start; padding: 12px; }
     #app .mobile-modal > form { display: flex; flex-direction: column; max-height: 100%; overflow-y: auto; padding: 16px; scroll-padding-block: 16px 88px; }
     #app .mobile-modal > form > * { flex-shrink: 0; }
-    #app .mobile-modal > form > div:last-child { position: sticky; bottom: -16px; background: white; padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 1; }
+    #app .mobile-modal > form > div:last-child { position: sticky; bottom: -16px; background: var(--color-surface); padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 1; }
     #app .mobile-modal input, #app .mobile-modal select { scroll-margin-block: 16px 88px; }
     /* These pages have their own non-Tailwind layouts. */
     #app .permission-layout, #app .permission-stats, #app .staff-facts,
@@ -35,11 +39,23 @@
     #app .permission-detail { padding: 20px 12px; }
     #app .staff-directory { border-right: 0; border-bottom: 1px solid var(--line); max-height: 430px; overflow: auto; }
     #app .directory-filters > *, #app .search-field input { width: 100%; max-width: 100%; }
-    #app .counselor-workspace .people { max-height: 300px; border-right: 0; border-bottom: 1px solid #dce2e4; }
+    #app .counselor-workspace .people { max-height: 300px; border-right: 0; border-bottom: 1px solid var(--color-line); }
     #app .counselor-workspace .detail { padding: 18px 12px; }
     #app .counselor-workspace .wide { grid-column: auto; }
     #app .counselor-workspace .filters { flex-wrap: wrap; }
     #app .counselor-workspace .filters > * { max-width: 100%; }
     #app .counselor-workspace .page-heading, #app .counselor-workspace .section-heading { flex-wrap: wrap; }
     #app .counselor-workspace .button, #app .counselor-workspace .back { min-height: 44px; }
+}
+
+/* Drawer presentation follows the same mobile breakpoint. */
+@media(max-width:767px){
+    #app .profile-navigation-trigger,#app .profile-navigation-close{display:block;min-height:44px;padding:10px 16px;border:1px solid var(--color-line);border-radius:8px;background:var(--color-surface);font-size:16px}
+    #app .profile-navigation-panel{display:none}
+    #app .profile-navigation.is-open .profile-navigation-panel{display:block;position:fixed;z-index:60;left:0;top:var(--mobile-viewport-top,0px);height:var(--mobile-viewport-height,100vh);width: min(320px,88vw);overflow-y:auto;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px));background:var(--color-surface);box-shadow:8px 0 30px #0f172a30}
+    #app .profile-navigation-backdrop{display:block;position:fixed;inset:0;background:#0f172a66;z-index:59}
+    #app .profile-navigation-close{margin-bottom:12px;width:100%}
+    #app .profile-navigation nav{overflow:visible}
+    #app .profile-navigation nav > div{flex-direction:column;min-width:0}
+    #app .profile-navigation nav span{white-space:normal}
 }

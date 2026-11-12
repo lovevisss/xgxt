@@ -44,7 +44,7 @@ const currentPage = computed(() => pages[props.page] || null);
 
 <template>
     <component :is="currentPage" v-if="currentPage" v-bind="initialProps" />
-    <div v-else class="mx-auto mt-10 max-w-2xl rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-700">
+    <div v-else class="mx-auto mt-10 max-w-2xl rounded-lg border border-danger-line bg-danger-surface p-4 text-danger">
         无法识别页面：{{ page }}
     </div>
 </template>

@@ -7,7 +7,7 @@
     <title>@yield('title', '应用')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-slate-50">
+<body class="min-h-screen bg-canvas">
 <div id="app" data-page="@yield('page')" data-props='@yield('props', "{}")'></div>
 </body>
 </html>

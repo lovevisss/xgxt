@@ -2,6 +2,8 @@
 
 技术栈：Laravel 12、Vue 3、Tailwind CSS 4、Vite。
 
+全站深色与荧光绿主题的最新检查结果见 [主题自测清单](dark-theme-checklist.md)。以下为移动端初次适配的记录；主题改造后已将导航手机样式集中到 `mobile.css`，并将弹窗操作区背景改为共享主题变量。
+
 ## 改动与回滚
 
 - `resources/css/mobile.css` 通过 `app.css` 引入，全部规则限定在最大 767px 和 `#app` 内。`mobile-stack`、`mobile-wrap`、`mobile-modal`、`mobile-calendar` 为纯布局钩子。

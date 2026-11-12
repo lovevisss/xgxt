@@ -61,47 +61,47 @@ onMounted(() => {
 </script>
 
 <template>
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 ui-page">
+        <header class="mb-6 rounded-2xl border border-line bg-surface p-6 shadow-sm ui-card">
             <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
-                    <h1 class="text-3xl font-bold text-slate-900">登录日志</h1>
-                    <p class="mt-1 text-sm text-slate-500">查看 CAS 用户登录账号、时间和来源信息。</p>
+                    <h1 class="text-3xl font-bold text-main">登录日志</h1>
+                    <p class="mt-1 text-sm text-muted">查看 CAS 用户登录账号、时间和来源信息。</p>
                 </div>
                 <div class="flex gap-2 mobile-wrap">
-                    <a href="/admin/users" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">人员与权限</a>
-                    <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">返回首页</a>
+                    <a href="/admin/users" class="rounded-lg border border-line px-4 py-2 text-sm text-muted ui-button">人员与权限</a>
+                    <a href="/" class="rounded-lg border border-line px-4 py-2 text-sm text-muted ui-button">返回首页</a>
                 </div>
             </div>
         </header>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section class="rounded-2xl border border-line bg-surface p-5 shadow-sm ui-card">
             <div class="mb-4 flex flex-wrap items-center gap-2 mobile-wrap">
                 <input
                     v-model="query"
                     type="search"
-                    class="w-72 max-w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    class="w-72 max-w-full rounded-lg border border-line px-3 py-2 text-sm ui-control"
                     placeholder="搜索账号或姓名"
                     @keyup.enter="search"
                 >
                 <button
                     type="button"
-                    class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60 ui-button ui-button-primary"
                     :disabled="loading"
                     @click="search"
                 >
                     查询
                 </button>
-                <span class="text-sm text-slate-500">共 {{ meta.total }} 条</span>
+                <span class="text-sm text-muted">共 {{ meta.total }} 条</span>
             </div>
 
-            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-sky-200 bg-sky-50 text-sky-700'">
+            <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-danger-line bg-danger-surface text-danger' : 'border-info-line bg-info-surface text-info'">
                 {{ notice.text }}
             </div>
 
-            <div class="overflow-x-auto rounded-xl border border-slate-200">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
+            <div class="overflow-x-auto rounded-xl border border-line">
+                <table class="min-w-full text-sm ui-table">
+                    <thead class="bg-surface-raised text-muted">
                         <tr>
                             <th class="px-3 py-2 text-left">登录时间</th>
                             <th class="px-3 py-2 text-left">账号</th>
@@ -110,7 +110,7 @@ onMounted(() => {
                             <th class="px-3 py-2 text-left">浏览器</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-line">
                         <tr v-for="log in logs" :key="log.id">
                             <td class="whitespace-nowrap px-3 py-2">{{ formatDate(log.logged_in_at) }}</td>
                             <td class="px-3 py-2">{{ log.cas_username || '-' }}</td>
@@ -119,7 +119,7 @@ onMounted(() => {
                             <td class="max-w-md truncate px-3 py-2" :title="log.user_agent || ''">{{ log.user_agent || '-' }}</td>
                         </tr>
                         <tr v-if="!logs.length">
-                            <td colspan="5" class="px-3 py-6 text-center text-slate-500">暂无登录日志</td>
+                            <td colspan="5" class="px-3 py-6 text-center text-muted">暂无登录日志</td>
                         </tr>
                     </tbody>
                 </table>
@@ -128,16 +128,16 @@ onMounted(() => {
             <div class="mt-4 flex items-center justify-end gap-2 mobile-wrap">
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+                    class="rounded-lg border border-line px-3 py-2 text-sm disabled:opacity-50 ui-button"
                     :disabled="loading || meta.current_page <= 1"
                     @click="fetchLogs(meta.current_page - 1)"
                 >
                     上一页
                 </button>
-                <span class="text-sm text-slate-500">{{ meta.current_page }} / {{ meta.last_page }}</span>
+                <span class="text-sm text-muted">{{ meta.current_page }} / {{ meta.last_page }}</span>
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+                    class="rounded-lg border border-line px-3 py-2 text-sm disabled:opacity-50 ui-button"
                     :disabled="loading || meta.current_page >= meta.last_page"
                     @click="fetchLogs(meta.current_page + 1)"
                 >

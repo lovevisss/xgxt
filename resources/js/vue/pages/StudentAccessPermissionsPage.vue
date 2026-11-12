@@ -142,82 +142,82 @@ onMounted(fetchPermissions);
 </script>
 
 <template>
-    <main class="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-        <header class="mb-5 rounded-lg border border-slate-200 bg-white px-6 py-5 shadow-sm">
+    <main class="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 ui-page">
+        <header class="mb-5 rounded-lg border border-line bg-surface px-6 py-5 shadow-sm ui-card">
             <div class="flex flex-wrap items-center justify-between gap-4 mobile-wrap">
                 <div>
-                    <p class="text-sm font-semibold text-slate-500">学生权限 / 分院与全院范围</p>
-                    <h1 class="mt-1 text-2xl font-bold text-slate-950">学生权限清单</h1>
-                    <p class="mt-1 text-sm text-slate-500">按教师工号统一管理学生只读查看范围。</p>
+                    <p class="text-sm font-semibold text-muted">学生权限 / 分院与全院范围</p>
+                    <h1 class="mt-1 text-2xl font-bold text-main">学生权限清单</h1>
+                    <p class="mt-1 text-sm text-muted">按教师工号统一管理学生只读查看范围。</p>
                 </div>
                 <div class="flex flex-wrap gap-2 mobile-wrap">
-                    <a href="/student-access-permissions/template" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">下载模板</a>
-                    <a href="/" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
+                    <a href="/student-access-permissions/template" class="rounded border border-line px-4 py-2 text-sm font-semibold text-muted hover:bg-surface-raised ui-button">下载模板</a>
+                    <a href="/" class="rounded border border-line px-4 py-2 text-sm text-muted hover:bg-surface-raised ui-button">返回首页</a>
                 </div>
             </div>
         </header>
 
-        <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-sky-200 bg-sky-50 text-sky-700'">
+        <div v-if="notice.text" class="mb-4 rounded-lg border px-3 py-2 text-sm" :class="notice.type === 'error' ? 'border-danger-line bg-danger-surface text-danger' : notice.type === 'success' ? 'border-success-line bg-success-surface text-success' : 'border-info-line bg-info-surface text-info'">
             {{ notice.text }}
         </div>
 
         <section class="grid gap-5 xl:grid-cols-[330px_minmax(0,1fr)] mobile-stack">
             <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
-                <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="rounded-lg border border-line bg-surface p-4 shadow-sm ui-card">
                     <div class="mb-3 flex items-center justify-between mobile-wrap">
-                        <h2 class="text-base font-semibold text-slate-950">{{ editing ? '编辑权限' : '新增权限' }}</h2>
-                        <span v-if="editing" class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">正在编辑</span>
+                        <h2 class="text-base font-semibold text-main">{{ editing ? '编辑权限' : '新增权限' }}</h2>
+                        <span v-if="editing" class="rounded-full bg-warning-surface px-2 py-1 text-xs font-medium text-warning">正在编辑</span>
                     </div>
 
                     <div class="space-y-3">
-                        <label class="block text-sm text-slate-600">工号<input v-model="form.employee_no" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950"></label>
-                        <label class="block text-sm text-slate-600">姓名<input v-model="form.teacher_name" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950"></label>
-                        <label class="block text-sm text-slate-600">单位<input v-model="form.unit_name" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950"></label>
-                        <label class="block text-sm text-slate-600">权限<input v-model="form.scope_name" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="金融与经贸学院 / 最高"></label>
-                        <label class="block text-sm text-slate-600">分院代码<input v-model="form.department_code" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="100301 / 1003"></label>
-                        <label class="flex items-center gap-2 text-sm text-slate-600 mobile-wrap"><input v-model="form.is_active" type="checkbox" class="rounded border-slate-300">启用</label>
+                        <label class="block text-sm text-muted">工号<input v-model="form.employee_no" class="mt-1 h-9 w-full rounded border border-line px-3 text-sm text-main ui-control"></label>
+                        <label class="block text-sm text-muted">姓名<input v-model="form.teacher_name" class="mt-1 h-9 w-full rounded border border-line px-3 text-sm text-main ui-control"></label>
+                        <label class="block text-sm text-muted">单位<input v-model="form.unit_name" class="mt-1 h-9 w-full rounded border border-line px-3 text-sm text-main ui-control"></label>
+                        <label class="block text-sm text-muted">权限<input v-model="form.scope_name" class="mt-1 h-9 w-full rounded border border-line px-3 text-sm text-main ui-control" placeholder="金融与经贸学院 / 最高"></label>
+                        <label class="block text-sm text-muted">分院代码<input v-model="form.department_code" class="mt-1 h-9 w-full rounded border border-line px-3 text-sm text-main ui-control" placeholder="100301 / 1003"></label>
+                        <label class="flex items-center gap-2 text-sm text-muted mobile-wrap"><input v-model="form.is_active" type="checkbox" class="rounded border-line">启用</label>
                     </div>
 
                     <div class="mt-4 flex gap-2 mobile-wrap">
-                        <button type="button" class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving" @click="savePermission">{{ saving ? '保存中...' : '保存' }}</button>
-                        <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="resetForm">清空</button>
+                        <button type="button" class="rounded bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60 ui-button ui-button-primary" :disabled="saving" @click="savePermission">{{ saving ? '保存中...' : '保存' }}</button>
+                        <button type="button" class="rounded border border-line px-4 py-2 text-sm text-muted hover:bg-surface-raised ui-button" @click="resetForm">清空</button>
                     </div>
                 </div>
 
-                <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <h2 class="text-base font-semibold text-slate-950">Excel 导入</h2>
-                    <p class="mt-1 text-sm leading-5 text-slate-500">第 2 行表头：序号、单位、工号、姓名、权限、分院代码。</p>
-                    <label class="mt-3 block rounded border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                        <input class="block w-full text-sm" type="file" accept=".xls,.xlsx" @change="file = $event.target.files?.[0] || null">
+                <div class="rounded-lg border border-line bg-surface p-4 shadow-sm ui-card">
+                    <h2 class="text-base font-semibold text-main">Excel 导入</h2>
+                    <p class="mt-1 text-sm leading-5 text-muted">第 2 行表头：序号、单位、工号、姓名、权限、分院代码。</p>
+                    <label class="mt-3 block rounded border border-dashed border-line bg-surface-raised px-3 py-3 text-sm text-muted">
+                        <input class="block w-full text-sm ui-control" type="file" accept=".xls,.xlsx" @change="file = $event.target.files?.[0] || null">
                     </label>
-                    <button type="button" class="mt-3 rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="importing" @click="importExcel">{{ importing ? '导入中...' : '开始导入' }}</button>
-                    <div v-if="result" class="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <button type="button" class="mt-3 rounded bg-accent px-4 py-2 text-sm font-semibold text-on-accent disabled:opacity-60 ui-button ui-button-primary" :disabled="importing" @click="importExcel">{{ importing ? '导入中...' : '开始导入' }}</button>
+                    <div v-if="result" class="mt-3 rounded border border-line bg-surface-raised p-3 text-sm text-muted">
                         新增 {{ result.created || 0 }}，更新 {{ result.updated || 0 }}，跳过 {{ result.skipped || 0 }}
-                        <div v-if="result.errors?.length" class="mt-2 text-rose-700">{{ result.errors.join('；') }}</div>
+                        <div v-if="result.errors?.length" class="mt-2 text-danger">{{ result.errors.join('；') }}</div>
                     </div>
                 </div>
             </aside>
 
-            <section class="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 px-5 py-4">
+            <section class="min-w-0 rounded-lg border border-line bg-surface shadow-sm ui-card">
+                <div class="border-b border-line px-5 py-4">
                     <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                         <div>
-                            <h2 class="text-lg font-semibold text-slate-950">权限列表</h2>
-                            <div class="mt-1 flex flex-wrap gap-2 text-sm text-slate-500 mobile-wrap">
+                            <h2 class="text-lg font-semibold text-main">权限列表</h2>
+                            <div class="mt-1 flex flex-wrap gap-2 text-sm text-muted mobile-wrap">
                                 <span>总数 {{ meta.total || permissions.length }}</span>
                                 <span>启用 {{ activeCount }}</span>
                                 <span>全院 {{ allScopeCount }}</span>
                             </div>
                         </div>
                         <div class="flex min-w-[360px] max-w-xl flex-1 justify-end gap-2 mobile-wrap">
-                            <input v-model="q" class="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="搜索工号、姓名、单位、权限、代码" @keydown.enter="fetchPermissions">
-                            <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="fetchPermissions">搜索</button>
+                            <input v-model="q" class="h-9 min-w-0 flex-1 rounded border border-line px-3 text-sm text-main ui-control" placeholder="搜索工号、姓名、单位、权限、代码" @keydown.enter="fetchPermissions">
+                            <button type="button" class="rounded border border-line px-4 py-2 text-sm font-semibold text-muted hover:bg-surface-raised ui-button" @click="fetchPermissions">搜索</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="min-w-[980px] table-fixed text-sm">
+                    <table class="min-w-[980px] table-fixed text-sm ui-table">
                         <colgroup>
                             <col class="w-[110px]">
                             <col class="w-[100px]">
@@ -228,7 +228,7 @@ onMounted(fetchPermissions);
                             <col class="w-[76px]">
                             <col class="w-[120px]">
                         </colgroup>
-                        <thead class="bg-slate-50 text-slate-600">
+                        <thead class="bg-surface-raised text-muted">
                             <tr>
                                 <th class="whitespace-nowrap px-4 py-3 text-left font-semibold">工号</th>
                                 <th class="whitespace-nowrap px-4 py-3 text-left font-semibold">姓名</th>
@@ -240,34 +240,34 @@ onMounted(fetchPermissions);
                                 <th class="whitespace-nowrap px-4 py-3 text-left font-semibold">操作</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <tr v-for="permission in permissions" :key="permission.id" class="hover:bg-slate-50/80">
-                                <td class="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-slate-950">{{ permission.employee_no }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-slate-900">{{ permission.teacher_name || '-' }}</td>
+                        <tbody class="divide-y divide-line">
+                            <tr v-for="permission in permissions" :key="permission.id" class="hover:bg-surface-raised/80">
+                                <td class="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-main">{{ permission.employee_no }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-main">{{ permission.teacher_name || '-' }}</td>
                                 <td class="px-4 py-3">
-                                    <span class="block truncate text-slate-700" :title="permission.unit_name || '-'">{{ permission.unit_name || '-' }}</span>
+                                    <span class="block truncate text-muted" :title="permission.unit_name || '-'">{{ permission.unit_name || '-' }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="block truncate text-slate-900" :title="permission.scope_name || '-'">{{ permission.scope_name || '-' }}</span>
+                                    <span class="block truncate text-main" :title="permission.scope_name || '-'">{{ permission.scope_name || '-' }}</span>
                                 </td>
-                                <td class="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-slate-950">{{ permission.department_code || '-' }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 font-medium tabular-nums text-main">{{ permission.department_code || '-' }}</td>
                                 <td class="whitespace-nowrap px-4 py-3">
-                                    <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="permission.scope_type === 'all' ? 'bg-slate-900 text-white' : 'bg-sky-50 text-sky-700'">
+                                    <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="permission.scope_type === 'all' ? 'bg-accent text-on-accent' : 'bg-info-surface text-info'">
                                         {{ permission.scope_type === 'all' ? '全院' : '分院' }}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3">
-                                    <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="permission.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                                    <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="permission.is_active ? 'bg-success-surface text-success' : 'bg-surface-raised text-muted'">
                                         {{ permission.is_active ? '启用' : '停用' }}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3">
-                                    <button type="button" class="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 hover:bg-white" @click="edit(permission)">编辑</button>
-                                    <button type="button" class="ml-2 rounded border border-rose-200 px-2.5 py-1 text-xs text-rose-700 hover:bg-rose-50" @click="removePermission(permission)">删除</button>
+                                    <button type="button" class="rounded border border-line px-2.5 py-1 text-xs text-muted hover:bg-surface ui-button" @click="edit(permission)">编辑</button>
+                                    <button type="button" class="ml-2 rounded border border-danger-line px-2.5 py-1 text-xs text-danger hover:bg-danger-surface ui-button" @click="removePermission(permission)">删除</button>
                                 </td>
                             </tr>
                             <tr v-if="!permissions.length">
-                                <td colspan="8" class="px-4 py-10 text-center text-slate-500">暂无权限记录</td>
+                                <td colspan="8" class="px-4 py-10 text-center text-muted">暂无权限记录</td>
                             </tr>
                         </tbody>
                     </table>
