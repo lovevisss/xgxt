@@ -144,11 +144,11 @@ onMounted(async () => {
 <template>
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h1 class="text-3xl font-bold">{{ isGraduates ? '毕业生' : '学生信息管理' }}</h1>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 mobile-wrap">
                     <a :href="isGraduates ? '/students' : '/graduates'" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">{{ isGraduates ? '在校学生' : '毕业生' }}</a>
                     <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">返回首页</a>
                 </div>
@@ -156,13 +156,13 @@ onMounted(async () => {
         </header>
 
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div v-if="!isGraduates" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div v-if="!isGraduates" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 mobile-stack">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">学生总数</p><p class="text-xl font-bold">{{ summary.total || 0 }}</p></div>
                 <div class="rounded-xl border border-rose-200 bg-rose-50 p-3"><p class="text-xs text-rose-600">当前失联人数</p><p class="text-xl font-bold text-rose-700">{{ summary.lost_total || 0 }}</p></div>
                 <div class="rounded-xl border border-amber-200 bg-amber-50 p-3"><p class="text-xs text-amber-700">今日新增失联</p><p class="text-xl font-bold text-amber-700">{{ summary.lost_today || 0 }}</p></div>
             </div>
 
-            <div class="mb-4 grid grid-cols-1 gap-2" :class="isGraduates ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : 'sm:grid-cols-6'">
+            <div class="mb-4 grid grid-cols-1 gap-2 mobile-stack" :class="isGraduates ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : 'sm:grid-cols-6'">
                 <input v-model="keyword" type="text" :placeholder="isGraduates ? '按学号、姓名、学院或班级搜索' : '按学号/姓名/班级搜索'" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @keyup.enter="fetchStudents(1)">
                 <select v-if="!isGraduates" v-model="grade" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @change="fetchFilters(); fetchStudents(1)">
                     <option value="">全部年级</option>
@@ -181,7 +181,7 @@ onMounted(async () => {
                 <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @click="resetFilter">重置</button>
             </div>
 
-            <div v-if="!isGraduates" class="mb-4 flex gap-2">
+            <div v-if="!isGraduates" class="mb-4 flex gap-2 mobile-wrap">
                 <button class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700" @click="risk = 'high'; fetchStudents(1)">一键只看高风险</button>
                 <button class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" @click="risk = ''; fetchStudents(1)">取消高风险</button>
             </div>
@@ -224,9 +224,9 @@ onMounted(async () => {
                 </table>
             </div>
 
-            <div class="mt-4 flex items-center justify-between">
+            <div class="mt-4 flex items-center justify-between mobile-wrap">
                 <p class="text-xs text-slate-500">当前显示 {{ paginationInfo.from || 0 }}-{{ paginationInfo.to || 0 }} 条，共 {{ paginationInfo.total || 0 }} 条</p>
-                <div class="flex gap-2">
+                <div class="flex gap-2 mobile-wrap">
                     <button class="rounded border px-2 py-1 text-sm" :disabled="(paginationInfo.current_page || 1) <= 1" @click="fetchStudents((paginationInfo.current_page || 1) - 1)">上一页</button>
                     <button v-for="p in pageRange()" :key="p" class="rounded border px-2 py-1 text-sm" :class="p === (paginationInfo.current_page || 1) ? 'bg-slate-900 text-white' : 'bg-white'" @click="fetchStudents(p)">{{ p }}</button>
                     <button class="rounded border px-2 py-1 text-sm" :disabled="(paginationInfo.current_page || 1) >= (paginationInfo.last_page || 1)" @click="fetchStudents((paginationInfo.current_page || 1) + 1)">下一页</button>
@@ -234,13 +234,13 @@ onMounted(async () => {
             </div>
         </section>
 
-        <div v-if="editing && !isGraduates" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="editing = null">
+        <div v-if="editing && !isGraduates" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 mobile-modal" @click.self="editing = null">
             <form class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" @submit.prevent="saveEdit">
-                <div class="mb-3 flex items-center justify-between">
+                <div class="mb-3 flex items-center justify-between mobile-wrap">
                     <h2 class="text-xl font-bold">编辑学生信息</h2>
                     <button type="button" class="text-sm text-slate-500" @click="editing = null">关闭</button>
                 </div>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
                     <input v-model="form.xm" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="姓名">
                     <input v-model="form.xbm" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="性别码">
                     <input v-model="form.bjmc" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="班级名称">
@@ -249,7 +249,7 @@ onMounted(async () => {
                     <input v-model="form.exclude_reason" class="rounded border border-slate-300 px-3 py-2 text-sm sm:col-span-2" placeholder="暂不计入统计原因">
                     <input v-model="form.exclude_until" type="date" class="rounded border border-slate-300 px-3 py-2 text-sm sm:col-span-2">
                 </div>
-                <div class="mt-4 flex justify-end gap-2">
+                <div class="mt-4 flex justify-end gap-2 mobile-wrap">
                     <button type="button" class="rounded border border-slate-300 px-3 py-2 text-sm" @click="editing = null">取消</button>
                     <button class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white">保存</button>
                 </div>

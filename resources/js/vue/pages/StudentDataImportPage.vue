@@ -424,7 +424,7 @@ onBeforeUnmount(stopPolling);
 <template>
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-950">学生数据导入</h1>
                     <p class="mt-1 text-sm text-slate-500">集中导入奖惩、科技竞赛获奖、助学贷款、资助对象、家长信息、医保、学平险、体测和综测数据，导入后统一展示在学生主页。</p>
@@ -433,7 +433,7 @@ onBeforeUnmount(stopPolling);
             </div>
         </header>
 
-        <section class="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <section class="grid gap-6 lg:grid-cols-[320px_1fr] mobile-stack">
             <aside class="space-y-3">
                 <button
                     v-for="type in importTypes"
@@ -450,7 +450,7 @@ onBeforeUnmount(stopPolling);
             </aside>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="flex flex-wrap items-start justify-between gap-3 mobile-wrap">
                     <div>
                         <p class="text-xs font-semibold text-slate-500">{{ selectedType.eyebrow }}</p>
                         <h2 class="mt-1 text-xl font-bold text-slate-950">{{ selectedType.title }}</h2>
@@ -459,7 +459,7 @@ onBeforeUnmount(stopPolling);
                     <a :href="selectedType.template" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">下载示例模板</a>
                 </div>
 
-                <div v-if="showAnnualYearOptions" class="mt-5 grid gap-3 sm:grid-cols-2">
+                <div v-if="showAnnualYearOptions" class="mt-5 grid gap-3 sm:grid-cols-2 mobile-stack">
                     <label class="text-sm text-slate-600">
                         {{ ['medical_insurance', 'safety_insurance'].includes(selectedKey) ? '参保年度' : '发生年度' }}
                         <input v-model="annualYear" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="number" min="1900" max="2100">
@@ -500,12 +500,12 @@ onBeforeUnmount(stopPolling);
                     {{ notice.text }}
                 </div>
 
-                <div class="mt-5 flex flex-wrap gap-2">
+                <div class="mt-5 flex flex-wrap gap-2 mobile-wrap">
                     <button class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="uploading" @click="upload">{{ uploading ? '导入中...' : '开始导入' }}</button>
                 </div>
 
                 <div v-if="result" class="mt-6 rounded-lg border border-slate-200 p-4">
-                    <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="grid gap-3 sm:grid-cols-3 mobile-stack">
                         <div v-for="(label, key) in selectedType.resultLabels" :key="key" class="rounded bg-emerald-50 p-3">
                             <p class="text-xs text-emerald-700">{{ label }}</p>
                             <p class="mt-1 text-2xl font-bold text-emerald-800">{{ result[key] || 0 }}</p>
@@ -532,7 +532,7 @@ onBeforeUnmount(stopPolling);
                                 <span class="ml-2">{{ match.organization || '-' }} / {{ match.department || '-' }} / {{ match.position || '-' }}</span>
                                 <span class="ml-2 text-slate-500">{{ match.grade || '-' }}</span>
                             </div>
-                            <div v-if="(match.candidates || []).length" class="mt-2 flex flex-wrap gap-2">
+                            <div v-if="(match.candidates || []).length" class="mt-2 flex flex-wrap gap-2 mobile-wrap">
                                 <button
                                     v-for="candidate in match.candidates"
                                     :key="candidate.xgh"

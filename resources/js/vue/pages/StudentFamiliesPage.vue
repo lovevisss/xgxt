@@ -86,7 +86,7 @@ onMounted(async () => {
 <template>
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h1 class="text-3xl font-bold">学生家庭基本信息</h1>
                     <p class="mt-1 text-sm text-slate-500">按学生维度查看和维护家庭联系人。</p>
@@ -96,7 +96,7 @@ onMounted(async () => {
         </header>
 
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-5">
+            <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-5 mobile-stack">
                 <input v-model="keyword" type="text" placeholder="按学号/学生姓名/手机/工作单位检索" class="rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2">
                 <select v-model="emergency" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                     <option value="">全部联系人</option>
@@ -141,9 +141,9 @@ onMounted(async () => {
                 </table>
             </div>
 
-            <div class="mt-4 flex items-center justify-between">
+            <div class="mt-4 flex items-center justify-between mobile-wrap">
                 <p class="text-xs text-slate-500">当前显示 {{ pagination.from || 0 }}-{{ pagination.to || 0 }} 条，共 {{ pagination.total || 0 }} 条</p>
-                <div class="flex gap-2">
+                <div class="flex gap-2 mobile-wrap">
                     <button class="rounded border px-2 py-1 text-sm" :disabled="(pagination.current_page || 1) <= 1" @click="fetchRecords((pagination.current_page || 1) - 1)">上一页</button>
                     <button v-for="p in pageRange()" :key="p" class="rounded border px-2 py-1 text-sm" :class="p === (pagination.current_page || 1) ? 'bg-slate-900 text-white' : 'bg-white'" @click="fetchRecords(p)">{{ p }}</button>
                     <button class="rounded border px-2 py-1 text-sm" :disabled="(pagination.current_page || 1) >= (pagination.last_page || 1)" @click="fetchRecords((pagination.current_page || 1) + 1)">下一页</button>
@@ -151,10 +151,10 @@ onMounted(async () => {
             </div>
         </section>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="editing = null">
+        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 mobile-modal" @click.self="editing = null">
             <form class="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl" @submit.prevent="saveEdit">
                 <h2 class="mb-3 text-xl font-bold">编辑家庭联系人</h2>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
                     <input v-model="form.name" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="姓名">
                     <input v-model="form.relationship" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="关系">
                     <input v-model="form.specific_relationship" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="具体关系">
@@ -163,7 +163,7 @@ onMounted(async () => {
                     <input v-model="form.phone" class="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="手机">
                     <select v-model="form.is_emergency_contact" class="rounded border border-slate-300 px-3 py-2 text-sm sm:col-span-2"><option value="0">否</option><option value="1">是</option></select>
                 </div>
-                <div class="mt-4 flex justify-end gap-2">
+                <div class="mt-4 flex justify-end gap-2 mobile-wrap">
                     <button type="button" class="rounded border border-slate-300 px-3 py-2 text-sm" @click="editing = null">取消</button>
                     <button class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white">保存</button>
                 </div>

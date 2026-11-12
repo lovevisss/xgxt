@@ -226,14 +226,14 @@ onBeforeUnmount(stopPolling);
                     <h1 class="mt-1 text-2xl font-bold text-slate-950">同步中心</h1>
                     <p class="mt-2 text-sm text-slate-600">集中执行系统内所有 sync 命令，任务会进入队列并持续返回状态和日志。</p>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2 mobile-wrap">
                     <a href="/" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">返回首页</a>
                     <button type="button" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="refreshTasks">刷新状态</button>
                 </div>
             </div>
         </header>
 
-        <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] mobile-stack">
             <section class="space-y-4">
                 <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <h2 class="text-base font-semibold text-slate-950">选择同步内容</h2>
@@ -246,7 +246,7 @@ onBeforeUnmount(stopPolling);
                             :class="selectedKey === definition.key ? 'border-slate-900 bg-slate-50 text-slate-950' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'"
                             @click="selectDefinition(definition.key)"
                         >
-                            <span class="flex items-center justify-between gap-3">
+                            <span class="flex items-center justify-between gap-3 mobile-wrap">
                                 <span class="text-sm font-semibold">{{ definition.title }}</span>
                                 <span class="shrink-0 rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-500">{{ definition.command.replace('sync:', '') }}</span>
                             </span>
@@ -277,7 +277,7 @@ onBeforeUnmount(stopPolling);
                                 :placeholder="config.placeholder || ''"
                                 class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950"
                             >
-                            <span v-else class="mt-2 flex items-center gap-2">
+                            <span v-else class="mt-2 flex items-center gap-2 mobile-wrap">
                                 <input v-model="optionValues[name]" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900">
                                 <span class="text-sm text-slate-600">启用</span>
                             </span>
@@ -306,7 +306,7 @@ onBeforeUnmount(stopPolling);
 
             <section class="min-w-0 space-y-4">
                 <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mobile-wrap">
                         <div>
                             <h2 class="text-base font-semibold text-slate-950">当前任务</h2>
                             <p class="mt-1 text-sm text-slate-500">活动任务会每 2 秒自动刷新。</p>
@@ -320,7 +320,7 @@ onBeforeUnmount(stopPolling);
                         <div class="border-b border-slate-200 p-4">
                             <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    <div class="flex flex-wrap items-center gap-2 mobile-wrap">
                                         <h3 class="text-lg font-bold text-slate-950">{{ selectedTask.title }}</h3>
                                         <span class="rounded-full border px-2.5 py-1 text-xs font-semibold" :class="statusClass[selectedTask.status] || 'border-slate-200 bg-slate-50 text-slate-600'">
                                             {{ statusLabel(selectedTask.status) }}
@@ -347,7 +347,7 @@ onBeforeUnmount(stopPolling);
                 </div>
 
                 <div v-if="selectedTask?.key === 'delayed_student_accounts'" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                         <h2 class="text-base font-semibold text-slate-950">逐人变更日志</h2>
                         <span class="text-sm text-slate-500">共 {{ accountChanges.total || 0 }} 人</span>
                     </div>
@@ -376,7 +376,7 @@ onBeforeUnmount(stopPolling);
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-3 flex items-center justify-end gap-2 text-sm">
+                    <div class="mt-3 flex items-center justify-end gap-2 text-sm mobile-wrap">
                         <span class="text-slate-500">第 {{ accountChanges.current_page || 1 }} / {{ accountChanges.last_page || 1 }} 页</span>
                         <button class="rounded border border-slate-300 px-2 py-1 disabled:opacity-40" :disabled="loadingChanges || accountChanges.current_page <= 1" @click="fetchAccountChanges(accountChanges.current_page - 1)">上一页</button>
                         <button class="rounded border border-slate-300 px-2 py-1 disabled:opacity-40" :disabled="loadingChanges || accountChanges.current_page >= accountChanges.last_page" @click="fetchAccountChanges(accountChanges.current_page + 1)">下一页</button>
@@ -385,7 +385,7 @@ onBeforeUnmount(stopPolling);
 
                 <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <h2 class="text-base font-semibold text-slate-950">最近任务</h2>
-                    <div class="mt-3 overflow-hidden rounded-lg border border-slate-200">
+                    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-500">
                                 <tr>

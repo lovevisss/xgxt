@@ -13,7 +13,7 @@ const props = defineProps({
 <template>
     <main class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center justify-between gap-3 mobile-wrap">
                 <h1 class="text-2xl font-bold">{{ props.snippet.title }}</h1>
                 <a class="text-sm text-slate-600 hover:underline" :href="`/snippets/${props.snippet.id}/fork`">Fork Me</a>
             </div>

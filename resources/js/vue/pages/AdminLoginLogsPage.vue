@@ -63,12 +63,12 @@ onMounted(() => {
 <template>
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h1 class="text-3xl font-bold text-slate-900">登录日志</h1>
                     <p class="mt-1 text-sm text-slate-500">查看 CAS 用户登录账号、时间和来源信息。</p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 mobile-wrap">
                     <a href="/admin/users" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">人员与权限</a>
                     <a href="/" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">返回首页</a>
                 </div>
@@ -76,7 +76,7 @@ onMounted(() => {
         </header>
 
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-4 flex flex-wrap items-center gap-2">
+            <div class="mb-4 flex flex-wrap items-center gap-2 mobile-wrap">
                 <input
                     v-model="query"
                     type="search"
@@ -125,7 +125,7 @@ onMounted(() => {
                 </table>
             </div>
 
-            <div class="mt-4 flex items-center justify-end gap-2">
+            <div class="mt-4 flex items-center justify-end gap-2 mobile-wrap">
                 <button
                     type="button"
                     class="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"

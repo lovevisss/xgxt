@@ -144,13 +144,13 @@ onMounted(fetchPermissions);
 <template>
     <main class="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <header class="mb-5 rounded-lg border border-slate-200 bg-white px-6 py-5 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-4 mobile-wrap">
                 <div>
                     <p class="text-sm font-semibold text-slate-500">学生权限 / 分院与全院范围</p>
                     <h1 class="mt-1 text-2xl font-bold text-slate-950">学生权限清单</h1>
                     <p class="mt-1 text-sm text-slate-500">按教师工号统一管理学生只读查看范围。</p>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2 mobile-wrap">
                     <a href="/student-access-permissions/template" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">下载模板</a>
                     <a href="/" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">返回首页</a>
                 </div>
@@ -161,10 +161,10 @@ onMounted(fetchPermissions);
             {{ notice.text }}
         </div>
 
-        <section class="grid gap-5 xl:grid-cols-[330px_minmax(0,1fr)]">
+        <section class="grid gap-5 xl:grid-cols-[330px_minmax(0,1fr)] mobile-stack">
             <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
                 <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div class="mb-3 flex items-center justify-between">
+                    <div class="mb-3 flex items-center justify-between mobile-wrap">
                         <h2 class="text-base font-semibold text-slate-950">{{ editing ? '编辑权限' : '新增权限' }}</h2>
                         <span v-if="editing" class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">正在编辑</span>
                     </div>
@@ -175,10 +175,10 @@ onMounted(fetchPermissions);
                         <label class="block text-sm text-slate-600">单位<input v-model="form.unit_name" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950"></label>
                         <label class="block text-sm text-slate-600">权限<input v-model="form.scope_name" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="金融与经贸学院 / 最高"></label>
                         <label class="block text-sm text-slate-600">分院代码<input v-model="form.department_code" class="mt-1 h-9 w-full rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="100301 / 1003"></label>
-                        <label class="flex items-center gap-2 text-sm text-slate-600"><input v-model="form.is_active" type="checkbox" class="rounded border-slate-300">启用</label>
+                        <label class="flex items-center gap-2 text-sm text-slate-600 mobile-wrap"><input v-model="form.is_active" type="checkbox" class="rounded border-slate-300">启用</label>
                     </div>
 
-                    <div class="mt-4 flex gap-2">
+                    <div class="mt-4 flex gap-2 mobile-wrap">
                         <button type="button" class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving" @click="savePermission">{{ saving ? '保存中...' : '保存' }}</button>
                         <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="resetForm">清空</button>
                     </div>
@@ -200,16 +200,16 @@ onMounted(fetchPermissions);
 
             <section class="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-200 px-5 py-4">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-950">权限列表</h2>
-                            <div class="mt-1 flex flex-wrap gap-2 text-sm text-slate-500">
+                            <div class="mt-1 flex flex-wrap gap-2 text-sm text-slate-500 mobile-wrap">
                                 <span>总数 {{ meta.total || permissions.length }}</span>
                                 <span>启用 {{ activeCount }}</span>
                                 <span>全院 {{ allScopeCount }}</span>
                             </div>
                         </div>
-                        <div class="flex min-w-[360px] max-w-xl flex-1 justify-end gap-2">
+                        <div class="flex min-w-[360px] max-w-xl flex-1 justify-end gap-2 mobile-wrap">
                             <input v-model="q" class="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-sm text-slate-950" placeholder="搜索工号、姓名、单位、权限、代码" @keydown.enter="fetchPermissions">
                             <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="fetchPermissions">搜索</button>
                         </div>

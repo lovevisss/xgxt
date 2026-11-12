@@ -15,7 +15,7 @@ function statusText(status) {
 <template>
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <p class="text-sm text-slate-500">宿舍详情</p>
                     <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ props.ssh }}</h1>
@@ -24,7 +24,7 @@ function statusText(status) {
             </div>
         </header>
 
-        <section class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mobile-stack">
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p class="text-xs text-slate-500">住宿人数</p>
                 <p class="mt-2 text-2xl font-bold text-slate-950">{{ props.dormitorySummary.resident_total || 0 }}</p>

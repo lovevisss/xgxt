@@ -21,7 +21,7 @@ const props = defineProps({
                 <label class="mb-1 block text-sm text-slate-600" for="body">Body</label>
                 <textarea id="body" class="min-h-48 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" name="body">{{ props.snippet?.body || '' }}</textarea>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 mobile-wrap">
                 <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white" type="submit">Create Snippet</button>
                 <a href="/snippets" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">Back</a>
             </div>

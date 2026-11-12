@@ -1,4 +1,5 @@
 <script setup>
+import MobileProfileNavigation from '../components/MobileProfileNavigation.vue';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { formatDatePart as passDatePart, formatDateTime as dateTimeText, formatTimePart as passTimePart } from '../utils/dateTime';
 
@@ -380,7 +381,7 @@ async function saveFamily() {
 <template>
     <main class="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-8">
         <header class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <p class="text-sm text-slate-500">{{ props.student.student_category === 'graduated' ? '毕业生档案' : '学生主页' }}</p>
                     <h1 class="mt-1 text-2xl font-bold text-slate-950">{{ props.student.xm }}（{{ props.student.xgh }}）</h1>
@@ -392,10 +393,10 @@ async function saveFamily() {
             </div>
         </header>
 
-        <div class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <aside class="lg:sticky lg:top-6 lg:self-start">
+        <div class="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] mobile-stack">
+            <MobileProfileNavigation :active-section="activeProfileSection">
                 <nav class="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:overflow-visible">
-                    <div class="flex min-w-max gap-2 lg:min-w-0 lg:flex-col">
+                    <div class="flex min-w-max gap-2 lg:min-w-0 lg:flex-col mobile-wrap">
                         <button
                             v-for="section in profileSections"
                             :key="section.key"
@@ -409,11 +410,11 @@ async function saveFamily() {
                         </button>
                     </div>
                 </nav>
-            </aside>
+            </MobileProfileNavigation>
 
             <div class="min-w-0">
         <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">学习排名</h2>
                     <p class="mt-1 text-sm text-slate-500">
@@ -431,7 +432,7 @@ async function saveFamily() {
             </div>
 
             <div v-if="latestAcademicYearAverage" class="space-y-3">
-                <div class="grid gap-3 md:grid-cols-3">
+                <div class="grid gap-3 md:grid-cols-3 mobile-stack">
                     <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
                         <p class="text-sm text-slate-500">学习平均成绩</p>
                         <p class="mt-2 text-2xl font-semibold text-slate-950">{{ scoreText(latestAcademicYearAverage.average_score) }}</p>
@@ -492,9 +493,9 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'academic'" class="mb-6 grid gap-6 xl:grid-cols-2">
+        <section v-if="activeProfileSection === 'academic'" class="mb-6 grid gap-6 xl:grid-cols-2 mobile-stack">
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                     <h2 class="text-lg font-semibold text-slate-950">综测成绩</h2>
                     <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
                 </div>
@@ -534,7 +535,7 @@ async function saveFamily() {
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950">学期德育分</h2>
                         <p class="mt-1 text-sm text-slate-500">按学年学期展示德育量化考核。</p>
@@ -581,12 +582,12 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'academic'" id="schedule-panel" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950">课表信息</h2>
                         <p class="mt-1 text-sm text-slate-500">{{ props.semesterLabel || '暂无学期' }} / {{ props.weekLabel || `第${props.selectedWeek || 1}周` }}</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 mobile-wrap">
                         <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="scheduleVisible = !scheduleVisible">
                             {{ scheduleVisible ? '收起课表' : '展开课表' }}
                         </button>
@@ -599,21 +600,21 @@ async function saveFamily() {
                     </div>
                 </div>
 
-                <div v-if="scheduleVisible" class="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div v-if="scheduleVisible" class="mobile-calendar overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
                         <div class="text-xs font-semibold text-slate-500">节次 / 时间</div>
                         <div v-for="day in weeklyCalendar" :key="`header-${day.value}`" class="text-sm font-semibold text-slate-900 text-center">{{ day.label }}</div>
                     </div>
 
                     <div class="grid grid-cols-[96px_repeat(7,minmax(0,1fr))] gap-2">
-                        <div class="grid gap-1" style="grid-template-rows: repeat(12, 88px);">
+                        <div class="grid gap-1 mobile-stack" style="grid-template-rows: repeat(12, 88px);">
                             <div v-for="period in 12" :key="`time-${period}`" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600">
                                 <p>第{{ period }}节</p>
                                 <p>{{ periodTimeText(period) }}</p>
                             </div>
                         </div>
 
-                        <div v-for="day in weeklyCalendar" :key="`day-${day.value}`" class="grid gap-1" style="grid-template-rows: repeat(12, 88px);">
+                        <div v-for="day in weeklyCalendar" :key="`day-${day.value}`" class="grid gap-1 mobile-stack" style="grid-template-rows: repeat(12, 88px);">
                             <template v-for="slot in day.slots" :key="`${day.value}-${slot.period}`">
                                 <article
                                     v-if="slot.type === 'course' && slot.isStart"
@@ -638,7 +639,7 @@ async function saveFamily() {
             </section>
 
             <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 mobile-wrap">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950">成绩信息</h2>
                         <p class="mt-1 text-sm text-slate-500">学业统计</p>
@@ -648,7 +649,7 @@ async function saveFamily() {
                     </button>
                 </div>
 
-                <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <p class="text-xs text-slate-500">已获得学分</p>
                         <p class="text-xl font-bold text-slate-950">{{ toFixedText(props.earnedCreditsTotal) }}</p>
@@ -774,7 +775,7 @@ async function saveFamily() {
 
         <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">基础信息</h2>
-            <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3 mobile-stack">
                 <div><span class="text-slate-500">学号：</span>{{ props.student.xgh || '-' }}</div>
                 <div><span class="text-slate-500">姓名：</span>{{ props.student.xm || '-' }}</div>
                 <div><span class="text-slate-500">分院：</span>{{ props.student.dwmc || '-' }}</div>
@@ -832,7 +833,7 @@ async function saveFamily() {
 
         <section v-if="activeProfileSection === 'basic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="mb-3 text-lg font-semibold text-slate-950">住宿信息</h2>
-            <div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            <div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3 mobile-stack">
                 <div>
                     <span class="text-slate-500">宿舍号：</span>
                     <a v-if="props.dormitory?.ssh" class="text-sky-700 hover:underline" :href="`/students/dormitories/${encodeURIComponent(props.dormitory.ssh)}`">{{ props.dormitory.ssh }}</a>
@@ -842,7 +843,7 @@ async function saveFamily() {
                 <div><span class="text-slate-500">寝室类型：</span>{{ props.dormitory?.qslx || '-' }}</div>
             </div>
 
-            <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4 mobile-stack">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p class="text-xs text-slate-500">同宿舍人数</p>
                     <p class="text-xl font-bold text-slate-950">{{ props.dormitorySummary.roommate_total || 0 }}</p>
@@ -909,8 +910,8 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-3">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
+                <div class="flex flex-wrap items-center gap-3 mobile-wrap">
                     <h2 class="text-lg font-semibold text-slate-950">保险参保记录</h2>
                     <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                         <button
@@ -1016,7 +1017,7 @@ async function saveFamily() {
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Campus activity</p>
                     <h2 class="mt-1 text-lg font-semibold text-slate-950">刷码动态</h2>
                 </div>
-                <div class="grid gap-2 sm:grid-cols-3 lg:w-[620px]">
+                <div class="grid gap-2 sm:grid-cols-3 lg:w-[620px] mobile-stack">
                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                         <div class="text-xs text-slate-500">最近一次</div>
                         <div class="mt-1 font-semibold text-slate-950">{{ dateTimeText(latestPass?.smsj) }}</div>
@@ -1035,7 +1036,7 @@ async function saveFamily() {
             </div>
 
             <div v-if="props.recentPasses.length" class="overflow-hidden rounded-lg border border-slate-200">
-                <div class="grid grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden">
+                <div class="grid grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden mobile-stack">
                     <span>时间</span>
                     <span>地点</span>
                     <span>方向</span>
@@ -1045,7 +1046,7 @@ async function saveFamily() {
                     <div
                         v-for="item in props.recentPasses"
                         :key="`${item.gh}-${item.smsj}-${item.device || 'none'}`"
-                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] lg:items-center"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[116px_minmax(180px,1fr)_120px_minmax(180px,1fr)] lg:items-center mobile-stack"
                     >
                         <div>
                             <div class="font-semibold text-slate-950">{{ passTimePart(item.smsj) }}</div>
@@ -1065,7 +1066,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'activity'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div class="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between mobile-wrap">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">10秒内同向随行人员</h2>
                     <p class="mt-1 text-sm text-slate-500">同地点、同进出方向累计超过 2 次时标记为可能为朋友。</p>
@@ -1075,7 +1076,7 @@ async function saveFamily() {
                 </div>
             </div>
             <div v-if="props.companionInsights.length" class="overflow-hidden rounded-lg border border-slate-200">
-                <div class="grid grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden">
+                <div class="grid grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 max-lg:hidden mobile-stack">
                     <span>人员</span>
                     <span>同行次数</span>
                     <span>最近出现</span>
@@ -1086,7 +1087,7 @@ async function saveFamily() {
                     <div
                         v-for="item in props.companionInsights"
                         :key="item.xgh"
-                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] lg:items-center"
+                        class="grid gap-3 px-3 py-3 text-sm hover:bg-slate-50 lg:grid-cols-[minmax(160px,1fr)_120px_minmax(190px,1.1fr)_minmax(180px,1fr)_110px] lg:items-center mobile-stack"
                     >
                         <div>
                             <a v-if="item.xgh" class="font-semibold text-sky-700 hover:underline" :href="`/students/profile/${encodeURIComponent(item.xgh)}`">{{ item.xm || '-' }}</a>
@@ -1116,7 +1117,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'academic'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <h2 class="text-lg font-semibold text-slate-950">体测成绩</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -1152,7 +1153,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <h2 class="text-lg font-semibold text-slate-950">资助对象记录</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -1184,7 +1185,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'support'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <h2 class="text-lg font-semibold text-slate-950">助学贷款记录</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -1218,7 +1219,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <h2 class="text-lg font-semibold text-slate-950">团学干部任职考核</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -1254,7 +1255,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'honor'" class="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex items-center justify-between gap-2">
+            <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                 <h2 class="text-lg font-semibold text-slate-950">科技竞赛获奖</h2>
                 <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
             </div>
@@ -1285,9 +1286,9 @@ async function saveFamily() {
             </div>
         </section>
 
-        <section v-if="activeProfileSection === 'honor'" class="mb-6 grid gap-6 lg:grid-cols-2">
+        <section v-if="activeProfileSection === 'honor'" class="mb-6 grid gap-6 lg:grid-cols-2 mobile-stack">
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                     <h2 class="text-lg font-semibold text-slate-950">奖励记录</h2>
                     <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
                 </div>
@@ -1315,7 +1316,7 @@ async function saveFamily() {
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="mb-3 flex items-center justify-between gap-2">
+                <div class="mb-3 flex items-center justify-between gap-2 mobile-wrap">
                     <h2 class="text-lg font-semibold text-slate-950">惩罚记录</h2>
                     <a href="/student-imports" class="text-sm text-sky-700 hover:underline">导入</a>
                 </div>
@@ -1344,7 +1345,7 @@ async function saveFamily() {
         </section>
 
         <section v-if="activeProfileSection === 'family'" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2 mobile-wrap">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-950">家长信息</h2>
                     <p v-if="!props.canUpdateFamilies" class="mt-1 text-xs text-slate-500">仅该学生当前分院的辅导员或超管可修改。</p>
@@ -1391,10 +1392,10 @@ async function saveFamily() {
             </div>
         </div>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" @click.self="closeEdit">
+        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 mobile-modal" @click.self="closeEdit">
             <form class="w-full max-w-2xl rounded-lg bg-white p-5 shadow-xl" @submit.prevent="saveFamily">
                 <h2 class="mb-4 text-xl font-bold text-slate-950">编辑家长信息</h2>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 mobile-stack">
                     <label class="text-sm text-slate-600">
                         姓名
                         <input v-model="form.name" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-950" type="text">
@@ -1427,7 +1428,7 @@ async function saveFamily() {
                         </select>
                     </label>
                 </div>
-                <div class="mt-5 flex justify-end gap-2">
+                <div class="mt-5 flex justify-end gap-2 mobile-wrap">
                     <button type="button" class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="closeEdit">取消</button>
                     <button class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
                 </div>
