@@ -21,6 +21,7 @@ const notice = ref({ text: '', type: 'info' });
 
 const roleLabels = {
     super_admin: '总管理员',
+    student_affairs: '学工老师',
     admin: '管理员',
     counselor: '辅导员',
     staff: '普通人员',
@@ -206,11 +207,11 @@ onMounted(() => load());
 
                     <form class="permission-form" @submit.prevent="save">
                         <fieldset :disabled="!selected.is_active || saving">
-                            <legend>系统角色</legend>
+                            <legend>系统角色</legend><p class="mt-2 text-sm text-muted">管理员查看全校并维护业务；学工老师查看全校；辅导员查看本分院。额外查看范围在学生权限清单配置，不增加修改权限。</p>
                             <div class="role-options">
                                 <label v-for="item in roles" :key="item" :class="{ checked: form.role === item }">
                                     <input v-model="form.role" type="radio" :value="item">
-                                    <span><strong>{{ roleLabel(item) }}</strong><small v-if="item === 'super_admin'">角色与权限管理</small><small v-else-if="item === 'admin'">全校业务管理</small><small v-else-if="item === 'counselor'">按带班查看学生</small><small v-else>无默认后台权限</small></span>
+                                    <span><strong>{{ roleLabel(item) }}</strong><small v-if="item === 'super_admin'">角色与权限管理</small><small v-else-if="item === 'admin'">全校业务管理</small><small v-else-if="item === 'counselor'">本分院学生 · 可维护家庭联系人</small><small v-else-if="item === 'student_affairs'">全校学生 · 只读</small><small v-else>需额外授权查看学生</small></span>
                                 </label>
                             </div>
                         </fieldset>

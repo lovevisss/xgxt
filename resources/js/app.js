@@ -9,7 +9,9 @@ const appEl = document.getElementById('app');
 if (appEl) {
 	installMobileViewport();
 	let initialProps = {};
+	let workspace = {};
 	try {
+		workspace = JSON.parse(appEl.dataset.workspace || '{}');
 		initialProps = JSON.parse(appEl.dataset.props || '{}');
 	} catch (error) {
 		initialProps = {};
@@ -18,5 +20,6 @@ if (appEl) {
 	createApp(AppRoot, {
 		page: appEl.dataset.page || '',
 		initialProps,
+		workspace,
 	}).mount(appEl);
 }

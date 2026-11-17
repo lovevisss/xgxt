@@ -25,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\View::composer('layouts.vue-app', function ($view): void {
+            $view->with('workspace', app(\App\Services\WorkspaceContext::class)->build());
+        });
+
         Event::listen(CasAuthenticated::class, LogCasAuthentication::class);
     }
 }

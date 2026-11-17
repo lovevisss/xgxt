@@ -139,7 +139,7 @@ class AdminUserController extends Controller
     public function updateRole(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'role' => ['required', 'in:super_admin,admin,counselor,staff'],
+            'role' => ['required', 'in:super_admin,admin,student_affairs,counselor,staff'],
         ]);
 
         $targetRole = (string) $validated['role'];
@@ -163,7 +163,7 @@ class AdminUserController extends Controller
 
     private function roles(): array
     {
-        return [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_COUNSELOR, User::ROLE_STAFF];
+        return [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_STUDENT_AFFAIRS, User::ROLE_COUNSELOR, User::ROLE_STAFF];
     }
 
     private function staffPayload(StaffMember $staff): array

@@ -326,7 +326,7 @@ class StudentController extends Controller
     public function profile($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
-        abort_unless($this->canViewStudent($student), 403, 'Only assigned counselors or admins can view this student.');
+        abort_unless($this->canViewStudent($student), 403, '无权查看此学生的信息。');
         $families = $this->latestStudentFamilies($xgh);
         $awards = StudentAward::query()
             ->where('student_xgh', $xgh)
@@ -549,13 +549,19 @@ class StudentController extends Controller
             return collect();
         }
 
-        $students = Student::query()
+        $studentQuery = Student::query();
+        $this->applyStudentVisibility($studentQuery);
+        $students = $studentQuery
             ->whereIn('xgh', $residents->pluck('xh')->filter()->values())
             ->get(['xgh', 'xm', 'dwmc', 'dwbm', 'bjmc', 'last_smsj', 'exclude_until'])
             ->keyBy('xgh');
 
         $now = now();
         $lostThreshold = $now->copy()->subDays(7);
+
+        if (! app(\App\Services\StudentAccess::class)->scope()['all']) {
+            $residents = $residents->filter(fn ($resident) => $students->has($resident->xh));
+        }
 
         return $residents->map(function (StudentDormitory $resident) use ($students, $currentXgh, $now, $lostThreshold) {
             $student = $students->get($resident->xh);
@@ -1046,11 +1052,16 @@ class StudentController extends Controller
             return collect();
         }
 
-        $students = Student::query()
+        $studentQuery = Student::query();
+        $this->applyStudentVisibility($studentQuery);
+        $students = $studentQuery
             ->whereIn('xgh', array_keys($stats))
             ->pluck('xm', 'xgh');
 
+        $allStudents = app(\App\Services\StudentAccess::class)->scope()['all'];
+
         return collect($stats)
+            ->filter(fn ($item) => $allStudents || $students->has($item['xgh']))
             ->map(function (array $item) use ($students) {
                 $item['xm'] = (string) ($students[$item['xgh']] ?? $item['xm'] ?? '');
                 $item['is_possible_friend'] = $item['companion_count'] > 2;
@@ -1065,7 +1076,7 @@ class StudentController extends Controller
     public function show($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
-        abort_unless($this->canViewStudent($student), 403, 'Only assigned counselors or admins can view this student.');
+        abort_unless($this->canViewStudent($student), 403, '无权查看此学生的信息。');
 
         return response()->json($student);
     }
@@ -1074,7 +1085,7 @@ class StudentController extends Controller
     public function update($xgh)
     {
         $student = Student::where('xgh', $xgh)->firstOrFail();
-        abort_unless(! config('cas.enabled') || (bool) CurrentUser::get()?->isAdmin(), 403, 'Only admins can update student records.');
+        abort_unless(app(\App\Services\StudentAccess::class)->canEditStudents(), 403, 'Only admins can update student records.');
         $excludeUntil = request('exclude_until');
 
         $student->fill(request()->only([
@@ -1091,54 +1102,7 @@ class StudentController extends Controller
 
     private function applyStudentVisibility($query): void
     {
-        $user = CurrentUser::get();
-        if (! config('cas.enabled') || $user === null || $user->isAdmin()) {
-            return;
-        }
-
-        $accessPermissions = $user->studentAccessPermissions()->where('is_active', true)->get(['scope_type', 'department_code']);
-        if ($accessPermissions->contains(fn ($permission) => $permission->scope_type === \App\Models\StudentAccessPermission::SCOPE_ALL)) {
-            return;
-        }
-
-        $departmentCodes = $accessPermissions
-            ->where('scope_type', \App\Models\StudentAccessPermission::SCOPE_COLLEGE)
-            ->pluck('department_code')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if (! $user->isCounselor() && $departmentCodes->isEmpty()) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $assignments = $user->classAssignments()->get(['class_code', 'normalized_class_name', 'college_code']);
-        $classCodes = $assignments->pluck('class_code')->filter()->unique()->values();
-        $classNames = $assignments->pluck('normalized_class_name')->filter()->unique()->values();
-
-        if ($classCodes->isEmpty() && $classNames->isEmpty() && $departmentCodes->isEmpty()) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $query->where(function ($subQuery) use ($assignments, $departmentCodes) {
-            if ($departmentCodes->isNotEmpty()) {
-                $subQuery->whereIn('dwbm', $departmentCodes->all());
-            }
-
-            foreach ($assignments as $assignment) {
-                if (blank($assignment->college_code)) continue;
-                $subQuery->orWhere(function ($scope) use ($assignment) {
-                    $scope->where('dwbm', $assignment->college_code)->where(function ($classes) use ($assignment) {
-                        if (filled($assignment->class_code)) $classes->where('bjbm', $assignment->class_code);
-                        if (filled($assignment->normalized_class_name)) $classes->orWhereIn(DB::raw("LOWER(REPLACE(TRIM(bjmc), ' ', ''))"), [$assignment->normalized_class_name, $assignment->normalized_class_name.'班']);
-                    });
-                });
-            }
-        });
+        app(\App\Services\StudentAccess::class)->apply($query);
     }
 
     private function latestStudentFamilies(string $studentNumber): Collection
@@ -1210,12 +1174,6 @@ class StudentController extends Controller
 
     private function canViewStudent(Student $student): bool
     {
-        $user = CurrentUser::get();
-
-        if (! config('cas.enabled') || $user === null) {
-            return true;
-        }
-
-        return $user->canViewStudent($student);
+        return app(\App\Services\StudentAccess::class)->canViewStudent($student);
     }
 }

@@ -1,6 +1,9 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { inject, onMounted, ref } from 'vue';
 import { formatDatePart, formatTimePart } from '../utils/dateTime';
+
+const workspace = inject('workspace', {});
+const canEdit = workspace.capabilities?.editStudents === true;
 
 const props = defineProps({ mode: { type: String, default: 'current' } });
 const isGraduates = props.mode === 'graduates';
@@ -217,7 +220,7 @@ onMounted(async () => {
                                 <span v-else class="text-muted">-</span>
                             </td>
                             <td v-if="!isGraduates" class="px-3 py-2">{{ student.status === 'lost' ? '失联' : '正常' }}</td>
-                            <td v-if="!isGraduates" class="px-3 py-2"><button class="rounded border border-line px-2 py-1 text-xs ui-button" @click="openEditModal(student)">编辑</button></td>
+                            <td v-if="!isGraduates" class="px-3 py-2"><button class="rounded border border-line px-2 py-1 text-xs ui-button" v-if="canEdit" @click="openEditModal(student)">编辑</button></td>
                         </tr>
                         <tr v-if="!studentsData.length"><td :colspan="isGraduates ? 5 : 7" class="px-3 py-6 text-center text-muted">暂无数据</td></tr>
                     </tbody>

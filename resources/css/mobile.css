@@ -59,3 +59,27 @@
     #app .profile-navigation nav > div{flex-direction:column;min-width:0}
     #app .profile-navigation nav span{white-space:normal}
 }
+
+/* Role workspace and fixed navigation. */
+@media (max-width:767px) {
+ .workspace-shell { padding-bottom:calc(80px + env(safe-area-inset-bottom,0px)); }
+ .workspace-topbar { min-height:64px;padding:10px 16px;gap:12px; }
+ .workspace-brand { font-size:14px;gap:8px; }
+ .workspace-desktop-nav { display:none; }
+ .workspace-account { gap:8px;font-size:12px;max-width:48%; }
+ .workspace-logout { min-height:44px;display:flex;align-items:center; }
+ .workspace-bottom-nav { position:fixed;bottom:0;left:0;right:0;z-index:35;display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--color-line);background:var(--color-canvas); }
+ .workspace-bottom-nav a { flex:1;min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:10px;color:var(--color-muted);font-size:11px; }
+ .workspace-bottom-nav a.active { background:var(--color-selected);color:var(--color-accent); }
+ #app .workspace-home { padding:24px 16px; }
+ #app .workspace-intro { display:block;padding:0 0 24px;margin-bottom:24px; }
+ #app .workspace-intro h1 { font-size:26px; }
+ .workspace-identity { max-width:none;min-width:0;margin-top:20px;padding:16px; }
+ .workspace-card-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+ .workspace-entry { min-width:0;padding:16px 14px; }
+ .workspace-entry-top { margin-bottom:16px; }
+ .workspace-entry h3 { font-size:15px; }
+ .workspace-entry p { overflow-wrap:anywhere; }
+ .workspace-module-group { scroll-margin-top:84px; }
+}
+@media(max-width:359px) { .workspace-card-grid { grid-template-columns:minmax(0,1fr); } }

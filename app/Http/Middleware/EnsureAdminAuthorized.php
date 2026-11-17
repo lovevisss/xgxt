@@ -22,41 +22,29 @@ class EnsureAdminAuthorized
                 ? response()->json(['message' => '当前账号已不在在职教职工目录中。'], 403)
                 : response()->view('forbidden', ['message' => '当前账号已不在在职教职工目录中。'], 403);
         }
-        if ($user && ($request->is('counselors') || $request->is('counselors/*')) && app(\App\Services\CounselorManagement::class)->permission()) {
-            return $next($request);
-        }
-
-        if ($user && ($user->isAdmin() || $user->isCounselor())) {
-            return $next($request);
-        }
-
-        if ($user && $user->hasActiveStudentAccessPermission() && $this->isReadOnlyStudentRoute($request)) {
+        $capabilities = app(\App\Services\StudentAccess::class)->capabilities();
+        $studentRoute = $request->is('students', 'students/*', 'graduates', 'graduates/*');
+        $familyRoute = $request->is('student-families', 'student-families/*');
+        $counselorRoute = $request->is('counselors', 'counselors/*');
+        $allowed = match (true) {
+            $studentRoute => $request->isMethod('GET') ? $capabilities['students'] : $capabilities['editStudents'],
+            $familyRoute => $request->isMethod('GET') ? $capabilities['students'] : $capabilities['editFamilies'],
+            $counselorRoute => $capabilities['counselors'],
+            $request->is('admin', 'admin/*') => $capabilities['systemAdmin'],
+            default => $capabilities['businessAdmin'],
+        };
+        if ($user && $allowed) {
             return $next($request);
         }
 
         if ($request->expectsJson() || $request->is('*/data*')) {
             return response()->json([
-                'message' => '当前账号不是管理员，无法访问该资源。',
+                'message' => '当前账号没有此资源的访问权限。',
             ], 403);
         }
 
         return response()->view('forbidden', [
-            'message' => '当前账号不是管理员，无法访问该页面。',
+            'message' => '当前账号没有此页面的访问权限。',
         ], 403);
-    }
-
-    private function isReadOnlyStudentRoute(Request $request): bool
-    {
-        return $request->isMethod('GET')
-            && (
-                $request->is('students')
-                || $request->is('graduates')
-                || $request->is('graduates/data')
-                || $request->is('students/data')
-                || $request->is('students/data/*')
-                || $request->is('students/filters')
-                || $request->is('students/profile/*')
-                || $request->is('students/dormitories/*')
-            );
     }
 }

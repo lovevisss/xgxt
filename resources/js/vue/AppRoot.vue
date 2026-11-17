@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue';
+import WorkspaceNavigation from './components/WorkspaceNavigation.vue';
+import { computed, provide } from 'vue';
 import WelcomePage from './pages/WelcomePage.vue';
 import StudentsPage from './pages/StudentsPage.vue';
 import StudentFamiliesPage from './pages/StudentFamiliesPage.vue';
@@ -17,9 +18,12 @@ import SnippetsCreatePage from './pages/SnippetsCreatePage.vue';
 import SnippetsShowPage from './pages/SnippetsShowPage.vue';
 
 const props = defineProps({
+    workspace: { type: Object, default: () => ({}) },
     page: { type: String, default: '' },
     initialProps: { type: Object, default: () => ({}) },
 });
+
+provide('workspace', props.workspace);
 
 const pages = {
     welcome: WelcomePage,
@@ -43,8 +47,11 @@ const currentPage = computed(() => pages[props.page] || null);
 </script>
 
 <template>
-    <component :is="currentPage" v-if="currentPage" v-bind="initialProps" />
-    <div v-else class="mx-auto mt-10 max-w-2xl rounded-lg border border-danger-line bg-danger-surface p-4 text-danger">
+    <div :class="{ 'workspace-shell': workspace.authenticated }">
+        <WorkspaceNavigation v-if="workspace.authenticated" :workspace="workspace" :page="page" />
+        <component :is="currentPage" v-if="currentPage" v-bind="initialProps" />
+    </div>
+    <div v-if="!currentPage" class="mx-auto mt-10 max-w-2xl rounded-lg border border-danger-line bg-danger-surface p-4 text-danger">
         无法识别页面：{{ page }}
     </div>
 </template>

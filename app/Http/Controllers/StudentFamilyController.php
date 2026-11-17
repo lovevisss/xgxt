@@ -12,7 +12,9 @@ class StudentFamilyController extends Controller
     {
         $query = StudentFamily::query()
             ->leftJoin('students', 'students.xgh', '=', 'student_families.stu_no')
-            ->select('student_families.*', 'students.xm as student_name');
+            ->select('student_families.*', 'students.xm as student_name', 'students.dwbm as student_department');
+
+        app(\App\Services\StudentAccess::class)->apply($query, 'students.dwbm');
 
         $keyword = trim((string) request('q', ''));
         if ($keyword !== '') {
@@ -37,12 +39,16 @@ class StudentFamilyController extends Controller
             ->orderBy('student_families.id')
             ->paginate(15);
 
+        $records->getCollection()->each(fn ($record) => $record->setAttribute('can_update', app(\App\Services\StudentAccess::class)->canEditFamily($record->student_department)));
+
         return response()->json($records);
     }
 
     public function show($id)
     {
         $record = StudentFamily::query()->findOrFail($id);
+
+        abort_unless(app(\App\Services\StudentAccess::class)->canViewStudent(Student::where('xgh', $record->stu_no)->first()), 403);
 
         return response()->json($record);
     }

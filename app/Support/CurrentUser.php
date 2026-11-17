@@ -25,10 +25,6 @@ class CurrentUser
 
     public static function canManageDepartment(?string $departmentCode): bool
     {
-        if (! config('cas.enabled') && self::get() === null) {
-            return true;
-        }
-
-        return (bool) self::get()?->canManageStudentDepartment($departmentCode);
+        return app(\App\Services\StudentAccess::class)->canEditFamily($departmentCode);
     }
 }

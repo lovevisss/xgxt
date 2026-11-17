@@ -128,7 +128,7 @@ it('resolves law and social work counselor college code from merged student coll
     ]);
 });
 
-it('limits counselor student visibility to assigned classes', function () {
+it('allows counselors to view all students within their college', function () {
     config()->set('cas.enabled', true);
 
     $counselor = User::factory()->create([
@@ -174,12 +174,12 @@ it('limits counselor student visibility to assigned classes', function () {
     ])->getJson('/students/data')
         ->assertOk()
         ->assertJsonPath('data.0.xgh', '20260051')
-        ->assertJsonMissing(['xgh' => '20260052']);
+        ->assertJsonFragment(['xgh' => '20260052']);
 
     $this->withSession([
         config('cas.session_key') => ['user' => '20170901'],
     ])->get('/students/profile/20260052')
-        ->assertForbidden();
+        ->assertOk();
 });
 
 it('lists recent four cohorts from the counselor college and supports fuzzy class search', function () {

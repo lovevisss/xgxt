@@ -1,5 +1,7 @@
 # 全站深色与荧光绿主题
 
+后续角色工作台与导航改造的当前权限矩阵、自测结果见 [角色工作台说明](role-workspace-checklist.md)。本文件保留主题首次改造的检查记录。
+
 ## 主题入口
 
 - `resources/css/theme.css` 集中定义 Tailwind 4 语义色彩与共享 `ui-page`、`ui-card`、`ui-control`、`ui-button`、`ui-button-primary`、`ui-table` 样式，经 `app.css` 加载。

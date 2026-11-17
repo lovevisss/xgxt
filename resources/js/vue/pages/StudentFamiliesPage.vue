@@ -134,7 +134,7 @@ onMounted(async () => {
                             <td class="px-3 py-2">{{ row.position || '-' }}</td>
                             <td class="px-3 py-2">{{ row.phone || '-' }}</td>
                             <td class="px-3 py-2">{{ row.is_emergency_contact ? '是' : '否' }}</td>
-                            <td class="px-3 py-2"><button class="rounded border border-line px-2 py-1 text-xs ui-button" @click="openEdit(row)">编辑</button></td>
+                            <td class="px-3 py-2"><button class="rounded border border-line px-2 py-1 text-xs ui-button" v-if="row.can_update" @click="openEdit(row)">编辑</button></td>
                         </tr>
                         <tr v-if="!records.length"><td colspan="9" class="px-3 py-6 text-center text-muted">暂无数据</td></tr>
                     </tbody>

@@ -17,6 +17,8 @@ class User extends Authenticatable
 
     public const ROLE_COUNSELOR = 'counselor';
 
+    public const ROLE_STUDENT_AFFAIRS = 'student_affairs';
+
     public const ROLE_STAFF = 'staff';
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -91,14 +93,7 @@ class User extends Authenticatable
 
     public function canManageStudentDepartment(?string $studentDepartmentCode): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        return $this->isCounselor()
-            && filled($this->dwbm)
-            && filled($studentDepartmentCode)
-            && (string) $this->dwbm === (string) $studentDepartmentCode;
+        return app(\App\Services\StudentAccess::class)->canEditFamily($studentDepartmentCode, $this);
     }
 
     public function classAssignments(): HasMany
@@ -119,43 +114,6 @@ class User extends Authenticatable
 
     public function canViewStudent(?Student $student): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        if (! $student) {
-            return false;
-        }
-
-        if ($this->studentAccessPermissions()
-            ->where('is_active', true)
-            ->get()
-            ->contains(fn (StudentAccessPermission $permission) => $permission->allowsDepartment($student->dwbm))) {
-            return true;
-        }
-
-        if (! $this->isCounselor()) {
-            return false;
-        }
-
-        $classCode = trim((string) ($student->bjbm ?? ''));
-        $className = CounselorClassAssignment::normalizeClassName($student->bjmc ?? '');
-
-        if ($classCode === '' && $className === '') {
-            return false;
-        }
-
-        return $this->classAssignments()
-            ->where('college_code', $student->dwbm)
-            ->where(function ($query) use ($classCode, $className) {
-                if ($classCode !== '') {
-                    $query->where('class_code', $classCode);
-                }
-
-                if ($className !== '') {
-                    $query->orWhere('normalized_class_name', $className);
-                }
-            })
-            ->exists();
+        return app(\App\Services\StudentAccess::class)->canViewStudent($student, $this);
     }
 }
