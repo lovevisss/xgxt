@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
 
 class CounselorClassCatalog
 {
-    private const CACHE_KEY = 'counselor-class-catalog:v2';
+    private const CACHE_KEY = 'counselor-class-catalog:v3';
 
     public function all(): Collection
     {
@@ -59,8 +59,20 @@ class CounselorClassCatalog
             ];
         });
 
-        return $students->concat($archives)->concat($assignments)
+        $allRows = $students->concat($archives)->concat($assignments);
+        $codesByName = $allRows->filter(fn ($row) => filled($row['class_code']))
             ->groupBy(fn ($row) => ($row['college_code'] ?? '').'|'.CounselorClassAssignment::normalizeClassName($row['class_name']))
+            ->map(fn ($rows) => $rows->pluck('class_code')->unique()->values());
+
+        return $allRows
+            ->groupBy(function ($row) use ($codesByName) {
+                $college = $row['college_code'] ?? '';
+                if (filled($row['class_code'])) return $college.'|code:'.$row['class_code'];
+                $normalized = CounselorClassAssignment::normalizeClassName($row['class_name']);
+                $codes = $codesByName->get($college.'|'.$normalized, collect());
+
+                return $codes->count() === 1 ? $college.'|code:'.$codes->first() : $college.'|name:'.$normalized;
+            })
             ->map(function ($rows, $key) {
                 $row = $rows->first(fn ($row) => filled($row['class_code'])) ?? $rows->first();
                 $row['student_count'] = (int) $rows->max('student_count');

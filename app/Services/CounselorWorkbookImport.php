@@ -66,16 +66,38 @@ class CounselorWorkbookImport
             }
         }
         $catalog = app(CounselorClassCatalog::class)->all();
+        $ownership = app(CounselorClassOwnership::class);
         $result = [];
+        $claims = [];
         foreach ($records as $employee => $record) {
             $assignments = [];
             foreach ($record['names'] as $name) {
                 $normalized = CounselorClassAssignment::normalizeClassName($name);
-                $match = $catalog->first(fn ($row) => $row['college_code'] === $record['user']['dwbm'] && $normalized === CounselorClassAssignment::normalizeClassName($row['class_name']));
+                $matches = $catalog->filter(fn ($row) => $row['college_code'] === $record['user']['dwbm'] && $normalized === CounselorClassAssignment::normalizeClassName($row['class_name']));
+                if ($matches->pluck('class_code')->filter()->unique()->count() > 1) {
+                    $errors[] = $name.'：同名班级有多个正式代码，请先在页面明确关联';
+                    continue;
+                }
+                $match = $matches->first() ?? CounselorClassAssignment::where('counselor_cas_username', (string) $employee)
+                    ->where('normalized_class_name', $normalized)->first();
                 $assignments[$normalized] = ['class_name' => $match['class_name'] ?? $name, 'class_code' => $match['class_code'] ?? null, 'normalized_class_name' => $normalized, 'college_code' => $record['user']['dwbm'], 'college_name' => $record['user']['dwmc'], 'source' => 'excel'];
+                foreach ($claims as $claim) {
+                    if ($claim['employee'] !== $employee && $ownership->matches($claim['assignment'], $assignments[$normalized])) {
+                        $errors[] = $assignments[$normalized]['class_name'].'：导入表中同时分配给 '.$claim['employee'].' 和 '.$employee;
+                    }
+                }
+                $claims[] = ['employee' => $employee, 'assignment' => $assignments[$normalized]];
             }
             $old = CounselorClassAssignment::where('counselor_cas_username', (string) $employee)->get();
-            $result[] = ['user' => $record['user'], 'assignments' => array_values($assignments), 'created_user' => ! User::where('cas_username', (string) $employee)->exists(), 'added' => array_values(array_diff(array_keys($assignments), $old->pluck('normalized_class_name')->all())), 'removed' => array_values(array_diff($old->pluck('normalized_class_name')->all(), array_keys($assignments)))];
+            $transfers = [];
+            foreach ($assignments as $assignment) {
+                $owners = $ownership->owners($assignment)->filter(fn ($owner) => $owner->counselor_cas_username !== $employee);
+                if ($owners->isNotEmpty()) {
+                    $names = User::whereIn('cas_username', $owners->pluck('counselor_cas_username'))->pluck('name', 'cas_username');
+                    $transfers[] = $assignment['class_name'].'：'.($names->values()->implode('、') ?: '原辅导员').' → '.$record['user']['name'];
+                }
+            }
+            $result[] = ['user' => $record['user'], 'assignments' => array_values($assignments), 'created_user' => ! User::where('cas_username', (string) $employee)->exists(), 'added' => array_values(array_diff(array_keys($assignments), $old->pluck('normalized_class_name')->all())), 'removed' => array_values(array_diff($old->pluck('normalized_class_name')->all(), array_keys($assignments))), 'transfers' => $transfers];
         }
         if ($result === [] && $errors === []) {
             $errors[] = '文件没有可导入人员';
@@ -91,6 +113,7 @@ class CounselorWorkbookImport
             if ($preview['errors']) {
                 throw ValidationException::withMessages(['file' => $preview['errors']]);
             }
+            $users = [];
             foreach ($preview['records'] as $record) {
                 $data = $record['user'];
                 $user = User::where('cas_username', $data['cas_username'])->lockForUpdate()->first();
@@ -100,10 +123,14 @@ class CounselorWorkbookImport
                 }
                 $user->fill($data)->save();
                 $user->classAssignments()->whereNotIn('normalized_class_name', array_column($record['assignments'], 'normalized_class_name'))->delete();
+                $users[$user->cas_username] = $user;
+                app(CounselorManagement::class)->log('import', $user->cas_username, $before, ['user' => $data, 'assignments' => $record['assignments'], 'transfers' => $record['transfers']]);
+            }
+            foreach ($preview['records'] as $record) {
+                $user = $users[$record['user']['cas_username']];
                 foreach ($record['assignments'] as $assignment) {
-                    CounselorClassAssignment::updateOrCreate(['counselor_cas_username' => $user->cas_username, 'normalized_class_name' => $assignment['normalized_class_name']], $assignment + ['user_id' => $user->id]);
+                    app(CounselorClassOwnership::class)->assign($user, $assignment, true, null, 'excel');
                 }
-                app(CounselorManagement::class)->log('import', $user->cas_username, $before, ['user' => $data, 'assignments' => $record['assignments']]);
             }
 
             return $preview;

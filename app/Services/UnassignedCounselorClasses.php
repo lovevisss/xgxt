@@ -48,17 +48,7 @@ class UnassignedCounselorClasses
 
                 return $row;
             })->values()
-            ->reject(function ($row) use ($assignments) {
-                return $assignments->contains(function ($assignment) use ($row) {
-                    if ($assignment->college_code !== $row['college_code']) {
-                        return false;
-                    }
-                    if ($row['class_code'] !== null && filled($assignment->class_code)) {
-                        return $assignment->class_code === $row['class_code'];
-                    }
-
-                    return $assignment->normalized_class_name === $row['normalized_class_name'];
-                });
-            })->sortBy(fn ($row) => $row['college_name'].'|'.$row['class_name'])->values();
+            ->reject(fn ($row) => $assignments->contains(fn ($assignment) => app(CounselorClassOwnership::class)->matches($row, $assignment)))
+            ->sortBy(fn ($row) => $row['college_name'].'|'.$row['class_name'])->values();
     }
 }

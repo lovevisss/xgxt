@@ -16,6 +16,7 @@ class CounselorClassAssignment extends Model
         'college_code',
         'college_name',
         'source',
+        'class_identity_hash',
     ];
 
     public function user(): BelongsTo

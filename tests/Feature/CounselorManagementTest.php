@@ -230,3 +230,120 @@ it('can bind a current class that has no class code', function () {
     $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $teacher->cas_username, 'class_code' => null, 'normalized_class_name' => '26missingcode1']);
     $this->getJson('/counselors/unassigned-classes?q=MissingCode')->assertOk()->assertJsonPath('total', 0);
 });
+
+it('requires an explicit transfer when another counselor owns a class', function () {
+    $first = managementTeacher();
+    $second = managementTeacher();
+    $this->postJson('/counselors/'.$first->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26'])->assertCreated();
+    $this->getJson('/counselors/classes?counselor_id='.$second->id.'&grade=all&q=26Shared1')->assertOk()->assertJsonPath('data.0.owner_names.0', $first->name);
+    $ownerId = CounselorClassAssignment::where('counselor_cas_username', $first->cas_username)->value('id');
+    $this->postJson('/counselors/'.$second->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26'])->assertStatus(409);
+    $this->postJson('/counselors/'.$second->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26', 'transfer' => true, 'expected_owner_ids' => [999]])->assertStatus(409);
+    $this->postJson('/counselors/'.$second->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26', 'transfer' => true, 'expected_owner_ids' => [$ownerId]])->assertCreated();
+    $this->assertDatabaseMissing('counselor_class_assignments', ['id' => $ownerId]);
+    $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $second->cas_username, 'class_code' => 'FIN26']);
+    $this->assertDatabaseCount('counselor_class_assignments', 1);
+    $this->assertDatabaseHas('counselor_management_logs', ['action' => 'class.transfer', 'subject' => $second->cas_username]);
+});
+
+it('keeps multi-class additions atomic until transfers are confirmed', function () {
+    $first = managementTeacher();
+    $second = managementTeacher();
+    Student::create(['xgh' => 'FIN26002', 'xm' => 'Other', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN2602', 'bjmc' => '26Other1']);
+    $this->postJson('/counselors/'.$first->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26'])->assertCreated();
+    $ownerId = CounselorClassAssignment::first()->id;
+    $classes = [['class_name' => '26Shared1', 'class_code' => 'FIN26'], ['class_name' => '26Other1', 'class_code' => 'FIN2602']];
+    $response = $this->postJson('/counselors/'.$second->id.'/classes/bulk', ['classes' => $classes])->assertStatus(409);
+    $this->assertDatabaseCount('counselor_class_assignments', 1);
+    $key = $response->json('conflicts.0.key');
+    $this->postJson('/counselors/'.$second->id.'/classes/bulk', ['classes' => $classes, 'transfer' => true, 'expected_owners' => [$key => [$ownerId]]])->assertCreated();
+    $this->assertDatabaseCount('counselor_class_assignments', 2);
+    $this->assertDatabaseMissing('counselor_class_assignments', ['id' => $ownerId]);
+});
+
+it('imports a new sole owner and rejects two owners in the same workbook', function () {
+    $first = managementTeacher();
+    $second = managementTeacher();
+    foreach ([$first, $second] as $user) {
+        CounselorClassAssignment::create(['user_id' => $user->id, 'counselor_cas_username' => $user->cas_username,
+            'college_code' => 'FIN', 'college_name' => 'FIN', 'class_code' => 'FIN26', 'class_name' => '26Shared1', 'normalized_class_name' => '26shared1', 'source' => 'excel']);
+    }
+    $third = managementTeacher();
+    $path = managementWorkbook([[$third->cas_username, $third->name, 'FIN', '', '', '', '26Shared1']]);
+    try {
+        $preview = app(CounselorWorkbookImport::class)->preview($path, true);
+        expect($preview['records'][0]['transfers'][0])->toContain($first->name, $second->name);
+        app(CounselorWorkbookImport::class)->commit($path, true);
+        $this->assertDatabaseCount('counselor_class_assignments', 1);
+        $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $third->cas_username, 'class_code' => 'FIN26']);
+    } finally { unlink($path); }
+    $path = managementWorkbook([[$first->cas_username, $first->name, 'FIN', '', '', '', '26Shared1'], [$second->cas_username, $second->name, 'FIN', '', '', '', '26Shared1']]);
+    try {
+        expect(app(CounselorWorkbookImport::class)->preview($path, true)['errors'])->not->toBeEmpty();
+        $this->post('/counselors/import', ['file' => new UploadedFile($path, 'test.xlsx', null, null, true), 'commit' => '1'], ['Accept' => 'application/json'])->assertUnprocessable();
+        $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $third->cas_username, 'class_code' => 'FIN26']);
+    } finally { unlink($path); }
+    $path = managementWorkbook([[$third->cas_username, $third->name, 'FIN', '', '', '', '/'], [$first->cas_username, $first->name, 'FIN', '', '', '', '26Shared1']]);
+    try {
+        app(CounselorWorkbookImport::class)->commit($path, true);
+        $this->assertDatabaseCount('counselor_class_assignments', 1);
+        $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $first->cas_username, 'class_code' => 'FIN26']);
+    } finally { unlink($path); }
+});
+
+it('lists duplicate owners and keeps only the chosen counselor', function () {
+    $first = managementTeacher();
+    $second = managementTeacher();
+    foreach ([$first, $second] as $user) {
+        CounselorClassAssignment::create(['user_id' => $user->id, 'counselor_cas_username' => $user->cas_username,
+            'college_code' => 'FIN', 'college_name' => 'FIN', 'class_code' => 'FIN26', 'class_name' => '26Shared1', 'normalized_class_name' => '26shared1']);
+    }
+    $response = $this->getJson('/counselors/conflicts')->assertOk()->assertJsonCount(1, 'data');
+    $ids = collect($response->json('data.0.assignments'))->pluck('id')->all();
+    $this->postJson('/counselors/conflicts/resolve', ['keep_assignment_id' => $ids[0], 'assignment_ids' => [$ids[0], 999]])->assertStatus(409);
+    $this->postJson('/counselors/conflicts/resolve', ['keep_assignment_id' => $ids[0], 'assignment_ids' => $ids])->assertOk();
+    $this->assertDatabaseCount('counselor_class_assignments', 1);
+    $this->assertDatabaseHas('counselor_class_assignments', ['id' => $ids[0]]);
+    $this->getJson('/counselors/conflicts')->assertOk()->assertJsonCount(0, 'data');
+});
+
+it('scopes conflict resolution to the managers college', function () {
+    config(['cas.enabled' => true]);
+    $manager = User::factory()->create(['role' => 'staff', 'cas_username' => 'manager']);
+    CounselorManagementPermission::create(['employee_no' => 'manager', 'teacher_name' => 'Manager', 'all_colleges' => false, 'department_codes' => ['FIN'], 'is_active' => true]);
+    foreach (['FIN', 'ART'] as $college) {
+        foreach ([managementTeacher($college), managementTeacher($college)] as $user) {
+            CounselorClassAssignment::create(['user_id' => $user->id, 'counselor_cas_username' => $user->cas_username,
+                'college_code' => $college, 'class_code' => $college.'26', 'class_name' => '26Shared1', 'normalized_class_name' => '26shared1']);
+        }
+    }
+    $art = CounselorClassAssignment::where('college_code', 'ART')->pluck('id')->all();
+    $this->actingAs($manager)->withSession([config('cas.session_key') => ['user' => 'manager']]);
+    $this->getJson('/counselors/conflicts')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.college_code', 'FIN');
+    $this->postJson('/counselors/conflicts/resolve', ['keep_assignment_id' => $art[0], 'assignment_ids' => $art])->assertForbidden();
+});
+
+it('checks ownership before matching an alias to a formal class', function () {
+    $first = managementTeacher();
+    $second = managementTeacher();
+    $this->postJson('/counselors/'.$first->id.'/classes', ['class_name' => '26Shared1', 'class_code' => 'FIN26'])->assertCreated();
+    $alias = CounselorClassAssignment::create(['user_id' => $second->id, 'counselor_cas_username' => $second->cas_username,
+        'college_code' => 'FIN', 'class_name' => '26Alias', 'normalized_class_name' => '26alias']);
+    $response = $this->putJson('/counselors/'.$second->id.'/classes/'.$alias->id.'/match', ['class_code' => 'FIN26'])->assertStatus(409);
+    $ids = collect($response->json('conflicts.0.owners'))->pluck('id')->all();
+    $this->putJson('/counselors/'.$second->id.'/classes/'.$alias->id.'/match', ['class_code' => 'FIN26', 'transfer' => true, 'expected_owner_ids' => $ids])->assertOk();
+    $this->assertDatabaseCount('counselor_class_assignments', 1);
+    $this->assertDatabaseHas('counselor_class_assignments', ['id' => $alias->id, 'class_code' => 'FIN26']);
+});
+
+it('keeps same named classes with different codes distinct and rejects ambiguous imports', function () {
+    Student::create(['xgh' => 'FIN26002', 'xm' => 'Other', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN2602', 'bjmc' => '26Shared1']);
+    app(CounselorClassCatalog::class)->forget();
+    $rows = app(CounselorClassCatalog::class)->all()->where('college_code', 'FIN')->where('class_name', '26Shared1');
+    expect($rows->pluck('class_code')->all())->toContain('FIN26', 'FIN2602');
+    $teacher = managementTeacher();
+    $path = managementWorkbook([[$teacher->cas_username, $teacher->name, 'FIN', '', '', '', '26Shared1']]);
+    try {
+        expect(app(CounselorWorkbookImport::class)->preview($path, true)['errors'])->not->toBeEmpty();
+    } finally { unlink($path); }
+});

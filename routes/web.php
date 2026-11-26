@@ -77,6 +77,8 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/counselors/classes', [CounselorAssignmentController::class, 'classes'])->name('counselors.classes');
     Route::get('/counselors/unassigned-classes', [CounselorAssignmentController::class, 'unassignedClasses'])->name('counselors.unassigned-classes');
     Route::post('/counselors/unassigned-classes/bind', [CounselorAssignmentController::class, 'bindUnassignedClass'])->name('counselors.unassigned-classes.bind');
+    Route::get('/counselors/conflicts', [CounselorAssignmentController::class, 'conflicts']);
+    Route::post('/counselors/conflicts/resolve', [CounselorAssignmentController::class, 'resolveConflict']);
     Route::post('/counselors/import', [CounselorAssignmentController::class, 'import']);
     Route::get('/counselors/permissions', function () {
         abort_unless(\App\Support\CurrentUser::get()?->isSuperAdmin(), 403);
@@ -91,6 +93,7 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::put('/counselors/{user}', [CounselorAssignmentController::class, 'update'])->name('counselors.update');
     Route::delete('/counselors/{user}', [CounselorAssignmentController::class, 'destroy'])->name('counselors.destroy');
     Route::post('/counselors/{user}/classes', [CounselorAssignmentController::class, 'addClass'])->name('counselors.classes.add');
+    Route::post('/counselors/{user}/classes/bulk', [CounselorAssignmentController::class, 'addClasses']);
     Route::delete('/counselors/{user}/classes/{assignment}', [CounselorAssignmentController::class, 'removeClass'])->name('counselors.classes.remove');
 
     Route::get('/student-access-permissions', [StudentAccessPermissionController::class, 'page'])->name('student-access-permissions.page');

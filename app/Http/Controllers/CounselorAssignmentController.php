@@ -6,6 +6,7 @@ use App\Models\CounselorClassAssignment;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\CounselorClassCatalog;
+use App\Services\CounselorClassOwnership;
 use App\Services\CounselorManagement;
 use App\Services\CounselorWorkbookImport;
 use App\Services\UnassignedCounselorClasses;
@@ -52,7 +53,7 @@ class CounselorAssignmentController extends Controller
         return response()->json(['data' => $this->payload($user) + ['assignments' => $user->classAssignments()->orderBy('class_name')->get()]]);
     }
 
-    private function validated(Request $request, User $user = null): array
+    private function validated(Request $request, ?User $user = null): array
     {
         $data = $request->validate([
             'cas_username' => ['required', 'string', 'max:255', Rule::unique('users', 'cas_username')->ignore($user?->id)],
@@ -113,7 +114,7 @@ class CounselorAssignmentController extends Controller
         return response()->json(['message' => '辅导员已删除']);
     }
 
-    public function classes(Request $request, CounselorClassCatalog $catalog)
+    public function classes(Request $request, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $target = $request->filled('counselor_id') ? User::findOrFail($request->integer('counselor_id')) : null;
         if ($target) {
@@ -140,6 +141,17 @@ class CounselorAssignmentController extends Controller
             return $q === '' || str_contains(mb_strtolower($row['class_name'].' '.$row['class_code']), $q);
         })->sortByDesc('grade')->values();
 
+        if ($this->management->admin() || $this->management->permission()) {
+            $assignments = CounselorClassAssignment::query()->get(['college_code', 'class_code', 'class_name', 'normalized_class_name', 'counselor_cas_username']);
+            $names = User::whereIn('cas_username', $assignments->pluck('counselor_cas_username'))->pluck('name', 'cas_username');
+            $data = $data->map(function ($row) use ($assignments, $names, $ownership) {
+                $row['owner_names'] = $assignments->filter(fn ($assignment) => $ownership->matches($row, $assignment))
+                    ->map(fn ($assignment) => $names[$assignment->counselor_cas_username] ?? $assignment->counselor_cas_username)->unique()->values()->all();
+
+                return $row;
+            });
+        }
+
         return response()->json(['data' => $data]);
     }
 
@@ -161,7 +173,7 @@ class CounselorAssignmentController extends Controller
         return response()->json(['data' => $data, 'total' => $data->count()]);
     }
 
-    public function bindUnassignedClass(Request $request, UnassignedCounselorClasses $classes, CounselorClassCatalog $catalog)
+    public function bindUnassignedClass(Request $request, UnassignedCounselorClasses $classes, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         abort_unless($this->management->admin() || $this->management->permission(), 403);
         $data = $request->validate(['class_key' => ['required', 'string', 'max:512'], 'counselor_id' => ['required', 'integer', 'exists:users,id']]);
@@ -169,7 +181,7 @@ class CounselorAssignmentController extends Controller
         $this->management->authorize($user->dwbm);
         abort_unless($user->isCounselor() || $user->classAssignments()->exists(), 422, '请选择辅导员');
 
-        $assignment = DB::transaction(function () use ($data, $user, $classes) {
+        $assignment = DB::transaction(function () use ($data, $user, $classes, $ownership) {
             $class = $classes->all()->firstWhere('key', $data['class_key']);
             abort_unless($class, 409, '该班级已绑定辅导员或不再属于当前在校班级，请刷新清单');
             $this->management->authorize($class['college_code']);
@@ -184,38 +196,96 @@ class CounselorAssignmentController extends Controller
             $students->orderBy('xgh')->lockForUpdate()->first();
             $class = $classes->all()->firstWhere('key', $data['class_key']);
             abort_unless($class, 409, '该班级已绑定辅导员或不再属于当前在校班级，请刷新清单');
-            $key = ['counselor_cas_username' => $user->cas_username, 'normalized_class_name' => $class['normalized_class_name']];
-            abort_if(CounselorClassAssignment::where($key)->exists(), 422, '该辅导员已有同名班级带班关系');
-            $assignment = CounselorClassAssignment::create($key + [
-                'user_id' => $user->id, 'class_code' => $class['class_code'], 'class_name' => $class['class_name'],
-                'college_code' => $class['college_code'], 'college_name' => $class['college_name'], 'source' => 'manual',
-            ]);
-            $this->management->log('class.save', $user->cas_username, null, $assignment->toArray());
-
-            return $assignment;
+            return $ownership->assign($user, $class);
         });
         $catalog->forget();
 
         return response()->json(['data' => $assignment], 201);
     }
 
-    public function addClass(Request $request, User $user, CounselorClassCatalog $catalog)
+    public function addClass(Request $request, User $user, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $this->viewable($user);
         $this->management->authorize($user->dwbm);
-        $data = $request->validate(['class_name' => ['required', 'string', 'max:255'], 'class_code' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate(['class_name' => ['required', 'string', 'max:255'], 'class_code' => ['nullable', 'string', 'max:255'],
+            'transfer' => ['nullable', 'boolean'], 'expected_owner_ids' => ['required_if:transfer,true', 'array']]);
         $match = $catalog->all()->first(fn ($row) => $row['college_code'] === $user->dwbm && $row['class_name'] === $data['class_name'] && (blank($data['class_code'] ?? null) || $row['class_code'] === $data['class_code']));
         abort_unless($match, 422, '班级不存在或不属于该学院');
 
-        return DB::transaction(function () use ($user, $match, $catalog) {
-            $key = ['counselor_cas_username' => $user->cas_username, 'normalized_class_name' => CounselorClassAssignment::normalizeClassName($match['class_name'])];
-            $before = CounselorClassAssignment::where($key)->first()?->toArray();
-            $assignment = CounselorClassAssignment::updateOrCreate($key, ['user_id' => $user->id, 'class_code' => $match['class_code'], 'class_name' => $match['class_name'], 'college_code' => $user->dwbm, 'college_name' => $user->dwmc, 'source' => 'manual']);
-            $this->management->log('class.save', $user->cas_username, $before, $assignment->toArray());
+        return DB::transaction(function () use ($user, $match, $catalog, $ownership, $request, $data) {
+            $assignment = $ownership->assign($user, $match, $request->boolean('transfer'), $data['expected_owner_ids'] ?? null);
             $catalog->forget();
 
             return response()->json(['data' => $assignment], 201);
         });
+    }
+
+    public function addClasses(Request $request, User $user, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
+    {
+        $this->viewable($user);
+        $this->management->authorize($user->dwbm);
+        $data = $request->validate([
+            'classes' => ['required', 'array', 'min:1', 'max:100'], 'classes.*.class_name' => ['required', 'string', 'max:255'],
+            'classes.*.class_code' => ['nullable', 'string', 'max:255'], 'transfer' => ['nullable', 'boolean'],
+            'expected_owners' => ['nullable', 'array'],
+        ]);
+        $options = $catalog->all();
+        $classes = collect($data['classes'])->map(function ($item) use ($options, $user) {
+            $match = $options->first(fn ($row) => $row['college_code'] === $user->dwbm && $row['class_name'] === $item['class_name']
+                && (blank($item['class_code'] ?? null) || $row['class_code'] === $item['class_code']));
+            abort_unless($match, 422, '班级不存在或不属于该学院');
+
+            return $match;
+        })->unique('key')->values();
+
+        $assignments = DB::transaction(function () use ($classes, $user, $ownership, $request, $data) {
+            $conflicts = $classes->map(function ($class) use ($ownership, $user) {
+                $allOwners = $ownership->owners($class, true);
+                $owners = $allOwners->filter(fn ($row) => $row->counselor_cas_username !== $user->cas_username);
+                if ($owners->isEmpty()) return null;
+                $names = User::whereIn('cas_username', $owners->pluck('counselor_cas_username'))->pluck('name', 'cas_username');
+
+                return ['class_name' => $class['class_name'], 'key' => $ownership->identity($class),
+                    'owner_ids' => $allOwners->pluck('id')->all(),
+                    'owners' => $owners->map(fn ($row) => ['id' => $row->id, 'name' => $names[$row->counselor_cas_username] ?? $row->counselor_cas_username])->values()->all()];
+            })->filter()->values();
+            if ($conflicts->isNotEmpty() && ! $request->boolean('transfer')) {
+                return response()->json(['message' => '以下班级已有辅导员，请确认转交', 'conflicts' => $conflicts], 409);
+            }
+            if ($request->boolean('transfer')) {
+                foreach ($classes as $class) {
+                    $key = $ownership->identity($class);
+                    $actual = $ownership->owners($class, true)->pluck('id')->sort()->values()->all();
+                    if ($actual !== []) {
+                        abort_unless(isset($data['expected_owners'][$key]) && collect($data['expected_owners'][$key])->sort()->values()->all() === $actual, 409, '带班关系已变化，请刷新后重试');
+                    }
+                }
+            }
+
+            return $classes->map(fn ($class) => $ownership->assign($user, $class, $request->boolean('transfer')))->all();
+        });
+        if ($assignments instanceof \Illuminate\Http\JsonResponse) return $assignments;
+        $catalog->forget();
+
+        return response()->json(['data' => $assignments], 201);
+    }
+
+    public function conflicts(CounselorClassOwnership $ownership)
+    {
+        abort_unless($this->management->admin() || $this->management->permission(), 403);
+
+        return response()->json(['data' => $ownership->conflicts()->filter(fn ($row) => $this->management->allowed($row['college_code']))->values()]);
+    }
+
+    public function resolveConflict(Request $request, CounselorClassOwnership $ownership)
+    {
+        abort_unless($this->management->admin() || $this->management->permission(), 403);
+        $data = $request->validate(['keep_assignment_id' => ['required', 'integer'], 'assignment_ids' => ['required', 'array', 'min:2'], 'assignment_ids.*' => ['integer']]);
+        $keep = CounselorClassAssignment::findOrFail($data['keep_assignment_id']);
+        $this->management->authorize($keep->college_code);
+        $ownership->resolve($keep->id, $data['assignment_ids']);
+
+        return response()->json(['message' => '重复带班关系已处理']);
     }
 
     public function removeClass(User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog)
@@ -231,18 +301,32 @@ class CounselorAssignmentController extends Controller
         return response()->json(['message' => '带班关系已移除']);
     }
 
-    public function matchClass(Request $request, User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog)
+    public function matchClass(Request $request, User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $this->management->authorize($user->dwbm);
         abort_unless($assignment->counselor_cas_username === $user->cas_username, 404);
-        $data = $request->validate(['class_code' => ['required', 'string']]);
+        $data = $request->validate(['class_code' => ['required', 'string'], 'transfer' => ['nullable', 'boolean'], 'expected_owner_ids' => ['required_if:transfer,true', 'array']]);
         $match = $catalog->all()->first(fn ($row) => $row['class_code'] === $data['class_code'] && $row['college_code'] === $user->dwbm);
         abort_unless($match, 422, '请选择本学院正式班级');
 
-        return DB::transaction(function () use ($user, $assignment, $match, $catalog) {
+        return DB::transaction(function () use ($user, $assignment, $match, $catalog, $ownership, $request, $data) {
+            $owners = $ownership->owners($match, true);
+            $others = $owners->reject(fn ($row) => $row->id === $assignment->id);
+            if ($others->isNotEmpty() && ! $request->boolean('transfer')) {
+                $names = User::whereIn('cas_username', $others->pluck('counselor_cas_username'))->pluck('name', 'cas_username');
+
+                return response()->json(['message' => '该班级已有辅导员', 'conflicts' => [[
+                    'class_name' => $match['class_name'], 'key' => $ownership->identity($match),
+                    'owners' => $owners->map(fn ($row) => ['id' => $row->id, 'name' => $names[$row->counselor_cas_username] ?? $row->counselor_cas_username])->values()->all(),
+                ]]], 409);
+            }
+            if ($request->boolean('transfer')) {
+                abort_unless($owners->pluck('id')->sort()->values()->all() === collect($data['expected_owner_ids'])->sort()->values()->all(), 409, '带班关系已变化，请刷新后重试');
+            }
+            $others->each->delete();
             $before = $assignment->toArray();
-            $assignment->update(['class_code' => $match['class_code']]);
-            $this->management->log('class.match', $user->cas_username, $before, $assignment->toArray());
+            $assignment->update(['class_code' => $match['class_code'], 'class_identity_hash' => $ownership->identity($match)]);
+            $this->management->log($others->isNotEmpty() ? 'class.transfer' : 'class.match', $user->cas_username, $before, $assignment->toArray());
             $catalog->forget();
 
             return response()->json(['data' => $assignment]);

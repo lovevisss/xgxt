@@ -8,6 +8,7 @@ const file = ref(null), preview = ref(null), matching = ref(null), matchCode = r
 const form = ref({});
 const view = ref('counselors'), unassigned = ref([]), unassignedTotal = ref(0), unassignedLoading = ref(false);
 const unassignedCollege = ref(''), unassignedGrade = ref('all'), unassignedQuery = ref(''), unassignedCounselors = ref({});
+const conflicts = ref([]), conflictChoice = ref({});
 let detailRequest = 0, classRequest = 0, unassignedRequest = 0;
 const visibleGroups = computed(() => groups.value.map(g => ({ ...g, counselors: g.counselors.filter(u => (!college.value || u.dwbm === college.value) && (u.name + u.cas_username).includes(query.value)) })).filter(g => g.counselors.length));
 const gradeOptions = computed(() => Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() - i).slice(-2)));
@@ -17,14 +18,25 @@ async function api(url, method = 'GET', body) {
     if (body && !(body instanceof FormData)) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(body); }
     const response = await fetch(url, { method, headers, body });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(Object.values(result.errors || {}).flat().join('；') || result.message || '请求失败'); error.status = response.status; throw error; }
+    if (!response.ok) { const error = new Error(Object.values(result.errors || {}).flat().join('；') || result.message || '请求失败'); error.status = response.status; error.conflicts = result.conflicts || []; throw error; }
     return result;
 }
 async function run(action) { if (busy.value) return; busy.value = true; notice.value = ''; try { await action(); } catch (e) { notice.value = e.message; } finally { busy.value = false; } }
 async function load() {
     const data = await api('/counselors/data');
     groups.value = data.data; colleges.value = data.colleges; admin.value = data.admin; canDelegate.value = data.can_delegate; canManage.value = data.can_manage;
-    if (canManage.value) await refreshUnassigned();
+    if (canManage.value) { await refreshUnassigned(); await refreshConflicts(); }
+}
+async function refreshConflicts() { conflicts.value = (await api('/counselors/conflicts')).data; }
+async function resolveConflict(item) {
+    const keep = item.assignments.find(row => row.id === Number(conflictChoice.value[item.key]));
+    if (!keep || !confirm('确认由 ' + keep.name + ' 负责 ' + item.class_name + '，移除其他老师的带班关系？')) return;
+    await run(async () => {
+        await api('/counselors/conflicts/resolve', 'POST', { keep_assignment_id: keep.id, assignment_ids: item.assignments.map(row => row.id) });
+        delete conflictChoice.value[item.key]; await load();
+        if (detail.value) await open(detail.value);
+        notice.value = item.class_name + ' 的重复带班关系已处理';
+    });
 }
 async function refreshUnassigned() {
     const request = ++unassignedRequest;
@@ -74,7 +86,7 @@ async function open(user) {
     finally { if (request === detailRequest) loading.value = false; }
     if (request === detailRequest && detail.value?.id === user.id) void searchClasses(user.id);
 }
-function create() { detailRequest++; classRequest++; detail.value = null; form.value = { cas_username: '', name: '', dwbm: colleges.value[0]?.code || '', phone: '', office_phone: '', office_location: '' }; editing.value = true; options.value = []; optionsLoading.value = false; }
+function create() { view.value = 'counselors'; detailRequest++; classRequest++; detail.value = null; form.value = { cas_username: '', name: '', dwbm: colleges.value[0]?.code || '', phone: '', office_phone: '', office_location: '' }; editing.value = true; options.value = []; optionsLoading.value = false; }
 async function save() {
     await run(async () => {
         const result = await api(detail.value ? '/counselors/' + detail.value.id : '/counselors/data', detail.value ? 'PUT' : 'POST', form.value);
@@ -98,7 +110,16 @@ async function searchClasses(counselorId = detail.value?.id) {
 }
 async function add() {
     await run(async () => {
-        for (const item of options.value.filter(o => chosen.value.includes(o.key))) await api('/counselors/' + detail.value.id + '/classes', 'POST', { class_name: item.class_name, class_code: item.class_code });
+        const classes = options.value.filter(o => chosen.value.includes(o.key)).map(o => ({ class_name: o.class_name, class_code: o.class_code }));
+        const url = '/counselors/' + detail.value.id + '/classes/bulk';
+        try { await api(url, 'POST', { classes }); }
+        catch (e) {
+            if (e.status !== 409 || !e.conflicts.length) throw e;
+            const summary = e.conflicts.map(c => c.class_name + '（现负责人：' + c.owners.map(o => o.name).join('、') + '）').join('\n');
+            if (!confirm('以下班级已有人带班，确认转交给 ' + detail.value.name + '？\n' + summary)) return;
+            const expected_owners = Object.fromEntries(e.conflicts.map(c => [c.key, c.owner_ids]));
+            await api(url, 'POST', { classes, transfer: true, expected_owners });
+        }
         await open(detail.value); await load(); notice.value = '带班关系已保存';
     });
 }
@@ -121,7 +142,17 @@ async function upload(commit = false) {
 }
 async function startMatch(item) { matching.value = item; matchCode.value = ''; classQuery.value = ''; await searchClasses(); }
 async function saveMatch() {
-    await run(async () => { await api('/counselors/' + detail.value.id + '/classes/' + matching.value.id + '/match', 'PUT', { class_code: matchCode.value }); await open(detail.value); });
+    await run(async () => {
+        const url = '/counselors/' + detail.value.id + '/classes/' + matching.value.id + '/match';
+        try { await api(url, 'PUT', { class_code: matchCode.value }); }
+        catch (e) {
+            if (e.status !== 409 || !e.conflicts.length) throw e;
+            const owners = e.conflicts[0].owners;
+            if (!confirm('该班级已有 ' + owners.map(o => o.name).join('、') + ' 带班，确认转交给 ' + detail.value.name + '？')) return;
+            await api(url, 'PUT', { class_code: matchCode.value, transfer: true, expected_owner_ids: owners.map(o => o.id) });
+        }
+        await open(detail.value); await load();
+    });
 }
 onMounted(() => run(load));
 </script>
@@ -143,14 +174,15 @@ onMounted(() => run(load));
     <section v-if="preview" class="preview">
         <div class="section-heading"><h2>导入预览 · {{ preview.records.length }} 位老师</h2><button title="关闭预览" @click="preview = null" class="ui-button"><X :size="16" /></button></div>
         <p v-for="error in preview.errors" :key="error" class="error">{{ error }}</p>
-        <div class="table-scroll"><table class="ui-table"><thead><tr><th>老师</th><th>学院</th><th>新增班级</th><th>移除班级</th><th>导入后</th></tr></thead><tbody>
-            <tr v-for="r in preview.records" :key="r.user.cas_username"><td>{{ r.user.name }}<small>{{ r.user.cas_username }}</small></td><td>{{ r.user.dwmc }}</td><td>{{ r.added.join('、') || '-' }}</td><td class="error">{{ r.removed.join('、') || '-' }}</td><td>{{ r.assignments.length }} 班</td></tr>
+        <div class="table-scroll"><table class="ui-table"><thead><tr><th>老师</th><th>学院</th><th>新增班级</th><th>移除班级</th><th>转交带班</th><th>导入后</th></tr></thead><tbody>
+            <tr v-for="r in preview.records" :key="r.user.cas_username"><td>{{ r.user.name }}<small>{{ r.user.cas_username }}</small></td><td>{{ r.user.dwmc }}</td><td>{{ r.added.join('、') || '-' }}</td><td class="error">{{ r.removed.join('、') || '-' }}</td><td>{{ r.transfers.join('；') || '-' }}</td><td>{{ r.assignments.length }} 班</td></tr>
         </tbody></table></div>
         <div class="actions"><span>待匹配 {{ preview.unmatched }} 班</span><button class="primary ui-button ui-button-primary" :disabled="busy || preview.errors.length > 0" @click="upload(true)">确认替换表内老师带班关系</button></div>
     </section>
     <div v-if="canManage" class="view-tabs" role="tablist" aria-label="带班管理视图">
         <button role="tab" :aria-selected="view === 'counselors'" :class="{ active: view === 'counselors' }" @click="view = 'counselors'" class="ui-button">辅导员</button>
         <button role="tab" :aria-selected="view === 'unassigned'" :class="{ active: view === 'unassigned' }" @click="view = 'unassigned'" class="ui-button">未绑定班级 <span>{{ unassignedTotal }}</span></button>
+        <button role="tab" :aria-selected="view === 'conflicts'" :class="{ active: view === 'conflicts' }" @click="view = 'conflicts'" class="ui-button">重复带班 <span>{{ conflicts.length }}</span></button>
     </div>
     <div v-if="view === 'counselors'" class="filters">
         <label class="search"><Search :size="16" /><input v-model="query" placeholder="姓名 / 工号" aria-label="搜索辅导员"  class="ui-control"/></label>
@@ -170,6 +202,14 @@ onMounted(() => run(load));
             <tr v-for="item in unassigned" :key="item.key"><td>{{ item.class_name }}<small>{{ item.class_code || '无班级代码' }}</small></td><td>{{ item.college_name }}</td><td>{{ item.grade ? item.grade + ' 级' : '未知' }}</td><td>{{ item.student_count }} 人</td><td><div v-if="counselorsForClass(item).length" class="bind-controls"><select v-model="unassignedCounselors[item.key]" :aria-label="'为 ' + item.class_name + ' 选择辅导员'" class="ui-control"><option value="">选择辅导员</option><option v-for="user in counselorsForClass(item)" :key="user.id" :value="user.id">{{ user.name }}（{{ user.cas_username }}）</option></select><button :disabled="busy || !unassignedCounselors[item.key]" @click="bindUnassigned(item)" class="ui-button">绑定</button></div><span v-else class="muted">该学院暂无辅导员</span></td></tr>
         </tbody></table></div>
         <p v-else class="empty">暂无未绑定班级</p>
+    </section>
+    <section v-if="view === 'conflicts' && canManage" class="conflict-view">
+        <p class="muted">逐班选择唯一负责人。Excel 导入表中明确指定的班级，会在导入时自动转交。</p>
+        <div v-for="item in conflicts" :key="item.key" class="conflict-card">
+            <div><strong>{{ item.class_name }}</strong><small>{{ item.class_code || '待匹配' }} · {{ item.college_name }}</small></div>
+            <div class="bind-controls"><select v-model="conflictChoice[item.key]" :aria-label="'选择 ' + item.class_name + ' 的负责人'" class="ui-control"><option value="">选择保留的辅导员</option><option v-for="owner in item.assignments" :key="owner.id" :value="owner.id">{{ owner.name }}（{{ owner.cas_username }}）</option></select><button :disabled="busy || !conflictChoice[item.key]" @click="resolveConflict(item)" class="ui-button">确认负责人</button></div>
+        </div>
+        <p v-if="!conflicts.length" class="empty">暂无重复带班关系</p>
     </section>
     <div v-if="view === 'counselors'" class="workspace-columns">
         <aside class="people">
@@ -207,8 +247,8 @@ onMounted(() => run(load));
                             <button title="搜索班级" class="ui-button"><Search :size="16" /></button>
                         </form>
                         <p v-if="optionsLoading" class="class-loading" role="status"><span></span>正在加载可选班级</p>
-                        <template v-else-if="matching"><select v-model="matchCode" aria-label="正式班级" class="ui-control"><option value="">选择正式班级</option><option v-for="o in options.filter(o => o.class_code)" :key="o.key" :value="o.class_code">{{ o.class_name }} · {{ o.class_code }}</option></select><button :disabled="!matchCode || busy" @click="saveMatch" class="ui-button">确认关联</button></template>
-                        <template v-else><div class="class-options"><label v-for="o in options" :key="o.key"><input v-model="chosen" type="checkbox" :value="o.key" /><span>{{ o.class_name }}<small>{{ o.class_code || '待匹配' }} · {{ o.student_count }} 人</small></span></label></div><p v-if="!options.length" class="empty">暂无匹配班级</p><button class="primary ui-button ui-button-primary" :disabled="!chosen.length || busy" @click="add"><Plus :size="16" /> 添加已选 {{ chosen.length }} 班</button></template>
+                        <template v-else-if="matching"><select v-model="matchCode" aria-label="正式班级" class="ui-control"><option value="">选择正式班级</option><option v-for="o in options.filter(o => o.class_code)" :key="o.key" :value="o.class_code">{{ o.class_name }} · {{ o.class_code }}{{ o.owner_names?.length ? ' · 现负责人：' + o.owner_names.join('、') : '' }}</option></select><button :disabled="!matchCode || busy" @click="saveMatch" class="ui-button">确认关联</button></template>
+                        <template v-else><div class="class-options"><label v-for="o in options" :key="o.key"><input v-model="chosen" type="checkbox" :value="o.key" /><span>{{ o.class_name }}<small>{{ o.class_code || '待匹配' }} · {{ o.student_count }} 人{{ o.owner_names?.length ? ' · 现负责人：' + o.owner_names.join('、') : '' }}</small></span></label></div><p v-if="!options.length" class="empty">暂无匹配班级</p><button class="primary ui-button ui-button-primary" :disabled="!chosen.length || busy" @click="add"><Plus :size="16" /> 添加已选 {{ chosen.length }} 班</button></template>
                     </section>
                 </template>
             </template>
@@ -237,7 +277,8 @@ onMounted(() => run(load));
 .counselor-workspace .class-loading{display:flex;align-items:center;gap:9px;min-height:72px;color:var(--color-muted);font-size:13px}.counselor-workspace .class-loading span{width:16px;height:16px;border:2px solid var(--color-line);border-top-color:var(--color-accent);border-radius:50%;animation:class-spin .7s linear infinite}@keyframes class-spin{to{transform:rotate(360deg)}}
 .counselor-workspace .notice{padding:12px;background:var(--color-warning-surface);color:var(--color-warning);margin-bottom:16px}.counselor-workspace .muted,.counselor-workspace .empty{color:var(--color-muted);font-size:13px}.counselor-workspace .empty{padding:36px 16px;text-align:center}
 .counselor-workspace .view-tabs{display:flex;gap:8px;padding-top:16px}.counselor-workspace .view-tabs .active{background:var(--color-selected);border-color:var(--color-accent)}.counselor-workspace .unassigned-view{border-top:1px solid var(--color-line)}.counselor-workspace .bind-controls{display:flex;gap:8px;align-items:center}.counselor-workspace .bind-controls select{min-width:180px;max-width:280px}.counselor-workspace .unassigned-view .table-scroll{max-height:780px}
+.counselor-workspace .view-tabs{flex-wrap:wrap}.counselor-workspace .conflict-view{border-top:1px solid var(--color-line);padding:18px 0}.counselor-workspace .conflict-card{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border-bottom:1px solid var(--color-line)}
 .counselor-workspace .preview{padding:20px 0;border-bottom:1px solid var(--color-line)}.counselor-workspace .table-scroll{overflow:auto;max-height:380px;margin-bottom:16px}.counselor-workspace table{width:100%;border-collapse:collapse;font-size:13px}.counselor-workspace th,.counselor-workspace td{text-align:left;padding:10px;border-bottom:1px solid var(--color-line);min-width:100px;overflow-wrap:anywhere}.counselor-workspace th{background:var(--color-surface-raised);position:sticky;top:0}.counselor-workspace .error{color:var(--color-danger)}
 .counselor-workspace .person-form .class-options label{flex-direction:row;justify-content:flex-start;text-align:left}.counselor-workspace input[type=checkbox]{accent-color:var(--color-accent);flex-shrink:0}.counselor-workspace .permission-scope{max-height:none}
-@media(max-width:760px){.counselor-workspace{padding:16px 12px}.counselor-workspace .page-heading{align-items:flex-start;flex-direction:column}.counselor-workspace .workspace-columns{grid-template-columns:1fr}.counselor-workspace .people{max-height:300px;border-right:0;border-bottom:1px solid var(--color-line)}.counselor-workspace .detail{padding:18px 12px}.counselor-workspace .assigned-list,.counselor-workspace .class-options{grid-template-columns:1fr}.counselor-workspace .filters select{max-width:100%}.counselor-workspace .person-form{grid-template-columns:1fr}.counselor-workspace .class-picker .filters input{width:100%}.counselor-workspace .unassigned-view .table-scroll{max-height:none}.counselor-workspace .unassigned-view table,.counselor-workspace .unassigned-view tbody,.counselor-workspace .unassigned-view tr,.counselor-workspace .unassigned-view td{display:block;width:100%}.counselor-workspace .unassigned-view thead{display:none}.counselor-workspace .unassigned-view tr{border-bottom:1px solid var(--color-line);padding:10px 0}.counselor-workspace .unassigned-view td{border:0;padding:4px 10px;min-width:0}.counselor-workspace .bind-controls{flex-wrap:wrap}.counselor-workspace .bind-controls select{min-width:0;flex:1}}
+@media(max-width:760px){.counselor-workspace{padding:16px 12px}.counselor-workspace .page-heading{align-items:flex-start;flex-direction:column}.counselor-workspace .workspace-columns{grid-template-columns:1fr}.counselor-workspace .people{max-height:300px;border-right:0;border-bottom:1px solid var(--color-line)}.counselor-workspace .detail{padding:18px 12px}.counselor-workspace .assigned-list,.counselor-workspace .class-options{grid-template-columns:1fr}.counselor-workspace .filters select{max-width:100%}.counselor-workspace .person-form{grid-template-columns:1fr}.counselor-workspace .class-picker .filters input{width:100%}.counselor-workspace .unassigned-view .table-scroll{max-height:none}.counselor-workspace .unassigned-view table,.counselor-workspace .unassigned-view tbody,.counselor-workspace .unassigned-view tr,.counselor-workspace .unassigned-view td{display:block;width:100%}.counselor-workspace .unassigned-view thead{display:none}.counselor-workspace .unassigned-view tr{border-bottom:1px solid var(--color-line);padding:10px 0}.counselor-workspace .unassigned-view td{border:0;padding:4px 10px;min-width:0}.counselor-workspace .bind-controls{flex-wrap:wrap}.counselor-workspace .bind-controls select{min-width:0;flex:1}.counselor-workspace .conflict-card{align-items:stretch;flex-direction:column}.counselor-workspace .conflict-card .bind-controls select{width:100%;max-width:none}}
 </style>
