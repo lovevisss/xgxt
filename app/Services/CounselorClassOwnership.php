@@ -85,6 +85,7 @@ class CounselorClassOwnership
 
     public function assign(User $user, array $class, bool $transfer = false, ?array $expectedOwners = null, string $source = 'manual'): CounselorClassAssignment
     {
+        abort_unless($user->staffMember()->where('is_active', true)->where('department_code', $class['college_code'])->exists(), 422, '辅导员不在该学院的在职目录中');
         abort_unless($user->dwbm === $class['college_code'], 422, '只能绑定同学院辅导员');
         $owners = $this->owners($class, true);
         if ($this->ambiguous($class) && (blank($class['class_code']) || $owners->contains(fn ($row) => blank($row->class_code)))) {

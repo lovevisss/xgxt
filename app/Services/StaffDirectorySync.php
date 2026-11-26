@@ -38,7 +38,10 @@ class StaffDirectorySync
 
         $now = now();
         $sourceNumbers = $source->pluck('xgh')->map(fn ($value) => trim((string) $value))->values();
-        $missingNumbers = StaffMember::query()->where('is_active', true)->whereNotIn('employee_no', $sourceNumbers)->pluck('employee_no');
+        $sourceByNameCollege = $source->groupBy(fn ($row) => trim((string) $row->xm).'|'.trim((string) $row->dwbm));
+        $missingNumbers = StaffMember::query()->where('is_active', true)->whereNotIn('employee_no', $sourceNumbers)->pluck('employee_no')
+            ->merge(User::query()->where(fn ($query) => $query->where('role', User::ROLE_COUNSELOR)->orWhereHas('classAssignments'))
+                ->whereNotIn('cas_username', $sourceNumbers)->pluck('cas_username'))->unique()->values();
         $remainingSuperAdmins = User::query()
             ->where('role', User::ROLE_SUPER_ADMIN)
             ->when($missingNumbers->isNotEmpty(), fn ($query) => $query->whereNotIn('cas_username', $missingNumbers))
@@ -48,9 +51,10 @@ class StaffDirectorySync
             throw new RuntimeException('本次同步将停用最后一位总管理员，已终止同步，请先授权另一位在职总管理员。');
         }
 
-        $result = ['source' => $source->count(), 'created' => 0, 'updated' => 0, 'reactivated' => 0, 'deactivated' => 0];
+        $result = ['source' => $source->count(), 'created' => 0, 'updated' => 0, 'reactivated' => 0,
+            'deactivated' => 0, 'identity_pending' => 0, 'assignments_released' => 0];
 
-        DB::transaction(function () use ($source, $missingNumbers, $now, &$result): void {
+        DB::transaction(function () use ($source, $sourceByNameCollege, $missingNumbers, $now, &$result): void {
             foreach ($source as $row) {
                 $employeeNo = trim((string) $row->xgh);
                 $staff = StaffMember::query()->where('employee_no', $employeeNo)->lockForUpdate()->first();
@@ -77,31 +81,70 @@ class StaffDirectorySync
                     StaffMember::query()->create(['employee_no' => $employeeNo] + $payload);
                     $result['created']++;
                 }
+                $user = User::where('cas_username', $employeeNo)->first();
+                if ($user && ($user->isCounselor() || $user->classAssignments()->exists())) {
+                    $removed = $payload['department_code'] === null ? $user->classAssignments()->get()
+                        : $user->classAssignments()->where('college_code', '!=', $payload['department_code'])->get();
+                    if ($removed->isNotEmpty()) {
+                        $removed->each->delete();
+                        $result['assignments_released'] += $removed->count();
+                        app(CounselorManagement::class)->log('staff.college.changed', $employeeNo,
+                            ['college_code' => $user->dwbm, 'assignments' => $removed->toArray()],
+                            ['college_code' => $payload['department_code']]);
+                    }
+                    $user->forceFill(['name' => $payload['name'], 'dwbm' => $payload['department_code'],
+                        'dwmc' => $payload['department_name']])->save();
+                }
             }
 
             foreach ($missingNumbers as $employeeNo) {
-                $staff = StaffMember::query()->where('employee_no', $employeeNo)->lockForUpdate()->firstOrFail();
+                $staff = StaffMember::query()->where('employee_no', $employeeNo)->lockForUpdate()->first();
                 $user = User::query()->where('cas_username', $employeeNo)->lockForUpdate()->first();
+                $candidates = $user ? $sourceByNameCollege->get(trim($user->name).'|'.trim((string) $user->dwbm), collect())
+                    ->filter(fn ($row) => trim((string) $row->xgh) !== $employeeNo)->pluck('xgh')->values()->all() : [];
+                $pending = $candidates !== [] && ($user?->isCounselor() || $user?->classAssignments()->exists());
+                $assignments = $user?->classAssignments()->get() ?? collect();
                 $before = [
-                    'staff_active' => $staff->is_active,
+                    'staff_active' => $staff?->is_active,
                     'role' => $user?->role,
                     'counselor_management_active' => CounselorManagementPermission::query()->where('employee_no', $employeeNo)->value('is_active'),
                     'student_access_active' => StudentAccessPermission::query()->where('employee_no', $employeeNo)->where('is_active', true)->count(),
+                    'assignments' => $assignments->toArray(),
                 ];
 
-                $staff->update(['is_active' => false, 'synced_at' => $now]);
+                if ($staff) {
+                    $staff->update(['is_active' => false, 'synced_at' => $now]);
+                } elseif ($user) {
+                    StaffMember::create(['employee_no' => $employeeNo, 'name' => $user->name,
+                        'department_code' => $user->dwbm, 'department_name' => $user->dwmc,
+                        'is_active' => false, 'synced_at' => $now]);
+                }
                 $user?->forceFill(['role' => User::ROLE_STAFF])->save();
                 CounselorManagementPermission::query()->where('employee_no', $employeeNo)->update(['is_active' => false]);
                 StudentAccessPermission::query()->where('employee_no', $employeeNo)->update(['is_active' => false]);
-                app(CounselorManagement::class)->log('staff.deactivated', $employeeNo, $before, [
+                if (! $pending) {
+                    $assignments->each->delete();
+                    $result['assignments_released'] += $assignments->count();
+                } else {
+                    $result['identity_pending']++;
+                }
+                if ($before['staff_active'] || $before['role'] !== User::ROLE_STAFF || $before['counselor_management_active'] || $before['student_access_active'] || (! $pending && $assignments->isNotEmpty())) {
+                    app(CounselorManagement::class)->log($pending ? 'staff.identity_pending' : 'staff.deactivated', $employeeNo, $before, [
                     'staff_active' => false,
                     'role' => $user ? User::ROLE_STAFF : null,
                     'counselor_management_active' => false,
                     'student_access_active' => 0,
-                ]);
-                $result['deactivated']++;
+                    'possible_current_numbers' => $candidates,
+                    'assignments_retained' => $pending ? $assignments->count() : 0,
+                    ]);
+                }
+                if (! $pending) $result['deactivated']++;
             }
         });
+
+        if ($result['assignments_released'] > 0) {
+            app(CounselorClassCatalog::class)->forget();
+        }
 
         $result['active'] = StaffMember::query()->where('is_active', true)->count();
         $result['units'] = StaffMember::query()->where('is_active', true)->whereNotNull('department_code')->distinct()->count('department_code');

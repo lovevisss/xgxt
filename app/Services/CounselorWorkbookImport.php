@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CounselorClassAssignment;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -41,6 +42,15 @@ class CounselorWorkbookImport
 
                     continue;
                 }
+                $staff = StaffMember::where('employee_no', $employee)->where('is_active', true)->first();
+                if (! $staff) {
+                    $errors[] = $line.'：工号不在当前在职教职工目录中';
+                    continue;
+                }
+                if (trim($staff->name) !== $cell('姓名') || $staff->department_code !== $code) {
+                    $errors[] = $line.'：姓名或学院与在职目录不符';
+                    continue;
+                }
                 $user = User::where('cas_username', $employee)->first();
                 if (! $console && (! $management->allowed($code) || ($user && ! $management->allowed($user->dwbm)))) {
                     $errors[] = $line.'：超出授权学院';
@@ -53,7 +63,7 @@ class CounselorWorkbookImport
                     continue;
                 }
                 $names = collect(preg_split('/[、,，;；\r\n]+/u', $cell('带班情况')))->map(fn ($name) => trim($name))->filter(fn ($name) => $name !== '' && $name !== '/')->unique()->values()->all();
-                $data = ['cas_username' => $employee, 'name' => $cell('姓名'), 'dwbm' => $code, 'dwmc' => $cell('所属院系'), 'phone' => $cell('手机') ?: null, 'office_phone' => $cell('电话') ?: null, 'office_location' => $cell('办公室') ?: null];
+                $data = ['cas_username' => $employee, 'name' => $staff->name, 'dwbm' => $staff->department_code, 'dwmc' => $staff->department_name, 'phone' => $cell('手机') ?: null, 'office_phone' => $cell('电话') ?: null, 'office_location' => $cell('办公室') ?: null];
                 if (isset($records[$employee]) && $records[$employee]['user'] !== $data) {
                     $errors[] = $line.'：重复工号资料冲突';
 
@@ -120,6 +130,8 @@ class CounselorWorkbookImport
                 $before = $user ? ['user' => $user->only(array_keys($data)), 'assignments' => $user->classAssignments()->get()->toArray()] : null;
                 if (! $user) {
                     $user = new User(['email' => $data['cas_username'].'@counselor.local', 'password' => Str::random(40), 'role' => User::ROLE_COUNSELOR]);
+                } elseif ($user->role === User::ROLE_STAFF) {
+                    $user->role = User::ROLE_COUNSELOR;
                 }
                 $user->fill($data)->save();
                 $user->classAssignments()->whereNotIn('normalized_class_name', array_column($record['assignments'], 'normalized_class_name'))->delete();

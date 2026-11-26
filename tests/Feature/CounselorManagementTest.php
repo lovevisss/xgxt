@@ -24,7 +24,11 @@ beforeEach(function () {
 
 function managementTeacher(string $code = 'FIN'): User
 {
-    return User::factory()->create(['role' => 'counselor', 'cas_username' => fake()->unique()->numerify('########'), 'dwbm' => $code, 'dwmc' => $code]);
+    $user = User::factory()->create(['role' => 'counselor', 'cas_username' => fake()->unique()->numerify('########'), 'dwbm' => $code, 'dwmc' => $code]);
+    StaffMember::create(['employee_no' => $user->cas_username, 'name' => $user->name,
+        'department_code' => $code, 'department_name' => $code, 'is_active' => true]);
+
+    return $user;
 }
 
 function managementWorkbook(array $rows): string
@@ -73,7 +77,7 @@ it('enforces scoped management without student access or delegation', function (
     $this->getJson('/students/data')->assertForbidden();
     $this->postJson('/counselors/permissions/data', [])->assertForbidden();
     $this->deleteJson('/counselors/'.$fin->id)->assertForbidden();
-    $this->putJson('/counselors/'.$fin->id, ['cas_username' => 'changed', 'name' => $fin->name, 'dwbm' => 'FIN'])->assertForbidden();
+    $this->putJson('/counselors/'.$fin->id, ['cas_username' => 'changed', 'name' => $fin->name, 'dwbm' => 'FIN'])->assertUnprocessable();
     $this->putJson('/counselors/'.$fin->id, ['cas_username' => $fin->cas_username, 'name' => $fin->name, 'dwbm' => 'ART'])->assertForbidden();
     $permission->update(['department_codes' => ['FIN', 'ART']]);
     $this->getJson('/counselors/'.$art->id)->assertOk();
@@ -134,6 +138,24 @@ it('rejects conflicting or out of scope imports without partial writes', functio
     } finally {
         unlink($path);
     }
+});
+
+it('requires an active directory identity for creation and rejects mismatched import rows', function () {
+    StaffMember::create(['employee_no' => 'active1', 'name' => 'Active Teacher', 'department_code' => 'FIN',
+        'department_name' => 'FIN', 'is_active' => true]);
+    StaffMember::create(['employee_no' => 'inactive1', 'name' => 'Former Teacher', 'department_code' => 'FIN',
+        'department_name' => 'FIN', 'is_active' => false]);
+    $this->postJson('/counselors/data', ['cas_username' => 'inactive1'])->assertUnprocessable();
+    $this->postJson('/counselors/data', ['cas_username' => 'active1', 'dwbm' => 'ART'])->assertUnprocessable();
+    $this->postJson('/counselors/data', ['cas_username' => 'active1'])->assertCreated()
+        ->assertJsonPath('data.name', 'Active Teacher');
+    $path = managementWorkbook([['inactive1', 'Former Teacher', 'FIN', '', '', '', '26Shared1'],
+        ['active1', 'Active Teacher', 'ART', '', '', '', '26Shared1']]);
+    try {
+        $preview = app(CounselorWorkbookImport::class)->preview($path, true);
+        expect($preview['errors'])->toHaveCount(2);
+        $this->assertDatabaseCount('counselor_class_assignments', 0);
+    } finally { unlink($path); }
 });
 
 it('does not grant access to same named classes in other colleges', function () {

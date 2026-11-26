@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CounselorClassAssignment;
 use App\Models\Student;
+use App\Models\StaffMember;
 use App\Models\User;
 use App\Services\CounselorClassCatalog;
 use App\Services\CounselorClassOwnership;
@@ -14,7 +15,6 @@ use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class CounselorAssignmentController extends Controller
 {
@@ -32,12 +32,12 @@ class CounselorAssignmentController extends Controller
     private function viewable(User $user): void
     {
         abort_unless($this->management->allowed($user->dwbm) || (CurrentUser::get()?->isCounselor() && $user->id === CurrentUser::get()?->id), 403);
-        abort_unless($user->isCounselor() || $user->classAssignments()->exists(), 404);
+        abort_unless(($user->isCounselor() || $user->classAssignments()->exists()) && $user->staffMember()->where('is_active', true)->exists(), 404);
     }
 
     public function index()
     {
-        $users = User::where(fn ($q) => $q->where('role', User::ROLE_COUNSELOR)->orWhereHas('classAssignments'))->withCount('classAssignments')->orderBy('name')->get()
+        $users = User::where(fn ($q) => $q->where('role', User::ROLE_COUNSELOR)->orWhereHas('classAssignments'))->whereHas('staffMember', fn ($q) => $q->where('is_active', true))->withCount('classAssignments')->orderBy('name')->get()
             ->filter(fn ($u) => $this->management->allowed($u->dwbm) || (CurrentUser::get()?->isCounselor() && $u->id === CurrentUser::get()?->id));
 
         return response()->json(['data' => $users->groupBy(fn ($u) => $u->dwmc ?: '未设置分院')->map(fn ($users, $college) => [
@@ -53,20 +53,41 @@ class CounselorAssignmentController extends Controller
         return response()->json(['data' => $this->payload($user) + ['assignments' => $user->classAssignments()->orderBy('class_name')->get()]]);
     }
 
+    public function staffOptions(Request $request)
+    {
+        abort_unless($this->management->admin() || $this->management->permission(), 403);
+        $q = trim((string) $request->query('q', ''));
+        $permission = $this->management->permission();
+        $staff = StaffMember::query()->where('is_active', true)->whereNotNull('department_code')
+            ->whereDoesntHave('user', fn ($query) => $query->where('role', '!=', User::ROLE_STAFF)->orWhereHas('classAssignments'))
+            ->when(! $this->management->admin() && ! $permission?->all_colleges,
+                fn ($query) => $query->whereIn('department_code', $permission?->department_codes ?? []))
+            ->when($q !== '', fn ($query) => $query->where(fn ($inner) => $inner->where('name', 'like', '%'.$q.'%')->orWhere('employee_no', 'like', '%'.$q.'%')))
+            ->orderBy('name')->limit(200)->get();
+
+        return response()->json(['data' => $staff->values()->map(fn ($row) => ['employee_no' => $row->employee_no, 'name' => $row->name,
+            'department_code' => $row->department_code, 'department_name' => $row->department_name])]);
+    }
+
     private function validated(Request $request, ?User $user = null): array
     {
         $data = $request->validate([
-            'cas_username' => ['required', 'string', 'max:255', Rule::unique('users', 'cas_username')->ignore($user?->id)],
-            'name' => ['required', 'string', 'max:255'], 'dwbm' => ['required', 'string', Rule::in(array_column($this->management->colleges(), 'code'))],
+            'cas_username' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'], 'dwbm' => ['nullable', 'string'],
             'phone' => ['nullable', 'string', 'max:255'], 'office_phone' => ['nullable', 'string', 'max:255'], 'office_location' => ['nullable', 'string', 'max:255'],
         ]);
-        $this->management->authorize($data['dwbm']);
+        if (filled($data['dwbm'] ?? null)) $this->management->authorize($data['dwbm']);
+        $staff = StaffMember::where('employee_no', $data['cas_username'])->where('is_active', true)->first();
+        abort_unless($staff && filled($staff->department_code), 422, '工号不在当前在职教职工目录中');
+        $this->management->authorize($staff->department_code);
+        abort_if(filled($data['dwbm'] ?? null) && $data['dwbm'] !== $staff->department_code, 422, '学院与在职目录不符');
         if ($user) {
             $this->management->authorize($user->dwbm);
-            abort_if(! $this->management->admin() && $data['cas_username'] !== $user->cas_username, 403, '工号仅管理员可修改');
-            abort_if($data['dwbm'] !== $user->dwbm && $user->classAssignments()->exists(), 422, '请先移除原学院带班关系再调整学院');
+            abort_unless($data['cas_username'] === $user->cas_username, 422, '工号由在职目录管理，不能在此修改');
         }
-        $data['dwmc'] = collect($this->management->colleges())->firstWhere('code', $data['dwbm'])['name'];
+        $data['name'] = $staff->name;
+        $data['dwbm'] = $staff->department_code;
+        $data['dwmc'] = $staff->department_name;
 
         return $data;
     }
@@ -76,7 +97,13 @@ class CounselorAssignmentController extends Controller
         $data = $this->validated($request);
 
         return DB::transaction(function () use ($data) {
-            $user = User::create($data + ['role' => User::ROLE_COUNSELOR, 'email' => $data['cas_username'].'@counselor.local', 'password' => Str::random(40)]);
+            $user = User::where('cas_username', $data['cas_username'])->lockForUpdate()->first();
+            abort_if($user && ($user->role !== User::ROLE_STAFF || $user->classAssignments()->exists()), 422, '该工号已有关联账号或带班关系');
+            if ($user) {
+                $user->fill($data)->forceFill(['role' => User::ROLE_COUNSELOR])->save();
+            } else {
+                $user = User::create($data + ['role' => User::ROLE_COUNSELOR, 'email' => $data['cas_username'].'@counselor.local', 'password' => Str::random(40)]);
+            }
             $this->management->log('user.create', $user->cas_username, null, $data);
 
             return response()->json(['data' => $this->payload($user)], 201);
@@ -107,11 +134,11 @@ class CounselorAssignmentController extends Controller
         DB::transaction(function () use ($user, $catalog) {
             $this->management->log('user.delete', $user->cas_username, ['user' => $this->payload($user), 'assignments' => $user->classAssignments()->get()->toArray()], null);
             $user->classAssignments()->delete();
-            $user->delete();
+            $user->forceFill(['role' => User::ROLE_STAFF])->save();
             $catalog->forget();
         });
 
-        return response()->json(['message' => '辅导员已删除']);
+        return response()->json(['message' => '辅导员身份已移除']);
     }
 
     public function classes(Request $request, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
@@ -304,6 +331,7 @@ class CounselorAssignmentController extends Controller
     public function matchClass(Request $request, User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $this->management->authorize($user->dwbm);
+        abort_unless($user->staffMember()->where('is_active', true)->where('department_code', $user->dwbm)->exists(), 422, '辅导员不在该学院的在职目录中');
         abort_unless($assignment->counselor_cas_username === $user->cas_username, 404);
         $data = $request->validate(['class_code' => ['required', 'string'], 'transfer' => ['nullable', 'boolean'], 'expected_owner_ids' => ['required_if:transfer,true', 'array']]);
         $match = $catalog->all()->first(fn ($row) => $row['class_code'] === $data['class_code'] && $row['college_code'] === $user->dwbm);

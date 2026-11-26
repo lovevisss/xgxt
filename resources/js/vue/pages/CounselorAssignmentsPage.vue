@@ -6,6 +6,7 @@ const detail = ref(null), editing = ref(false), busy = ref(false), loading = ref
 const query = ref(''), college = ref(''), grade = ref('recent'), classQuery = ref(''), options = ref([]), chosen = ref([]);
 const file = ref(null), preview = ref(null), matching = ref(null), matchCode = ref('');
 const form = ref({});
+const staffOptions = ref([]), staffQuery = ref('');
 const view = ref('counselors'), unassigned = ref([]), unassignedTotal = ref(0), unassignedLoading = ref(false);
 const unassignedCollege = ref(''), unassignedGrade = ref('all'), unassignedQuery = ref(''), unassignedCounselors = ref({});
 const conflicts = ref([]), conflictChoice = ref({});
@@ -86,7 +87,15 @@ async function open(user) {
     finally { if (request === detailRequest) loading.value = false; }
     if (request === detailRequest && detail.value?.id === user.id) void searchClasses(user.id);
 }
-function create() { view.value = 'counselors'; detailRequest++; classRequest++; detail.value = null; form.value = { cas_username: '', name: '', dwbm: colleges.value[0]?.code || '', phone: '', office_phone: '', office_location: '' }; editing.value = true; options.value = []; optionsLoading.value = false; }
+async function searchStaff() {
+    try { staffOptions.value = (await api('/counselors/staff-options?q=' + encodeURIComponent(staffQuery.value))).data; }
+    catch (e) { notice.value = e.message; }
+}
+function chooseStaff() {
+    const staff = staffOptions.value.find(row => row.employee_no === form.value.cas_username);
+    if (staff) Object.assign(form.value, { name: staff.name, dwbm: staff.department_code, dwmc: staff.department_name });
+}
+function create() { view.value = 'counselors'; detailRequest++; classRequest++; detail.value = null; form.value = { cas_username: '', name: '', dwbm: '', phone: '', office_phone: '', office_location: '' }; staffQuery.value = ''; staffOptions.value = []; void searchStaff(); editing.value = true; options.value = []; optionsLoading.value = false; }
 async function save() {
     await run(async () => {
         const result = await api(detail.value ? '/counselors/' + detail.value.id : '/counselors/data', detail.value ? 'PUT' : 'POST', form.value);
@@ -225,9 +234,11 @@ onMounted(() => run(load));
             <template v-else-if="editing">
                 <div class="section-heading"><h2>{{ detail ? detail.name : '新增辅导员' }}</h2><button v-if="detail?.can_delete" title="删除辅导员" :disabled="busy" @click="removeUser" class="ui-button"><Trash2 :size="17" /></button></div>
                 <form class="person-form" @submit.prevent="save">
-                    <label>工号<input v-model="form.cas_username" required :disabled="!writable || (!!detail && !admin)"  class="ui-control"/></label>
-                    <label>姓名<input v-model="form.name" required :disabled="!writable"  class="ui-control"/></label>
-                    <label class="wide">学院<select v-model="form.dwbm" required :disabled="!writable" class="ui-control"><option v-if="!writable" :value="form.dwbm">{{ form.dwmc }}</option><option v-for="c in colleges" :key="c.code" :value="c.code">{{ c.name }}</option></select></label>
+                    <label v-if="!detail" class="wide">查找在职教职工<input v-model="staffQuery" @input="searchStaff" placeholder="姓名 / 工号" class="ui-control"/></label>
+                    <label v-if="!detail" class="wide">选择教职工<select v-model="form.cas_username" @change="chooseStaff" required class="ui-control"><option value="">请选择</option><option v-for="staff in staffOptions" :key="staff.employee_no" :value="staff.employee_no">{{ staff.name }} · {{ staff.employee_no }} · {{ staff.department_name }}</option></select></label>
+                    <label v-else>工号<input v-model="form.cas_username" disabled class="ui-control"/></label>
+                    <label>姓名<input v-model="form.name" disabled class="ui-control"/></label>
+                    <label class="wide">学院<input :value="form.dwmc" disabled class="ui-control"/></label>
                     <label>手机<input v-model="form.phone" :disabled="!writable"  class="ui-control"/></label><label>办公电话<input v-model="form.office_phone" :disabled="!writable"  class="ui-control"/></label>
                     <label class="wide">办公室<input v-model="form.office_location" :disabled="!writable"  class="ui-control"/></label>
                     <div v-if="writable" class="wide"><button class="primary ui-button ui-button-primary" :disabled="busy"><Save :size="16" /> 保存资料</button></div>

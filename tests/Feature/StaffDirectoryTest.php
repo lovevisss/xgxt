@@ -2,6 +2,7 @@
 
 use App\Auth\XgxtCasUserResolver;
 use App\Models\CounselorManagementPermission;
+use App\Models\CounselorClassAssignment;
 use App\Models\StaffMember;
 use App\Models\Student;
 use App\Models\User;
@@ -94,6 +95,43 @@ it('deactivates missing staff permissions and does not restore them automaticall
     expect(StaffMember::query()->where('employee_no', '00000001')->value('is_active'))->toBeTruthy();
     expect($departing->refresh()->role)->toBe(User::ROLE_STAFF);
     expect(CounselorManagementPermission::query()->where('employee_no', '00000001')->value('is_active'))->toBeFalsy();
+});
+
+it('holds an unmatched counselor with a same-name college candidate for manual identity review', function () {
+    insertStaffSource(4);
+    DB::connection('middata')->table('t_bd_zzqxryxx')->where('xgh', '00000001')->update(['xm' => 'Same Teacher']);
+    $old = User::factory()->create(['cas_username' => 'old-number', 'name' => 'Same Teacher',
+        'role' => User::ROLE_COUNSELOR, 'dwbm' => 'FIN', 'dwmc' => 'Finance']);
+    CounselorClassAssignment::create(['user_id' => $old->id, 'counselor_cas_username' => 'old-number',
+        'college_code' => 'FIN', 'class_name' => '26Finance1', 'normalized_class_name' => '26finance1']);
+
+    $this->artisan('sync:staff-from-middata')->assertExitCode(0);
+    expect($old->fresh()->role)->toBe(User::ROLE_STAFF);
+    expect($old->classAssignments()->count())->toBe(1);
+    expect(StaffMember::where('employee_no', 'old-number')->value('is_active'))->toBeFalsy();
+    $this->assertDatabaseHas('counselor_management_logs', ['action' => 'staff.identity_pending', 'subject' => 'old-number']);
+    $this->getJson('/counselors/data')->assertOk()->assertJsonCount(0, 'data');
+});
+
+it('releases assignments for departed staff and old-college assignments after transfer', function () {
+    insertStaffSource(4);
+    $departed = User::factory()->create(['cas_username' => 'former', 'name' => 'Former', 'role' => User::ROLE_COUNSELOR,
+        'dwbm' => 'FIN', 'dwmc' => 'Finance']);
+    $moved = User::factory()->create(['cas_username' => '00000001', 'name' => 'Teacher 1', 'role' => User::ROLE_COUNSELOR,
+        'dwbm' => 'ART', 'dwmc' => 'Art', 'phone' => '123', 'office_location' => 'Room 1']);
+    foreach ([$departed, $moved] as $user) {
+        CounselorClassAssignment::create(['user_id' => $user->id, 'counselor_cas_username' => $user->cas_username,
+            'college_code' => $user->dwbm, 'class_name' => '26Class'.$user->id, 'normalized_class_name' => '26class'.$user->id]);
+    }
+
+    $this->artisan('sync:staff-from-middata')->assertExitCode(0);
+    expect($departed->classAssignments()->count())->toBe(0);
+    expect($moved->classAssignments()->count())->toBe(0);
+    expect($moved->fresh()->dwbm)->toBe('FIN');
+    expect($moved->fresh()->phone)->toBe('123');
+    expect($moved->fresh()->office_location)->toBe('Room 1');
+    $this->assertDatabaseHas('counselor_management_logs', ['action' => 'staff.deactivated', 'subject' => 'former']);
+    $this->assertDatabaseHas('counselor_management_logs', ['action' => 'staff.college.changed', 'subject' => '00000001']);
 });
 
 it('rejects empty sources and abnormal drops without deactivating staff', function () {

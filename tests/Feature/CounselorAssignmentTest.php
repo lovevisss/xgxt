@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CounselorClassAssignment;
+use App\Models\StaffMember;
 use App\Models\Student;
 use App\Models\StudentClass;
 use App\Models\User;
@@ -50,6 +51,7 @@ it('syncs student classes from read-only middata table', function () {
 });
 
 it('imports counselors from excel and creates class assignments', function () {
+    StaffMember::create(['employee_no' => '20170901', 'name' => '王琳', 'department_code' => 'FIN', 'department_name' => '金融与经贸学院', 'is_active' => true]);
     StudentClass::query()->create([
         'class_code' => '25203001',
         'class_name' => '25经济1',
@@ -94,6 +96,7 @@ it('imports counselors from excel and creates class assignments', function () {
 });
 
 it('resolves law and social work counselor college code from merged student college name', function () {
+    StaffMember::create(['employee_no' => '20170614', 'name' => '马羚', 'department_code' => '100306', 'department_name' => '法律与社会工作学院', 'is_active' => true]);
     Student::query()->create([
         'xgh' => '20260042',
         'xm' => 'Law Student',
@@ -191,6 +194,8 @@ it('lists recent four cohorts from the counselor college and supports fuzzy clas
         'dwbm' => 'FIN',
         'dwmc' => 'Finance College',
     ]);
+    StaffMember::create(['employee_no' => '20170902', 'name' => $counselor->name,
+        'department_code' => 'FIN', 'department_name' => 'Finance College', 'is_active' => true]);
 
     foreach ([
         ['20220001', '22FIN1', '22Finance1', 'FIN', 'Finance College'],

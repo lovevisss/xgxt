@@ -23,12 +23,14 @@ class SyncStaffFromMiddata extends Command
         }
 
         $this->info(sprintf(
-            '教职工同步完成：源数据 %d 人，新增 %d，更新 %d，恢复在职 %d，停用 %d，当前在职 %d 人 / %d 个单位。',
+            '教职工同步完成：源数据 %d 人，新增 %d，更新 %d，恢复在职 %d，停用 %d，待核对工号 %d，解除带班 %d，当前在职 %d 人 / %d 个单位。',
             $result['source'],
             $result['created'],
             $result['updated'],
             $result['reactivated'],
             $result['deactivated'],
+            $result['identity_pending'],
+            $result['assignments_released'],
             $result['active'],
             $result['units'],
         ));
