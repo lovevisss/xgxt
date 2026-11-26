@@ -39,7 +39,8 @@ class StudentFamilyController extends Controller
             ->orderBy('student_families.id')
             ->paginate(15);
 
-        $records->getCollection()->each(fn ($record) => $record->setAttribute('can_update', app(\App\Services\StudentAccess::class)->canEditFamily($record->student_department)));
+        $records->getCollection()->each(fn ($record) => $record->setAttribute('can_update',
+            app(\App\Services\StudentAccess::class)->canEditFamilyStudent(Student::where('xgh', $record->stu_no)->first())));
 
         return response()->json($records);
     }
@@ -59,7 +60,7 @@ class StudentFamilyController extends Controller
         $student = Student::query()->where('xgh', $record->stu_no)->first();
 
         abort_unless(
-            CurrentUser::canManageDepartment($student?->dwbm),
+            CurrentUser::canManageStudent($student),
             403,
             'Only counselors in the student department or super admins can update family records.'
         );

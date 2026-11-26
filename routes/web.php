@@ -74,6 +74,9 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/counselors', [CounselorAssignmentController::class, 'page'])->name('counselors.page');
     Route::get('/counselors/data', [CounselorAssignmentController::class, 'index'])->name('counselors.index');
     Route::get('/counselors/staff-options', [CounselorAssignmentController::class, 'staffOptions']);
+    Route::get('/counselors/delegations', [CounselorAssignmentController::class, 'delegations']);
+    Route::post('/counselors/delegations', [CounselorAssignmentController::class, 'grantDelegation']);
+    Route::delete('/counselors/delegations/{delegation}', [CounselorAssignmentController::class, 'endDelegation']);
     Route::post('/counselors/data', [CounselorAssignmentController::class, 'store'])->name('counselors.store');
     Route::get('/counselors/classes', [CounselorAssignmentController::class, 'classes'])->name('counselors.classes');
     Route::get('/counselors/unassigned-classes', [CounselorAssignmentController::class, 'unassignedClasses'])->name('counselors.unassigned-classes');

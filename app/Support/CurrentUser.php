@@ -27,4 +27,9 @@ class CurrentUser
     {
         return app(\App\Services\StudentAccess::class)->canEditFamily($departmentCode);
     }
+
+    public static function canManageStudent(?\App\Models\Student $student): bool
+    {
+        return app(\App\Services\StudentAccess::class)->canEditFamilyStudent($student);
+    }
 }

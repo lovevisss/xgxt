@@ -36,7 +36,8 @@ class CounselorWorkbookImport
 
                     continue;
                 }
-                $code = $management->collegeCode($cell('所属院系'));
+                $collegeName = $cell('带班学院') ?: $cell('所属院系');
+                $code = $management->collegeCode($collegeName);
                 if (! $code) {
                     $errors[] = $line.'：无法确定学院';
 
@@ -47,12 +48,16 @@ class CounselorWorkbookImport
                     $errors[] = $line.'：工号不在当前在职教职工目录中';
                     continue;
                 }
-                if (trim($staff->name) !== $cell('姓名') || $staff->department_code !== $code) {
-                    $errors[] = $line.'：姓名或学院与在职目录不符';
+                if (trim($staff->name) !== $cell('姓名')) {
+                    $errors[] = $line.'：姓名与在职目录不符';
+                    continue;
+                }
+                if (! app(CounselorCollegeEligibility::class)->allowsNumber($employee, $code)) {
+                    $errors[] = $line.'：带班学院与在职目录不符，且无有效委派';
                     continue;
                 }
                 $user = User::where('cas_username', $employee)->first();
-                if (! $console && (! $management->allowed($code) || ($user && ! $management->allowed($user->dwbm)))) {
+                if (! $console && ! $management->allowed($code)) {
                     $errors[] = $line.'：超出授权学院';
 
                     continue;
@@ -64,12 +69,17 @@ class CounselorWorkbookImport
                 }
                 $names = collect(preg_split('/[、,，;；\r\n]+/u', $cell('带班情况')))->map(fn ($name) => trim($name))->filter(fn ($name) => $name !== '' && $name !== '/')->unique()->values()->all();
                 $data = ['cas_username' => $employee, 'name' => $staff->name, 'dwbm' => $staff->department_code, 'dwmc' => $staff->department_name, 'phone' => $cell('手机') ?: null, 'office_phone' => $cell('电话') ?: null, 'office_location' => $cell('办公室') ?: null];
-                if (isset($records[$employee]) && $records[$employee]['user'] !== $data) {
+                if (! $console && ! $management->admin() && $code !== $staff->department_code) {
+                    foreach (['phone', 'office_phone', 'office_location'] as $field) $data[$field] = $user?->$field;
+                }
+                $key = $employee.'|'.$code;
+                if (isset($records[$key]) && $records[$key]['user'] !== $data) {
                     $errors[] = $line.'：重复工号资料冲突';
 
                     continue;
                 }
-                $records[$employee] = ['user' => $data, 'names' => array_unique(array_merge($records[$employee]['names'] ?? [], $names))];
+                $records[$key] = ['user' => $data, 'college_code' => $code, 'college_name' => $collegeName,
+                    'names' => array_unique(array_merge($records[$key]['names'] ?? [], $names))];
             }
             if ($header === null) {
                 $errors[] = $sheet.'：未找到工号、带班情况表头';
@@ -79,18 +89,23 @@ class CounselorWorkbookImport
         $ownership = app(CounselorClassOwnership::class);
         $result = [];
         $claims = [];
-        foreach ($records as $employee => $record) {
+        foreach ($records as $record) {
+            $employee = $record['user']['cas_username'];
+            $collegeCode = $record['college_code'];
             $assignments = [];
             foreach ($record['names'] as $name) {
                 $normalized = CounselorClassAssignment::normalizeClassName($name);
-                $matches = $catalog->filter(fn ($row) => $row['college_code'] === $record['user']['dwbm'] && $normalized === CounselorClassAssignment::normalizeClassName($row['class_name']));
+                $matches = $catalog->filter(fn ($row) => $row['college_code'] === $collegeCode && $normalized === CounselorClassAssignment::normalizeClassName($row['class_name']));
                 if ($matches->pluck('class_code')->filter()->unique()->count() > 1) {
                     $errors[] = $name.'：同名班级有多个正式代码，请先在页面明确关联';
                     continue;
                 }
-                $match = $matches->first() ?? CounselorClassAssignment::where('counselor_cas_username', (string) $employee)
+                $match = $matches->first() ?? CounselorClassAssignment::where('counselor_cas_username', (string) $employee)->where('college_code', $collegeCode)
                     ->where('normalized_class_name', $normalized)->first();
-                $assignments[$normalized] = ['class_name' => $match['class_name'] ?? $name, 'class_code' => $match['class_code'] ?? null, 'normalized_class_name' => $normalized, 'college_code' => $record['user']['dwbm'], 'college_name' => $record['user']['dwmc'], 'source' => 'excel'];
+                $assignments[$normalized] = ['class_name' => $match['class_name'] ?? $name, 'class_code' => $match['class_code'] ?? null, 'normalized_class_name' => $normalized, 'college_code' => $collegeCode, 'college_name' => $record['college_name'], 'source' => 'excel'];
+                if ($collegeCode !== $record['user']['dwbm'] && blank($assignments[$normalized]['class_code'])) {
+                    $errors[] = $name.'：跨学院代班须匹配正式班级代码';
+                }
                 foreach ($claims as $claim) {
                     if ($claim['employee'] !== $employee && $ownership->matches($claim['assignment'], $assignments[$normalized])) {
                         $errors[] = $assignments[$normalized]['class_name'].'：导入表中同时分配给 '.$claim['employee'].' 和 '.$employee;
@@ -98,7 +113,7 @@ class CounselorWorkbookImport
                 }
                 $claims[] = ['employee' => $employee, 'assignment' => $assignments[$normalized]];
             }
-            $old = CounselorClassAssignment::where('counselor_cas_username', (string) $employee)->get();
+            $old = CounselorClassAssignment::where('counselor_cas_username', (string) $employee)->where('college_code', $collegeCode)->get();
             $transfers = [];
             foreach ($assignments as $assignment) {
                 $owners = $ownership->owners($assignment)->filter(fn ($owner) => $owner->counselor_cas_username !== $employee);
@@ -107,7 +122,8 @@ class CounselorWorkbookImport
                     $transfers[] = $assignment['class_name'].'：'.($names->values()->implode('、') ?: '原辅导员').' → '.$record['user']['name'];
                 }
             }
-            $result[] = ['user' => $record['user'], 'assignments' => array_values($assignments), 'created_user' => ! User::where('cas_username', (string) $employee)->exists(), 'added' => array_values(array_diff(array_keys($assignments), $old->pluck('normalized_class_name')->all())), 'removed' => array_values(array_diff($old->pluck('normalized_class_name')->all(), array_keys($assignments))), 'transfers' => $transfers];
+            $result[] = ['user' => $record['user'], 'college_code' => $collegeCode, 'college_name' => $record['college_name'],
+                'assignments' => array_values($assignments), 'created_user' => ! User::where('cas_username', (string) $employee)->exists(), 'added' => array_values(array_diff(array_keys($assignments), $old->pluck('normalized_class_name')->all())), 'removed' => array_values(array_diff($old->pluck('normalized_class_name')->all(), array_keys($assignments))), 'transfers' => $transfers];
         }
         if ($result === [] && $errors === []) {
             $errors[] = '文件没有可导入人员';
@@ -134,7 +150,8 @@ class CounselorWorkbookImport
                     $user->role = User::ROLE_COUNSELOR;
                 }
                 $user->fill($data)->save();
-                $user->classAssignments()->whereNotIn('normalized_class_name', array_column($record['assignments'], 'normalized_class_name'))->delete();
+                $user->classAssignments()->where('college_code', $record['college_code'])
+                    ->whereNotIn('normalized_class_name', array_column($record['assignments'], 'normalized_class_name'))->delete();
                 $users[$user->cas_username] = $user;
                 app(CounselorManagement::class)->log('import', $user->cas_username, $before, ['user' => $data, 'assignments' => $record['assignments'], 'transfers' => $record['transfers']]);
             }

@@ -85,8 +85,8 @@ class CounselorClassOwnership
 
     public function assign(User $user, array $class, bool $transfer = false, ?array $expectedOwners = null, string $source = 'manual'): CounselorClassAssignment
     {
-        abort_unless($user->staffMember()->where('is_active', true)->where('department_code', $class['college_code'])->exists(), 422, '辅导员不在该学院的在职目录中');
-        abort_unless($user->dwbm === $class['college_code'], 422, '只能绑定同学院辅导员');
+        abort_unless(app(CounselorCollegeEligibility::class)->allows($user, $class['college_code']), 422, '辅导员不属于该学院且无有效委派');
+        abort_if($user->dwbm !== $class['college_code'] && blank($class['class_code']), 422, '跨学院代班须先关联正式班级代码');
         $owners = $this->owners($class, true);
         if ($this->ambiguous($class) && (blank($class['class_code']) || $owners->contains(fn ($row) => blank($row->class_code)))) {
             throw ValidationException::withMessages(['class_name' => '同名班级有多个正式代码，请先明确关联班级']);
@@ -105,7 +105,7 @@ class CounselorClassOwnership
             abort(409, '带班关系已变化，请刷新后重试');
         }
         $normalized = CounselorClassAssignment::normalizeClassName($class['class_name']);
-        $own = $user->classAssignments()->where('normalized_class_name', $normalized)->first();
+        $own = $user->classAssignments()->where('college_code', $class['college_code'])->where('normalized_class_name', $normalized)->first();
         if ($own && filled($own->class_code) && filled($class['class_code']) && $own->class_code !== $class['class_code']) {
             throw ValidationException::withMessages(['class_name' => '该辅导员已有同名但不同代码的班级']);
         }
@@ -113,7 +113,7 @@ class CounselorClassOwnership
         $otherOwners->each->delete();
         try {
             $assignment = CounselorClassAssignment::updateOrCreate(
-                ['counselor_cas_username' => $user->cas_username, 'normalized_class_name' => $normalized],
+                ['counselor_cas_username' => $user->cas_username, 'college_code' => $class['college_code'], 'normalized_class_name' => $normalized],
                 ['user_id' => $user->id, 'class_code' => $class['class_code'] ?: null, 'class_name' => $class['class_name'],
                     'college_code' => $class['college_code'], 'college_name' => $class['college_name'] ?? $user->dwmc,
                     'source' => $source, 'class_identity_hash' => $this->identity($class)]

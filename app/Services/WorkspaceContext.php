@@ -15,6 +15,9 @@ class WorkspaceContext
         $labels = ['super_admin' => '总管理员', 'admin' => '管理员', 'student_affairs' => '学工老师', 'counselor' => '辅导员', 'staff' => '普通人员'];
         $names = empty($scope['departments']) ? collect() : \App\Models\Student::query()->whereIn('dwbm', $scope['departments'])->select('dwbm', 'dwmc')->distinct()->get()->groupBy('dwbm');
         $scopeLabel = $scope['all'] ? '全校学生' : collect($scope['departments'])->map(fn ($code) => $names->get($code)?->first()?->dwmc ?: ($user && (string) $user->dwbm === $code ? ($user->dwmc ?: $code) : $code))->implode('、');
+        if (! $scope['all'] && count($scope['classes'] ?? []) > 0) {
+            $scopeLabel = trim($scopeLabel.'、代管 '.count($scope['classes']).' 班', '、');
+        }
         $groups = [];
         $students = [];
         if ($capabilities['students']) {

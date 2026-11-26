@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CounselorManagementPermission;
+use App\Models\CounselorCollegeDelegation;
 use App\Models\StaffMember;
 use App\Models\StudentAccessPermission;
 use App\Models\User;
@@ -83,8 +84,9 @@ class StaffDirectorySync
                 }
                 $user = User::where('cas_username', $employeeNo)->first();
                 if ($user && ($user->isCounselor() || $user->classAssignments()->exists())) {
-                    $removed = $payload['department_code'] === null ? $user->classAssignments()->get()
-                        : $user->classAssignments()->where('college_code', '!=', $payload['department_code'])->get();
+                    $allowedCodes = CounselorCollegeDelegation::where('employee_no', $employeeNo)->where('is_active', true)->pluck('college_code');
+                    if ($payload['department_code'] !== null) $allowedCodes->push($payload['department_code']);
+                    $removed = $user->classAssignments()->whereNotIn('college_code', $allowedCodes->all())->get();
                     if ($removed->isNotEmpty()) {
                         $removed->each->delete();
                         $result['assignments_released'] += $removed->count();
@@ -122,6 +124,13 @@ class StaffDirectorySync
                 $user?->forceFill(['role' => User::ROLE_STAFF])->save();
                 CounselorManagementPermission::query()->where('employee_no', $employeeNo)->update(['is_active' => false]);
                 StudentAccessPermission::query()->where('employee_no', $employeeNo)->update(['is_active' => false]);
+                if (! $pending) {
+                    $delegations = CounselorCollegeDelegation::where('employee_no', $employeeNo)->where('is_active', true)->get();
+                    foreach ($delegations as $delegation) {
+                        $delegation->update(['is_active' => false, 'ended_at' => $now]);
+                        app(CounselorManagement::class)->log('delegation.end.departure', $employeeNo, $delegation->toArray(), null);
+                    }
+                }
                 if (! $pending) {
                     $assignments->each->delete();
                     $result['assignments_released'] += $assignments->count();

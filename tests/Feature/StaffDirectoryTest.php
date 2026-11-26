@@ -3,6 +3,7 @@
 use App\Auth\XgxtCasUserResolver;
 use App\Models\CounselorManagementPermission;
 use App\Models\CounselorClassAssignment;
+use App\Models\CounselorCollegeDelegation;
 use App\Models\StaffMember;
 use App\Models\Student;
 use App\Models\User;
@@ -132,6 +133,25 @@ it('releases assignments for departed staff and old-college assignments after tr
     expect($moved->fresh()->office_location)->toBe('Room 1');
     $this->assertDatabaseHas('counselor_management_logs', ['action' => 'staff.deactivated', 'subject' => 'former']);
     $this->assertDatabaseHas('counselor_management_logs', ['action' => 'staff.college.changed', 'subject' => '00000001']);
+});
+
+it('preserves active delegated classes through directory sync and ends delegation after departure', function () {
+    insertStaffSource(4);
+    $teacher = User::factory()->create(['cas_username' => '00000001', 'name' => 'Teacher 1',
+        'role' => User::ROLE_COUNSELOR, 'dwbm' => 'LAW', 'dwmc' => 'Law']);
+    $delegation = CounselorCollegeDelegation::create(['employee_no' => '00000001', 'college_code' => 'LAW',
+        'college_name' => 'Law', 'is_active' => true]);
+    CounselorClassAssignment::create(['user_id' => $teacher->id, 'counselor_cas_username' => '00000001',
+        'college_code' => 'LAW', 'class_code' => 'LAW1', 'class_name' => '26Law1', 'normalized_class_name' => '26law1']);
+
+    $this->artisan('sync:staff-from-middata')->assertExitCode(0);
+    expect($teacher->fresh()->dwbm)->toBe('FIN');
+    expect($teacher->classAssignments()->count())->toBe(1);
+    DB::connection('middata')->table('t_bd_zzqxryxx')->where('xgh', '00000001')->delete();
+    $this->artisan('sync:staff-from-middata')->assertExitCode(0);
+    expect($teacher->classAssignments()->count())->toBe(0);
+    expect($delegation->fresh()->is_active)->toBeFalse();
+    expect($teacher->fresh()->role)->toBe(User::ROLE_STAFF);
 });
 
 it('rejects empty sources and abnormal drops without deactivating staff', function () {

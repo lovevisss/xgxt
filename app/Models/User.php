@@ -101,6 +101,11 @@ class User extends Authenticatable
         return $this->hasMany(CounselorClassAssignment::class, 'counselor_cas_username', 'cas_username');
     }
 
+    public function counselorDelegations(): HasMany
+    {
+        return $this->hasMany(CounselorCollegeDelegation::class, 'employee_no', 'cas_username');
+    }
+
     public function staffMember(): HasOne
     {
         return $this->hasOne(StaffMember::class, 'employee_no', 'cas_username');

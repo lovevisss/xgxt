@@ -518,7 +518,7 @@ class StudentController extends Controller
             'averageGpa' => $averageGpa,
             'recentPasses' => $recentPasses,
             'companionInsights' => $companionInsights,
-            'canUpdateFamilies' => $student->student_category === Student::CATEGORY_CURRENT && CurrentUser::canManageDepartment($student->dwbm),
+            'canUpdateFamilies' => $student->student_category === Student::CATEGORY_CURRENT && CurrentUser::canManageStudent($student),
         ]);
     }
 

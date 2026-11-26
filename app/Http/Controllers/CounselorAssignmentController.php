@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\CounselorClassAssignment;
+use App\Models\CounselorCollegeDelegation;
 use App\Models\Student;
 use App\Models\StaffMember;
 use App\Models\User;
 use App\Services\CounselorClassCatalog;
 use App\Services\CounselorClassOwnership;
+use App\Services\CounselorCollegeEligibility;
 use App\Services\CounselorManagement;
 use App\Services\CounselorWorkbookImport;
 use App\Services\UnassignedCounselorClasses;
@@ -31,14 +33,21 @@ class CounselorAssignmentController extends Controller
 
     private function viewable(User $user): void
     {
-        abort_unless($this->management->allowed($user->dwbm) || (CurrentUser::get()?->isCounselor() && $user->id === CurrentUser::get()?->id), 403);
+        abort_unless($this->canView($user), 403);
         abort_unless(($user->isCounselor() || $user->classAssignments()->exists()) && $user->staffMember()->where('is_active', true)->exists(), 404);
+    }
+
+    private function canView(User $user): bool
+    {
+        return $this->management->allowed($user->dwbm)
+            || collect(app(CounselorCollegeEligibility::class)->codes($user))->contains(fn ($code) => $this->management->allowed($code))
+            || (CurrentUser::get()?->isCounselor() && $user->id === CurrentUser::get()?->id);
     }
 
     public function index()
     {
         $users = User::where(fn ($q) => $q->where('role', User::ROLE_COUNSELOR)->orWhereHas('classAssignments'))->whereHas('staffMember', fn ($q) => $q->where('is_active', true))->withCount('classAssignments')->orderBy('name')->get()
-            ->filter(fn ($u) => $this->management->allowed($u->dwbm) || (CurrentUser::get()?->isCounselor() && $u->id === CurrentUser::get()?->id));
+            ->filter(fn ($u) => $this->canView($u));
 
         return response()->json(['data' => $users->groupBy(fn ($u) => $u->dwmc ?: '未设置分院')->map(fn ($users, $college) => [
             'college' => $college, 'count' => $users->count(), 'counselors' => $users->map(fn ($u) => $this->payload($u))->values(),
@@ -50,7 +59,10 @@ class CounselorAssignmentController extends Controller
     {
         $this->viewable($user);
 
-        return response()->json(['data' => $this->payload($user) + ['assignments' => $user->classAssignments()->orderBy('class_name')->get()]]);
+        $assignments = $user->classAssignments()->orderBy('class_name')->get()
+            ->filter(fn ($row) => $this->management->allowed($row->college_code) || CurrentUser::get()?->id === $user->id)->values();
+
+        return response()->json(['data' => $this->payload($user) + ['assignments' => $assignments]]);
     }
 
     public function staffOptions(Request $request)
@@ -67,6 +79,55 @@ class CounselorAssignmentController extends Controller
 
         return response()->json(['data' => $staff->values()->map(fn ($row) => ['employee_no' => $row->employee_no, 'name' => $row->name,
             'department_code' => $row->department_code, 'department_name' => $row->department_name])]);
+    }
+
+    public function delegations()
+    {
+        abort_unless($this->management->admin(), 403);
+
+        return response()->json(['data' => CounselorCollegeDelegation::with('user:id,cas_username,name')
+            ->orderByDesc('is_active')->orderBy('college_name')->get()]);
+    }
+
+    public function grantDelegation(Request $request)
+    {
+        abort_unless($this->management->admin(), 403);
+        $data = $request->validate(['employee_no' => ['required', 'string'], 'college_code' => ['required', 'string'],
+            'reason' => ['nullable', 'string', 'max:500']]);
+        $staff = StaffMember::where('employee_no', $data['employee_no'])->where('is_active', true)->first();
+        abort_unless($staff, 422, '工号不在在职目录中');
+        $college = collect($this->management->colleges())->firstWhere('code', $data['college_code']);
+        abort_unless($college && $staff->department_code !== $data['college_code'], 422, '请选择与目录所属部门不同的有效学院');
+
+        return DB::transaction(function () use ($data, $college) {
+            $existing = CounselorCollegeDelegation::where('employee_no', $data['employee_no'])
+                ->where('college_code', $data['college_code'])->lockForUpdate()->first();
+            $before = $existing?->toArray();
+            $delegation = CounselorCollegeDelegation::updateOrCreate(
+                ['employee_no' => $data['employee_no'], 'college_code' => $data['college_code']],
+                ['college_name' => $college['name'], 'reason' => $data['reason'] ?? null, 'is_active' => true, 'ended_at' => null]
+            );
+            $this->management->log('delegation.grant', $data['employee_no'], $before, $delegation->toArray());
+
+            return response()->json(['data' => $delegation], $before ? 200 : 201);
+        });
+    }
+
+    public function endDelegation(CounselorCollegeDelegation $delegation)
+    {
+        abort_unless($this->management->admin(), 403);
+
+        return DB::transaction(function () use ($delegation) {
+            $delegation = CounselorCollegeDelegation::whereKey($delegation->id)->lockForUpdate()->firstOrFail();
+            abort_unless($delegation->is_active, 409, '委派已结束');
+            abort_if(CounselorClassAssignment::where('counselor_cas_username', $delegation->employee_no)
+                ->where('college_code', $delegation->college_code)->exists(), 409, '请先转交或移除该学院的带班');
+            $before = $delegation->toArray();
+            $delegation->update(['is_active' => false, 'ended_at' => now()]);
+            $this->management->log('delegation.end', $delegation->employee_no, $before, $delegation->toArray());
+
+            return response()->json(['data' => $delegation]);
+        });
     }
 
     private function validated(Request $request, ?User $user = null): array
@@ -134,6 +195,11 @@ class CounselorAssignmentController extends Controller
         DB::transaction(function () use ($user, $catalog) {
             $this->management->log('user.delete', $user->cas_username, ['user' => $this->payload($user), 'assignments' => $user->classAssignments()->get()->toArray()], null);
             $user->classAssignments()->delete();
+            foreach ($user->counselorDelegations()->where('is_active', true)->get() as $delegation) {
+                $before = $delegation->toArray();
+                $delegation->update(['is_active' => false, 'ended_at' => now()]);
+                $this->management->log('delegation.end.counselor_removed', $user->cas_username, $before, $delegation->toArray());
+            }
             $user->forceFill(['role' => User::ROLE_STAFF])->save();
             $catalog->forget();
         });
@@ -151,7 +217,9 @@ class CounselorAssignmentController extends Controller
         $grades = collect(range($start, $start + 3))->map(fn ($y) => substr((string) $y, -2))->all();
         $q = mb_strtolower(trim((string) $request->query('q')));
         $data = $catalog->all()->filter(function ($row) use ($target, $request, $grades, $q) {
-            if ($target && $row['college_code'] !== $target->dwbm) {
+            if ($target && (blank($row['college_code']) || ! app(CounselorCollegeEligibility::class)->allows($target, $row['college_code'])
+                || ! $this->management->allowed($row['college_code'])
+                || ($target->dwbm !== $row['college_code'] && blank($row['class_code'])))) {
                 return false;
             }
             if (! $target && ! $this->management->allowed($row['college_code'])) {
@@ -205,14 +273,14 @@ class CounselorAssignmentController extends Controller
         abort_unless($this->management->admin() || $this->management->permission(), 403);
         $data = $request->validate(['class_key' => ['required', 'string', 'max:512'], 'counselor_id' => ['required', 'integer', 'exists:users,id']]);
         $user = User::findOrFail($data['counselor_id']);
-        $this->management->authorize($user->dwbm);
         abort_unless($user->isCounselor() || $user->classAssignments()->exists(), 422, '请选择辅导员');
 
         $assignment = DB::transaction(function () use ($data, $user, $classes, $ownership) {
             $class = $classes->all()->firstWhere('key', $data['class_key']);
             abort_unless($class, 409, '该班级已绑定辅导员或不再属于当前在校班级，请刷新清单');
             $this->management->authorize($class['college_code']);
-            abort_unless($class['college_code'] === $user->dwbm, 422, '只能绑定同学院辅导员');
+            abort_if(! $this->management->admin() && ! app(CounselorCollegeEligibility::class)->allows($user, $class['college_code']), 403);
+            abort_unless(app(CounselorCollegeEligibility::class)->allows($user, $class['college_code']), 422, '该辅导员没有此学院委派');
             $students = Student::query()->where('student_category', Student::CATEGORY_CURRENT)
                 ->where('rylx', '0')->where('dwbm', $class['college_code']);
             if ($class['class_code'] !== null) {
@@ -233,10 +301,13 @@ class CounselorAssignmentController extends Controller
     public function addClass(Request $request, User $user, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $this->viewable($user);
-        $this->management->authorize($user->dwbm);
         $data = $request->validate(['class_name' => ['required', 'string', 'max:255'], 'class_code' => ['nullable', 'string', 'max:255'],
+            'college_code' => ['nullable', 'string'],
             'transfer' => ['nullable', 'boolean'], 'expected_owner_ids' => ['required_if:transfer,true', 'array']]);
-        $match = $catalog->all()->first(fn ($row) => $row['college_code'] === $user->dwbm && $row['class_name'] === $data['class_name'] && (blank($data['class_code'] ?? null) || $row['class_code'] === $data['class_code']));
+        $match = $catalog->all()->first(fn ($row) => filled($row['college_code']) && app(CounselorCollegeEligibility::class)->allows($user, $row['college_code'])
+            && $this->management->allowed($row['college_code']) && $row['class_name'] === $data['class_name']
+            && (blank($data['college_code'] ?? null) || $row['college_code'] === $data['college_code'])
+            && (blank($data['class_code'] ?? null) || $row['class_code'] === $data['class_code']));
         abort_unless($match, 422, '班级不存在或不属于该学院');
 
         return DB::transaction(function () use ($user, $match, $catalog, $ownership, $request, $data) {
@@ -250,15 +321,17 @@ class CounselorAssignmentController extends Controller
     public function addClasses(Request $request, User $user, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
         $this->viewable($user);
-        $this->management->authorize($user->dwbm);
         $data = $request->validate([
             'classes' => ['required', 'array', 'min:1', 'max:100'], 'classes.*.class_name' => ['required', 'string', 'max:255'],
+            'classes.*.college_code' => ['nullable', 'string'],
             'classes.*.class_code' => ['nullable', 'string', 'max:255'], 'transfer' => ['nullable', 'boolean'],
             'expected_owners' => ['nullable', 'array'],
         ]);
         $options = $catalog->all();
         $classes = collect($data['classes'])->map(function ($item) use ($options, $user) {
-            $match = $options->first(fn ($row) => $row['college_code'] === $user->dwbm && $row['class_name'] === $item['class_name']
+            $match = $options->first(fn ($row) => filled($row['college_code']) && app(CounselorCollegeEligibility::class)->allows($user, $row['college_code'])
+                && $this->management->allowed($row['college_code']) && $row['class_name'] === $item['class_name']
+                && (blank($item['college_code'] ?? null) || $row['college_code'] === $item['college_code'])
                 && (blank($item['class_code'] ?? null) || $row['class_code'] === $item['class_code']));
             abort_unless($match, 422, '班级不存在或不属于该学院');
 
@@ -317,7 +390,7 @@ class CounselorAssignmentController extends Controller
 
     public function removeClass(User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog)
     {
-        $this->management->authorize($user->dwbm);
+        $this->management->authorize($assignment->college_code);
         abort_unless($assignment->counselor_cas_username === $user->cas_username, 404);
         DB::transaction(function () use ($user, $assignment, $catalog) {
             $this->management->log('class.remove', $user->cas_username, $assignment->toArray(), null);
@@ -330,11 +403,11 @@ class CounselorAssignmentController extends Controller
 
     public function matchClass(Request $request, User $user, CounselorClassAssignment $assignment, CounselorClassCatalog $catalog, CounselorClassOwnership $ownership)
     {
-        $this->management->authorize($user->dwbm);
-        abort_unless($user->staffMember()->where('is_active', true)->where('department_code', $user->dwbm)->exists(), 422, '辅导员不在该学院的在职目录中');
+        $this->management->authorize($assignment->college_code);
+        abort_unless(app(CounselorCollegeEligibility::class)->allows($user, $assignment->college_code), 422, '该辅导员没有此学院委派');
         abort_unless($assignment->counselor_cas_username === $user->cas_username, 404);
         $data = $request->validate(['class_code' => ['required', 'string'], 'transfer' => ['nullable', 'boolean'], 'expected_owner_ids' => ['required_if:transfer,true', 'array']]);
-        $match = $catalog->all()->first(fn ($row) => $row['class_code'] === $data['class_code'] && $row['college_code'] === $user->dwbm);
+        $match = $catalog->all()->first(fn ($row) => $row['class_code'] === $data['class_code'] && $row['college_code'] === $assignment->college_code);
         abort_unless($match, 422, '请选择本学院正式班级');
 
         return DB::transaction(function () use ($user, $assignment, $match, $catalog, $ownership, $request, $data) {
@@ -372,9 +445,16 @@ class CounselorAssignmentController extends Controller
 
     private function payload(User $user): array
     {
+        $codes = app(CounselorCollegeEligibility::class)->codes($user);
+        $manageable = collect($codes)->filter(fn ($code) => $this->management->allowed($code))->values()->all();
         return $user->only(['id', 'cas_username', 'name', 'dwbm', 'dwmc', 'phone', 'office_phone', 'office_location']) + [
-            'class_assignments_count' => $user->class_assignments_count ?? $user->classAssignments()->count(),
-            'can_manage' => $this->management->allowed($user->dwbm), 'can_delete' => $this->management->admin() && $user->isCounselor(),
+            'class_assignments_count' => $this->management->admin()
+                ? ($user->class_assignments_count ?? $user->classAssignments()->count())
+                : $user->classAssignments()->whereIn('college_code', $manageable)->count(),
+            'can_manage' => $manageable !== [], 'can_manage_profile' => $this->management->allowed($user->dwbm),
+            'managed_college_codes' => $manageable,
+            'delegated_colleges' => $user->counselorDelegations()->where('is_active', true)->get(['college_code', 'college_name']),
+            'can_delete' => $this->management->admin() && $user->isCounselor(),
         ];
     }
 }
