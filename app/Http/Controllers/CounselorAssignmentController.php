@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\CounselorClassAssignment;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\CounselorClassCatalog;
 use App\Services\CounselorManagement;
 use App\Services\CounselorWorkbookImport;
+use App\Services\UnassignedCounselorClasses;
 use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -139,6 +141,62 @@ class CounselorAssignmentController extends Controller
         })->sortByDesc('grade')->values();
 
         return response()->json(['data' => $data]);
+    }
+
+    public function unassignedClasses(Request $request, UnassignedCounselorClasses $classes)
+    {
+        abort_unless($this->management->admin() || $this->management->permission(), 403);
+        $filters = $request->validate([
+            'college' => ['nullable', 'string'], 'grade' => ['nullable', 'regex:/^(all|\d{4})$/'], 'q' => ['nullable', 'string', 'max:255'],
+        ]);
+        if (filled($filters['college'] ?? null)) {
+            $this->management->authorize($filters['college']);
+        }
+        $query = mb_strtolower(trim($filters['q'] ?? ''));
+        $data = $classes->all()->filter(fn ($row) => $this->management->allowed($row['college_code'])
+            && (blank($filters['college'] ?? null) || $row['college_code'] === $filters['college'])
+            && (blank($filters['grade'] ?? null) || $filters['grade'] === 'all' || $row['grade'] === $filters['grade'])
+            && ($query === '' || str_contains(mb_strtolower($row['class_name'].' '.($row['class_code'] ?? '')), $query)))->values();
+
+        return response()->json(['data' => $data, 'total' => $data->count()]);
+    }
+
+    public function bindUnassignedClass(Request $request, UnassignedCounselorClasses $classes, CounselorClassCatalog $catalog)
+    {
+        abort_unless($this->management->admin() || $this->management->permission(), 403);
+        $data = $request->validate(['class_key' => ['required', 'string', 'max:512'], 'counselor_id' => ['required', 'integer', 'exists:users,id']]);
+        $user = User::findOrFail($data['counselor_id']);
+        $this->management->authorize($user->dwbm);
+        abort_unless($user->isCounselor() || $user->classAssignments()->exists(), 422, '请选择辅导员');
+
+        $assignment = DB::transaction(function () use ($data, $user, $classes) {
+            $class = $classes->all()->firstWhere('key', $data['class_key']);
+            abort_unless($class, 409, '该班级已绑定辅导员或不再属于当前在校班级，请刷新清单');
+            $this->management->authorize($class['college_code']);
+            abort_unless($class['college_code'] === $user->dwbm, 422, '只能绑定同学院辅导员');
+            $students = Student::query()->where('student_category', Student::CATEGORY_CURRENT)
+                ->where('rylx', '0')->where('dwbm', $class['college_code']);
+            if ($class['class_code'] !== null) {
+                $students->where('bjbm', $class['class_code']);
+            } else {
+                $students->where(fn ($query) => $query->whereNull('bjbm')->orWhere('bjbm', ''))->where('bjmc', $class['class_name']);
+            }
+            $students->orderBy('xgh')->lockForUpdate()->first();
+            $class = $classes->all()->firstWhere('key', $data['class_key']);
+            abort_unless($class, 409, '该班级已绑定辅导员或不再属于当前在校班级，请刷新清单');
+            $key = ['counselor_cas_username' => $user->cas_username, 'normalized_class_name' => $class['normalized_class_name']];
+            abort_if(CounselorClassAssignment::where($key)->exists(), 422, '该辅导员已有同名班级带班关系');
+            $assignment = CounselorClassAssignment::create($key + [
+                'user_id' => $user->id, 'class_code' => $class['class_code'], 'class_name' => $class['class_name'],
+                'college_code' => $class['college_code'], 'college_name' => $class['college_name'], 'source' => 'manual',
+            ]);
+            $this->management->log('class.save', $user->cas_username, null, $assignment->toArray());
+
+            return $assignment;
+        });
+        $catalog->forget();
+
+        return response()->json(['data' => $assignment], 201);
     }
 
     public function addClass(Request $request, User $user, CounselorClassCatalog $catalog)

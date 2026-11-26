@@ -170,3 +170,63 @@ it('links aliases within the college and preserves the match on reimport', funct
         unlink($path);
     }
 });
+
+it('lists only current student classes without a matching counselor assignment', function () {
+    $teacher = managementTeacher();
+    CounselorClassAssignment::create(['user_id' => $teacher->id, 'counselor_cas_username' => $teacher->cas_username, 'college_code' => 'FIN', 'class_code' => 'FIN26', 'class_name' => '26Shared1', 'normalized_class_name' => '26shared1']);
+    Student::create(['xgh' => 'FIN26002', 'xm' => 'Another', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN2602', 'bjmc' => '26Shared1']);
+    Student::create(['xgh' => 'FIN25001', 'xm' => 'Older', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN25', 'bjmc' => '25Finance1']);
+    Student::create(['xgh' => 'FIN24001', 'xm' => 'Graduated', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN24', 'bjmc' => '24Finance1', 'student_category' => 'graduated']);
+    Student::create(['xgh' => 'FIN23001', 'xm' => 'Staff', 'xbm' => '1', 'rylx' => '1', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN23', 'bjmc' => '23Finance1']);
+    Student::create(['xgh' => 'FIN26003', 'xm' => 'No code', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => null, 'bjmc' => '26NoCode1']);
+    CounselorClassAssignment::create(['user_id' => $teacher->id, 'counselor_cas_username' => $teacher->cas_username, 'college_code' => 'FIN', 'class_code' => null, 'class_name' => '26NoCode1班', 'normalized_class_name' => '26nocode1']);
+
+    $response = $this->getJson('/counselors/unassigned-classes')->assertOk()->assertJsonPath('total', 3);
+    expect(collect($response->json('data'))->pluck('key'))->toContain('FIN|code:FIN2602', 'FIN|code:FIN25', 'ART|code:ART26');
+    expect(collect($response->json('data'))->pluck('key'))->not->toContain('FIN|code:FIN26', 'FIN|name:26nocode1', 'FIN|code:FIN24');
+    $this->getJson('/counselors/unassigned-classes?college=FIN&grade=2025&q=Finance')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.student_count', 1);
+});
+
+it('limits the unassigned list and binding to managed colleges', function () {
+    config(['cas.enabled' => true]);
+    $manager = User::factory()->create(['role' => 'staff', 'cas_username' => 'manager']);
+    $fin = managementTeacher();
+    $art = managementTeacher('ART');
+    CounselorManagementPermission::create(['employee_no' => 'manager', 'teacher_name' => 'Manager', 'all_colleges' => false, 'department_codes' => ['FIN'], 'is_active' => true]);
+    $this->actingAs($manager)->withSession([config('cas.session_key') => ['user' => 'manager']]);
+    $this->getJson('/counselors/unassigned-classes')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.college_code', 'FIN');
+    $this->getJson('/counselors/unassigned-classes?college=ART')->assertForbidden();
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'ART|code:ART26', 'counselor_id' => $art->id])->assertForbidden();
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'FIN|code:FIN26', 'counselor_id' => $art->id])->assertForbidden();
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'FIN|code:FIN26', 'counselor_id' => $fin->id])->assertCreated();
+    $this->getJson('/counselors/unassigned-classes')->assertOk()->assertJsonPath('total', 0);
+    $this->actingAs($fin)->withSession([config('cas.session_key') => ['user' => $fin->cas_username]]);
+    $this->getJson('/counselors/unassigned-classes')->assertForbidden();
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'ART|code:ART26', 'counselor_id' => $fin->id])->assertForbidden();
+});
+
+it('binds an unassigned class once and reports stale submissions', function () {
+    $teacher = managementTeacher();
+    $other = managementTeacher();
+    Student::create(['xgh' => 'FIN26002', 'xm' => 'Same name', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => 'FIN2602', 'bjmc' => '26Shared1']);
+    $payload = ['class_key' => 'FIN|code:FIN26', 'counselor_id' => $teacher->id];
+    $this->postJson('/counselors/unassigned-classes/bind', $payload)->assertCreated();
+    $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $teacher->cas_username, 'class_code' => 'FIN26']);
+    $this->postJson('/counselors/unassigned-classes/bind', $payload)->assertStatus(409);
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'FIN|code:FIN2602', 'counselor_id' => $teacher->id])->assertUnprocessable();
+    $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $teacher->cas_username, 'class_code' => 'FIN26']);
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'ART|code:ART26', 'counselor_id' => $other->id])->assertUnprocessable();
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'FIN|code:FIN2602', 'counselor_id' => $other->id])->assertCreated();
+    $this->assertDatabaseCount('counselor_class_assignments', 2);
+});
+
+it('can bind a current class that has no class code', function () {
+    $teacher = managementTeacher();
+    Student::create(['xgh' => 'FIN26004', 'xm' => 'No code', 'xbm' => '1', 'rylx' => '0', 'dwbm' => 'FIN', 'dwmc' => 'FIN', 'bjbm' => null, 'bjmc' => '26MissingCode1']);
+    $this->getJson('/counselors/unassigned-classes?q=MissingCode')->assertOk()
+        ->assertJsonPath('data.0.key', 'FIN|name:26missingcode1')
+        ->assertJsonPath('data.0.class_code', null);
+    $this->postJson('/counselors/unassigned-classes/bind', ['class_key' => 'FIN|name:26missingcode1', 'counselor_id' => $teacher->id])->assertCreated();
+    $this->assertDatabaseHas('counselor_class_assignments', ['counselor_cas_username' => $teacher->cas_username, 'class_code' => null, 'normalized_class_name' => '26missingcode1']);
+    $this->getJson('/counselors/unassigned-classes?q=MissingCode')->assertOk()->assertJsonPath('total', 0);
+});

@@ -6,7 +6,9 @@ const detail = ref(null), editing = ref(false), busy = ref(false), loading = ref
 const query = ref(''), college = ref(''), grade = ref('recent'), classQuery = ref(''), options = ref([]), chosen = ref([]);
 const file = ref(null), preview = ref(null), matching = ref(null), matchCode = ref('');
 const form = ref({});
-let detailRequest = 0, classRequest = 0;
+const view = ref('counselors'), unassigned = ref([]), unassignedTotal = ref(0), unassignedLoading = ref(false);
+const unassignedCollege = ref(''), unassignedGrade = ref('all'), unassignedQuery = ref(''), unassignedCounselors = ref({});
+let detailRequest = 0, classRequest = 0, unassignedRequest = 0;
 const visibleGroups = computed(() => groups.value.map(g => ({ ...g, counselors: g.counselors.filter(u => (!college.value || u.dwbm === college.value) && (u.name + u.cas_username).includes(query.value)) })).filter(g => g.counselors.length));
 const gradeOptions = computed(() => Array.from({ length: 12 }, (_, i) => String(new Date().getFullYear() - i).slice(-2)));
 const writable = computed(() => detail.value ? detail.value.can_manage : canManage.value);
@@ -15,13 +17,47 @@ async function api(url, method = 'GET', body) {
     if (body && !(body instanceof FormData)) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(body); }
     const response = await fetch(url, { method, headers, body });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(Object.values(result.errors || {}).flat().join('；') || result.message || '请求失败');
+    if (!response.ok) { const error = new Error(Object.values(result.errors || {}).flat().join('；') || result.message || '请求失败'); error.status = response.status; throw error; }
     return result;
 }
 async function run(action) { if (busy.value) return; busy.value = true; notice.value = ''; try { await action(); } catch (e) { notice.value = e.message; } finally { busy.value = false; } }
 async function load() {
     const data = await api('/counselors/data');
     groups.value = data.data; colleges.value = data.colleges; admin.value = data.admin; canDelegate.value = data.can_delegate; canManage.value = data.can_manage;
+    if (canManage.value) await refreshUnassigned();
+}
+async function refreshUnassigned() {
+    const request = ++unassignedRequest;
+    unassignedLoading.value = true;
+    const params = new URLSearchParams({ college: unassignedCollege.value, grade: unassignedGrade.value, q: unassignedQuery.value });
+    try {
+        const result = await api('/counselors/unassigned-classes?' + params);
+        if (request !== unassignedRequest) return;
+        unassigned.value = result.data; unassignedTotal.value = result.total;
+    } catch (e) {
+        if (request === unassignedRequest) notice.value = e.message;
+    } finally {
+        if (request === unassignedRequest) unassignedLoading.value = false;
+    }
+}
+function counselorsForClass(item) {
+    return groups.value.flatMap(group => group.counselors).filter(user => user.dwbm === item.college_code);
+}
+async function bindUnassigned(item) {
+    const counselorId = Number(unassignedCounselors.value[item.key]);
+    if (!counselorId) return;
+    await run(async () => {
+        try {
+            await api('/counselors/unassigned-classes/bind', 'POST', { class_key: item.key, counselor_id: counselorId });
+        } catch (e) {
+            if (e.status === 409) await refreshUnassigned();
+            throw e;
+        }
+        delete unassignedCounselors.value[item.key];
+        await load();
+        if (detail.value?.id === counselorId) await open(detail.value);
+        notice.value = item.class_name + ' 已绑定';
+    });
 }
 async function open(user) {
     const request = ++detailRequest;
@@ -112,12 +148,30 @@ onMounted(() => run(load));
         </tbody></table></div>
         <div class="actions"><span>待匹配 {{ preview.unmatched }} 班</span><button class="primary ui-button ui-button-primary" :disabled="busy || preview.errors.length > 0" @click="upload(true)">确认替换表内老师带班关系</button></div>
     </section>
-    <div class="filters">
+    <div v-if="canManage" class="view-tabs" role="tablist" aria-label="带班管理视图">
+        <button role="tab" :aria-selected="view === 'counselors'" :class="{ active: view === 'counselors' }" @click="view = 'counselors'" class="ui-button">辅导员</button>
+        <button role="tab" :aria-selected="view === 'unassigned'" :class="{ active: view === 'unassigned' }" @click="view = 'unassigned'" class="ui-button">未绑定班级 <span>{{ unassignedTotal }}</span></button>
+    </div>
+    <div v-if="view === 'counselors'" class="filters">
         <label class="search"><Search :size="16" /><input v-model="query" placeholder="姓名 / 工号" aria-label="搜索辅导员"  class="ui-control"/></label>
         <select v-model="college" aria-label="筛选学院" class="ui-control"><option value="">全部学院</option><option v-for="c in colleges" :key="c.code" :value="c.code">{{ c.name }}</option></select>
         <span class="muted">{{ visibleGroups.reduce((n,g) => n + g.counselors.length, 0) }} 位辅导员</span>
     </div>
-    <div class="workspace-columns">
+    <section v-if="view === 'unassigned' && canManage" class="unassigned-view">
+        <form class="filters" @submit.prevent="refreshUnassigned">
+            <label class="search"><Search :size="16" /><input v-model="unassignedQuery" placeholder="班级名称 / 代码" aria-label="搜索未绑定班级" class="ui-control" /></label>
+            <select v-model="unassignedCollege" aria-label="筛选未绑定班级学院" @change="refreshUnassigned" class="ui-control"><option value="">全部学院</option><option v-for="c in colleges" :key="c.code" :value="c.code">{{ c.name }}</option></select>
+            <select v-model="unassignedGrade" aria-label="筛选未绑定班级年级" @change="refreshUnassigned" class="ui-control"><option value="all">全部年级</option><option v-for="g in gradeOptions" :key="g" :value="'20' + g">{{ g }} 级</option></select>
+            <button type="submit" class="ui-button"><Search :size="16" /> 搜索</button>
+            <span class="muted">{{ unassignedTotal }} 个未绑定班级</span>
+        </form>
+        <p v-if="unassignedLoading" class="empty" role="status">正在加载班级…</p>
+        <div v-else-if="unassigned.length" class="table-scroll"><table class="ui-table"><thead><tr><th>班级</th><th>学院</th><th>年级</th><th>在校人数</th><th>绑定辅导员</th></tr></thead><tbody>
+            <tr v-for="item in unassigned" :key="item.key"><td>{{ item.class_name }}<small>{{ item.class_code || '无班级代码' }}</small></td><td>{{ item.college_name }}</td><td>{{ item.grade ? item.grade + ' 级' : '未知' }}</td><td>{{ item.student_count }} 人</td><td><div v-if="counselorsForClass(item).length" class="bind-controls"><select v-model="unassignedCounselors[item.key]" :aria-label="'为 ' + item.class_name + ' 选择辅导员'" class="ui-control"><option value="">选择辅导员</option><option v-for="user in counselorsForClass(item)" :key="user.id" :value="user.id">{{ user.name }}（{{ user.cas_username }}）</option></select><button :disabled="busy || !unassignedCounselors[item.key]" @click="bindUnassigned(item)" class="ui-button">绑定</button></div><span v-else class="muted">该学院暂无辅导员</span></td></tr>
+        </tbody></table></div>
+        <p v-else class="empty">暂无未绑定班级</p>
+    </section>
+    <div v-if="view === 'counselors'" class="workspace-columns">
         <aside class="people">
             <section v-for="g in visibleGroups" :key="g.college"><h2>{{ g.college }} <span>{{ g.counselors.length }}</span></h2>
                 <button v-for="u in g.counselors" :key="u.id" class="person ui-button" :class="{ selected: detail?.id === u.id }" :disabled="busy || loading" @click="open(u)">
@@ -182,7 +236,8 @@ onMounted(() => run(load));
 .counselor-workspace .class-picker{margin-top:24px;border-top:1px solid var(--color-line);padding-top:20px}.counselor-workspace .class-options{max-height:280px;overflow:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px}.counselor-workspace .class-options label{display:flex;align-items:center;gap:9px;padding:8px;font-size:14px}
 .counselor-workspace .class-loading{display:flex;align-items:center;gap:9px;min-height:72px;color:var(--color-muted);font-size:13px}.counselor-workspace .class-loading span{width:16px;height:16px;border:2px solid var(--color-line);border-top-color:var(--color-accent);border-radius:50%;animation:class-spin .7s linear infinite}@keyframes class-spin{to{transform:rotate(360deg)}}
 .counselor-workspace .notice{padding:12px;background:var(--color-warning-surface);color:var(--color-warning);margin-bottom:16px}.counselor-workspace .muted,.counselor-workspace .empty{color:var(--color-muted);font-size:13px}.counselor-workspace .empty{padding:36px 16px;text-align:center}
+.counselor-workspace .view-tabs{display:flex;gap:8px;padding-top:16px}.counselor-workspace .view-tabs .active{background:var(--color-selected);border-color:var(--color-accent)}.counselor-workspace .unassigned-view{border-top:1px solid var(--color-line)}.counselor-workspace .bind-controls{display:flex;gap:8px;align-items:center}.counselor-workspace .bind-controls select{min-width:180px;max-width:280px}.counselor-workspace .unassigned-view .table-scroll{max-height:780px}
 .counselor-workspace .preview{padding:20px 0;border-bottom:1px solid var(--color-line)}.counselor-workspace .table-scroll{overflow:auto;max-height:380px;margin-bottom:16px}.counselor-workspace table{width:100%;border-collapse:collapse;font-size:13px}.counselor-workspace th,.counselor-workspace td{text-align:left;padding:10px;border-bottom:1px solid var(--color-line);min-width:100px;overflow-wrap:anywhere}.counselor-workspace th{background:var(--color-surface-raised);position:sticky;top:0}.counselor-workspace .error{color:var(--color-danger)}
 .counselor-workspace .person-form .class-options label{flex-direction:row;justify-content:flex-start;text-align:left}.counselor-workspace input[type=checkbox]{accent-color:var(--color-accent);flex-shrink:0}.counselor-workspace .permission-scope{max-height:none}
-@media(max-width:760px){.counselor-workspace{padding:16px 12px}.counselor-workspace .page-heading{align-items:flex-start;flex-direction:column}.counselor-workspace .workspace-columns{grid-template-columns:1fr}.counselor-workspace .people{max-height:300px;border-right:0;border-bottom:1px solid var(--color-line)}.counselor-workspace .detail{padding:18px 12px}.counselor-workspace .assigned-list,.counselor-workspace .class-options{grid-template-columns:1fr}.counselor-workspace .filters select{max-width:100%}.counselor-workspace .person-form{grid-template-columns:1fr}.counselor-workspace .class-picker .filters input{width:100%}}
+@media(max-width:760px){.counselor-workspace{padding:16px 12px}.counselor-workspace .page-heading{align-items:flex-start;flex-direction:column}.counselor-workspace .workspace-columns{grid-template-columns:1fr}.counselor-workspace .people{max-height:300px;border-right:0;border-bottom:1px solid var(--color-line)}.counselor-workspace .detail{padding:18px 12px}.counselor-workspace .assigned-list,.counselor-workspace .class-options{grid-template-columns:1fr}.counselor-workspace .filters select{max-width:100%}.counselor-workspace .person-form{grid-template-columns:1fr}.counselor-workspace .class-picker .filters input{width:100%}.counselor-workspace .unassigned-view .table-scroll{max-height:none}.counselor-workspace .unassigned-view table,.counselor-workspace .unassigned-view tbody,.counselor-workspace .unassigned-view tr,.counselor-workspace .unassigned-view td{display:block;width:100%}.counselor-workspace .unassigned-view thead{display:none}.counselor-workspace .unassigned-view tr{border-bottom:1px solid var(--color-line);padding:10px 0}.counselor-workspace .unassigned-view td{border:0;padding:4px 10px;min-width:0}.counselor-workspace .bind-controls{flex-wrap:wrap}.counselor-workspace .bind-controls select{min-width:0;flex:1}}
 </style>

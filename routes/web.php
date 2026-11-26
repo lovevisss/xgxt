@@ -75,6 +75,8 @@ Route::middleware(['cas.auth', 'admin.auth'])->group(function (): void {
     Route::get('/counselors/data', [CounselorAssignmentController::class, 'index'])->name('counselors.index');
     Route::post('/counselors/data', [CounselorAssignmentController::class, 'store'])->name('counselors.store');
     Route::get('/counselors/classes', [CounselorAssignmentController::class, 'classes'])->name('counselors.classes');
+    Route::get('/counselors/unassigned-classes', [CounselorAssignmentController::class, 'unassignedClasses'])->name('counselors.unassigned-classes');
+    Route::post('/counselors/unassigned-classes/bind', [CounselorAssignmentController::class, 'bindUnassignedClass'])->name('counselors.unassigned-classes.bind');
     Route::post('/counselors/import', [CounselorAssignmentController::class, 'import']);
     Route::get('/counselors/permissions', function () {
         abort_unless(\App\Support\CurrentUser::get()?->isSuperAdmin(), 403);
